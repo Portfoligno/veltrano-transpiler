@@ -1,0 +1,218 @@
+use crate::ast::*;
+
+pub struct CodeGenerator {
+    output: String,
+    indent_level: usize,
+}
+
+impl CodeGenerator {
+    pub fn new() -> Self {
+        Self {
+            output: String::new(),
+            indent_level: 0,
+        }
+    }
+    
+    pub fn generate(&mut self, program: &Program) -> String {
+        for stmt in &program.statements {
+            self.generate_statement(stmt);
+        }
+        self.output.clone()
+    }
+    
+    fn generate_statement(&mut self, stmt: &Stmt) {
+        match stmt {
+            Stmt::Expression(expr) => {
+                self.indent();
+                self.generate_expression(expr);
+                self.output.push_str(";\n");
+            }
+            Stmt::VarDecl(var_decl) => {
+                self.generate_var_declaration(var_decl);
+            }
+            Stmt::FunDecl(fun_decl) => {
+                self.generate_function_declaration(fun_decl);
+            }
+            Stmt::If(if_stmt) => {
+                self.generate_if_statement(if_stmt);
+            }
+            Stmt::While(while_stmt) => {
+                self.generate_while_statement(while_stmt);
+            }
+            Stmt::Return(expr) => {
+                self.indent();
+                self.output.push_str("return");
+                if let Some(expr) = expr {
+                    self.output.push(' ');
+                    self.generate_expression(expr);
+                }
+                self.output.push_str(";\n");
+            }
+            Stmt::Block(statements) => {
+                self.output.push_str("{\n");
+                self.indent_level += 1;
+                for stmt in statements {
+                    self.generate_statement(stmt);
+                }
+                self.indent_level -= 1;
+                self.indent();
+                self.output.push_str("}\n");
+            }
+        }
+    }
+    
+    fn generate_var_declaration(&mut self, var_decl: &VarDeclStmt) {
+        self.indent();
+        
+        if var_decl.is_mutable {
+            self.output.push_str("let mut ");
+        } else {
+            self.output.push_str("let ");
+        }
+        
+        self.output.push_str(&var_decl.name);
+        
+        if let Some(type_annotation) = &var_decl.type_annotation {
+            self.output.push_str(": ");
+            self.generate_type(type_annotation);
+        }
+        
+        if let Some(initializer) = &var_decl.initializer {
+            self.output.push_str(" = ");
+            self.generate_expression(initializer);
+        }
+        
+        self.output.push_str(";\n");
+    }
+    
+    fn generate_function_declaration(&mut self, fun_decl: &FunDeclStmt) {
+        self.indent();
+        self.output.push_str("fn ");
+        self.output.push_str(&fun_decl.name);
+        self.output.push('(');
+        
+        for (i, param) in fun_decl.params.iter().enumerate() {
+            if i > 0 {
+                self.output.push_str(", ");
+            }
+            self.output.push_str(&param.name);
+            self.output.push_str(": ");
+            self.generate_type(&param.param_type);
+        }
+        
+        self.output.push(')');
+        
+        if let Some(return_type) = &fun_decl.return_type {
+            self.output.push_str(" -> ");
+            self.generate_type(return_type);
+        }
+        
+        self.output.push(' ');
+        self.generate_statement(&fun_decl.body);
+    }
+    
+    fn generate_if_statement(&mut self, if_stmt: &IfStmt) {
+        self.indent();
+        self.output.push_str("if ");
+        self.generate_expression(&if_stmt.condition);
+        self.output.push(' ');
+        
+        self.generate_statement(&if_stmt.then_branch);
+        
+        if let Some(else_branch) = &if_stmt.else_branch {
+            self.indent();
+            self.output.push_str("else ");
+            self.generate_statement(else_branch);
+        }
+    }
+    
+    fn generate_while_statement(&mut self, while_stmt: &WhileStmt) {
+        self.indent();
+        self.output.push_str("while ");
+        self.generate_expression(&while_stmt.condition);
+        self.output.push(' ');
+        self.generate_statement(&while_stmt.body);
+    }
+    
+    fn generate_expression(&mut self, expr: &Expr) {
+        match expr {
+            Expr::Literal(literal) => {
+                self.generate_literal(literal);
+            }
+            Expr::Identifier(name) => {
+                self.output.push_str(name);
+            }
+            Expr::Binary(binary) => {
+                self.generate_expression(&binary.left);
+                self.output.push(' ');
+                self.generate_binary_operator(&binary.operator);
+                self.output.push(' ');
+                self.generate_expression(&binary.right);
+            }
+            Expr::Call(call) => {
+                self.generate_expression(&call.callee);
+                self.output.push('(');
+                for (i, arg) in call.args.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    self.generate_expression(arg);
+                }
+                self.output.push(')');
+            }
+        }
+    }
+    
+    fn generate_literal(&mut self, literal: &LiteralExpr) {
+        match literal {
+            LiteralExpr::Int(value) => {
+                self.output.push_str(&value.to_string());
+            }
+            LiteralExpr::String(value) => {
+                self.output.push('"');
+                self.output.push_str(value);
+                self.output.push('"');
+            }
+            LiteralExpr::Bool(value) => {
+                self.output.push_str(&value.to_string());
+            }
+            LiteralExpr::Null => {
+                self.output.push_str("None");
+            }
+        }
+    }
+    
+    fn generate_binary_operator(&mut self, op: &BinaryOp) {
+        let op_str = match op {
+            BinaryOp::Add => "+",
+            BinaryOp::Subtract => "-",
+            BinaryOp::Multiply => "*",
+            BinaryOp::Divide => "/",
+            BinaryOp::Modulo => "%",
+            BinaryOp::Equal => "==",
+            BinaryOp::NotEqual => "!=",
+            BinaryOp::Less => "<",
+            BinaryOp::LessEqual => "<=",
+            BinaryOp::Greater => ">",
+            BinaryOp::GreaterEqual => ">=",
+        };
+        self.output.push_str(op_str);
+    }
+    
+    fn generate_type(&mut self, type_annotation: &Type) {
+        let type_str = match type_annotation {
+            Type::Int => "i64",
+            Type::String => "String",
+            Type::Bool => "bool",
+            Type::Unit => "()",
+            Type::Custom(name) => name,
+        };
+        self.output.push_str(type_str);
+    }
+    
+    fn indent(&mut self) {
+        for _ in 0..self.indent_level {
+            self.output.push_str("    ");
+        }
+    }
+}
