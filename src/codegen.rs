@@ -70,7 +70,8 @@ impl CodeGenerator {
             self.output.push_str("let ");
         }
         
-        self.output.push_str(&var_decl.name);
+        let snake_name = self.camel_to_snake_case(&var_decl.name);
+        self.output.push_str(&snake_name);
         
         if let Some(type_annotation) = &var_decl.type_annotation {
             self.output.push_str(": ");
@@ -88,14 +89,16 @@ impl CodeGenerator {
     fn generate_function_declaration(&mut self, fun_decl: &FunDeclStmt) {
         self.indent();
         self.output.push_str("fn ");
-        self.output.push_str(&fun_decl.name);
+        let snake_name = self.camel_to_snake_case(&fun_decl.name);
+        self.output.push_str(&snake_name);
         self.output.push('(');
         
         for (i, param) in fun_decl.params.iter().enumerate() {
             if i > 0 {
                 self.output.push_str(", ");
             }
-            self.output.push_str(&param.name);
+            let snake_name = self.camel_to_snake_case(&param.name);
+            self.output.push_str(&snake_name);
             self.output.push_str(": ");
             self.generate_type(&param.param_type);
         }
@@ -140,7 +143,8 @@ impl CodeGenerator {
                 self.generate_literal(literal);
             }
             Expr::Identifier(name) => {
-                self.output.push_str(name);
+                let snake_name = self.camel_to_snake_case(name);
+                self.output.push_str(&snake_name);
             }
             Expr::Binary(binary) => {
                 self.generate_expression(&binary.left);
@@ -219,6 +223,20 @@ impl CodeGenerator {
     
     fn is_rust_macro(&self, name: &str) -> bool {
         matches!(name, "println" | "print" | "panic" | "assert" | "debug_assert")
+    }
+    
+    fn camel_to_snake_case(&self, name: &str) -> String {
+        let mut result = String::new();
+        let mut chars = name.chars().peekable();
+        
+        while let Some(ch) = chars.next() {
+            if ch.is_uppercase() && !result.is_empty() {
+                result.push('_');
+            }
+            result.push(ch.to_lowercase().next().unwrap_or(ch));
+        }
+        
+        result
     }
     
     fn generate_call_expression(&mut self, call: &CallExpr) {
