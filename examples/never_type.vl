@@ -1,10 +1,10 @@
-fun abort(message: String): Nothing {
+fun abort(message: Ref<Str>): Nothing {
     panic("{}", message)
 }
 
 fun conditionalAbort(shouldAbort: Bool): Int {
     if (shouldAbort) {
-        abort("Something went wrong!".toString())
+        abort("Something went wrong!")
     } else {
         return 42
     }
