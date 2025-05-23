@@ -150,15 +150,7 @@ impl CodeGenerator {
                 self.generate_expression(&binary.right);
             }
             Expr::Call(call) => {
-                self.generate_expression(&call.callee);
-                self.output.push('(');
-                for (i, arg) in call.args.iter().enumerate() {
-                    if i > 0 {
-                        self.output.push_str(", ");
-                    }
-                    self.generate_expression(arg);
-                }
-                self.output.push(')');
+                self.generate_call_expression(call);
             }
         }
     }
@@ -214,5 +206,30 @@ impl CodeGenerator {
         for _ in 0..self.indent_level {
             self.output.push_str("    ");
         }
+    }
+    
+    fn is_rust_macro(&self, name: &str) -> bool {
+        matches!(name, "println" | "print" | "panic" | "assert" | "debug_assert")
+    }
+    
+    fn generate_call_expression(&mut self, call: &CallExpr) {
+        if let Expr::Identifier(name) = &**call.callee {
+            if self.is_rust_macro(name) {
+                self.output.push_str(name);
+                self.output.push('!');
+            } else {
+                self.generate_expression(&call.callee);
+            }
+        } else {
+            self.generate_expression(&call.callee);
+        }
+        self.output.push('(');
+        for (i, arg) in call.args.iter().enumerate() {
+            if i > 0 {
+                self.output.push_str(", ");
+            }
+            self.generate_expression(arg);
+        }
+        self.output.push(')');
     }
 }
