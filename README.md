@@ -33,7 +33,7 @@ fun main() {
 ```rust
 fn main() {
     let message: String = "Hello, Veltrano!";
-    println(message);
+    println!(message);
 }
 ```
 

@@ -346,4 +346,108 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
         assert!(rust_code.contains("first_number + second_number"));
         assert!(rust_code.contains("return total_result"));
     }
+
+    #[test]
+    fn test_readme_examples() {
+        use crate::lexer::Lexer;
+        use crate::parser::Parser;
+        use std::fs;
+        
+        let readme_content = fs::read_to_string("README.md")
+            .expect("Failed to read README.md");
+        
+        let examples = extract_code_examples(&readme_content);
+        
+        for (veltrano_code, expected_rust) in examples {
+            let mut lexer = Lexer::new(veltrano_code.clone());
+            let tokens = lexer.tokenize();
+            let mut parser = Parser::new(tokens);
+            
+            if let Ok(program) = parser.parse() {
+                let mut codegen = CodeGenerator::new();
+                let actual_rust = codegen.generate(&program);
+                
+                // Normalize whitespace for comparison
+                let actual_normalized = normalize_code(&actual_rust);
+                let expected_normalized = normalize_code(&expected_rust);
+                
+                assert_eq!(
+                    actual_normalized, 
+                    expected_normalized,
+                    "\nVeltrano code:\n{}\n\nExpected Rust:\n{}\n\nActual Rust:\n{}",
+                    veltrano_code,
+                    expected_rust,
+                    actual_rust
+                );
+            }
+        }
+    }
+
+    fn extract_code_examples(readme: &str) -> Vec<(String, String)> {
+        let mut examples = Vec::new();
+        let lines: Vec<&str> = readme.lines().collect();
+        let mut i = 0;
+        
+        while i < lines.len() {
+            // Look for "Transpiles to:" followed by rust code
+            if lines[i].contains("**Transpiles to:**") {
+                // Look backwards for the most recent kotlin block
+                let mut kotlin_start = None;
+                let mut j = i;
+                while j > 0 {
+                    j -= 1;
+                    if lines[j].trim() == "```kotlin" {
+                        kotlin_start = Some(j);
+                        break;
+                    }
+                    // Stop if we hit another "Transpiles to:" or similar
+                    if lines[j].contains("**Transpiles to:**") || lines[j].contains("**Examples:**") {
+                        break;
+                    }
+                }
+                
+                if let Some(kotlin_start_idx) = kotlin_start {
+                    // Extract kotlin code
+                    let mut veltrano_code = String::new();
+                    let mut k = kotlin_start_idx + 1;
+                    while k < lines.len() && lines[k].trim() != "```" {
+                        veltrano_code.push_str(lines[k]);
+                        veltrano_code.push('\n');
+                        k += 1;
+                    }
+                    
+                    // Look forward for rust code after "Transpiles to:"
+                    while i < lines.len() && lines[i].trim() != "```rust" {
+                        i += 1;
+                    }
+                    
+                    if i < lines.len() && lines[i].trim() == "```rust" {
+                        let mut rust_code = String::new();
+                        i += 1;
+                        
+                        while i < lines.len() && lines[i].trim() != "```" {
+                            rust_code.push_str(lines[i]);
+                            rust_code.push('\n');
+                            i += 1;
+                        }
+                        
+                        if !veltrano_code.trim().is_empty() && !rust_code.trim().is_empty() {
+                            examples.push((veltrano_code.trim().to_string(), rust_code.trim().to_string()));
+                        }
+                    }
+                }
+            }
+            i += 1;
+        }
+        
+        examples
+    }
+
+    fn normalize_code(code: &str) -> String {
+        code.lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
 }
