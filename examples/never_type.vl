@@ -1,16 +1,16 @@
-fun panic(message: String): Nothing {
-    panic(message)
+fun abort(message: String): Nothing {
+    panic("{}", message)
 }
 
-fun conditionalPanic(shouldPanic: Bool): Int {
-    if (shouldPanic) {
-        panic("Something went wrong!".toString())
+fun conditionalAbort(shouldAbort: Bool): Int {
+    if (shouldAbort) {
+        abort("Something went wrong!".toString())
     } else {
         return 42
     }
 }
 
 fun main() {
-    val result: Int = conditionalPanic(false)
+    val result: Int = conditionalAbort(false)
     println("{}", result)
 }
