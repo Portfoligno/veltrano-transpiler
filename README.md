@@ -24,15 +24,15 @@ This will transpile the Veltrano source file to Rust and save it as `<input>.rs`
 **Input (hello.vl):**
 ```kotlin
 fun main() {
-    val message: String = "Hello, Veltrano!"
-    println(message)
+    val message: Ref<Str> = "Hello, Veltrano!"
+    println("{}", message)
 }
 ```
 
 **Output (hello.rs):**
 ```rust
 fn main() {
-    let message: String = "Hello, Veltrano!".to_string();
+    let message: &str = "Hello, Veltrano!";
     println!("{}", message);
 }
 ```
@@ -42,7 +42,7 @@ fn main() {
 ### Variables
 ```kotlin
 var mutable_var: Int = 42
-val immutable_var: String = "Hello"
+val immutable_var: Ref<Str> = "Hello"
 ```
 
 ### Functions
