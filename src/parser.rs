@@ -347,18 +347,29 @@ impl Parser {
             let type_name = type_name.clone();
             self.advance();
             
-            let parsed_type = match type_name.as_str() {
-                "Int" => Type::Int,
-                "String" => Type::String,
-                "Bool" => Type::Bool,
-                "Unit" => Type::Unit,
-                _ => Type::Custom(type_name),
-            };
-            
-            Ok(parsed_type)
+            match type_name.as_str() {
+                "Int" => Ok(Type::Int),
+                "Str" => Ok(Type::Str),
+                "String" => Ok(Type::String),
+                "Bool" => Ok(Type::Bool),
+                "Unit" => Ok(Type::Unit),
+                "Ref" => self.parse_generic_type(Type::Ref),
+                "Box" => self.parse_generic_type(Type::Box),
+                _ => Ok(Type::Custom(type_name)),
+            }
         } else {
             Err("Expected type name".to_string())
         }
+    }
+    
+    fn parse_generic_type<F>(&mut self, constructor: F) -> Result<Type, String>
+    where
+        F: FnOnce(Box<Type>) -> Type,
+    {
+        self.consume(&TokenType::Less, "Expected '<' after generic type")?;
+        let inner_type = self.parse_type()?;
+        self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
+        Ok(constructor(Box::new(inner_type)))
     }
     
     fn consume_identifier(&mut self, message: &str) -> Result<String, String> {

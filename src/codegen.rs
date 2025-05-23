@@ -192,14 +192,23 @@ impl CodeGenerator {
     }
     
     fn generate_type(&mut self, type_annotation: &Type) {
-        let type_str = match type_annotation {
-            Type::Int => "i64",
-            Type::String => "String",
-            Type::Bool => "bool",
-            Type::Unit => "()",
-            Type::Custom(name) => name,
-        };
-        self.output.push_str(type_str);
+        match type_annotation {
+            Type::Int => self.output.push_str("i64"),
+            Type::Str => self.output.push_str("str"),
+            Type::String => self.output.push_str("String"),
+            Type::Bool => self.output.push_str("bool"),
+            Type::Unit => self.output.push_str("()"),
+            Type::Ref(inner) => {
+                self.output.push('&');
+                self.generate_type(inner);
+            }
+            Type::Box(inner) => {
+                self.output.push_str("Box<");
+                self.generate_type(inner);
+                self.output.push('>');
+            }
+            Type::Custom(name) => self.output.push_str(name),
+        }
     }
     
     fn indent(&mut self) {

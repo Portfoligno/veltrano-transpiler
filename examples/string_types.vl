@@ -1,0 +1,11 @@
+fun main() {
+    val slice: Ref<Str> = "Hello"
+    val owned: String = "World"
+    val borrowed: Ref<String> = owned
+    val boxed: Box<Str> = "Boxed"
+    
+    println("{}", slice)
+    println("{}", owned)
+    println("{}", borrowed)
+    println("{}", boxed)
+}

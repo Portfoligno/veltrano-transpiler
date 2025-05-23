@@ -1,9 +1,12 @@
 #[derive(Debug, Clone)]
 pub enum Type {
     Int,
+    Str,
     String,
     Bool,
     Unit,
+    Ref(Box<Type>),
+    Box(Box<Type>),
     Custom(String),
 }
 

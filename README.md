@@ -79,7 +79,7 @@ Veltrano provides precise string type control that maps to Rust's string types:
 **Examples:**
 ```kotlin
 val literal: Ref<Str> = "Hello"        // &str
-val owned: String = "Hello".to_string() // String
+val owned: String = "Hello".toString() // String
 val borrowed: Ref<String> = &owned      // &String
 val boxed: Box<Str> = "Hello".into()    // Box<str>
 ```
