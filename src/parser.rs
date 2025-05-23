@@ -279,24 +279,50 @@ impl Parser {
     fn call(&mut self) -> Result<Expr, String> {
         let mut expr = self.primary()?;
         
-        while self.match_token(&TokenType::LeftParen) {
-            let mut args = Vec::new();
-            
-            if !self.check(&TokenType::RightParen) {
-                loop {
-                    args.push(self.expression()?);
-                    if !self.match_token(&TokenType::Comma) {
-                        break;
+        loop {
+            if self.match_token(&TokenType::LeftParen) {
+                let mut args = Vec::new();
+                
+                if !self.check(&TokenType::RightParen) {
+                    loop {
+                        args.push(self.expression()?);
+                        if !self.match_token(&TokenType::Comma) {
+                            break;
+                        }
                     }
                 }
+                
+                self.consume(&TokenType::RightParen, "Expected ')' after arguments")?;
+                
+                expr = Expr::Call(CallExpr {
+                    callee: Box::new(expr),
+                    args,
+                });
+            } else if self.match_token(&TokenType::Dot) {
+                let method_name = self.consume_identifier("Expected method name after '.'")?;
+                
+                self.consume(&TokenType::LeftParen, "Expected '(' after method name")?;
+                
+                let mut args = Vec::new();
+                if !self.check(&TokenType::RightParen) {
+                    loop {
+                        args.push(self.expression()?);
+                        if !self.match_token(&TokenType::Comma) {
+                            break;
+                        }
+                    }
+                }
+                
+                self.consume(&TokenType::RightParen, "Expected ')' after method arguments")?;
+                
+                expr = Expr::MethodCall(MethodCallExpr {
+                    object: Box::new(expr),
+                    method: method_name,
+                    args,
+                });
+            } else {
+                break;
             }
-            
-            self.consume(&TokenType::RightParen, "Expected ')' after arguments")?;
-            
-            expr = Expr::Call(CallExpr {
-                callee: Box::new(expr),
-                args,
-            });
         }
         
         Ok(expr)

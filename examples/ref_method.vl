@@ -1,0 +1,9 @@
+fun main() {
+    val owned: String = "Hello World"
+    val borrowed: Ref<String> = owned.ref()
+    val stringSlice: Ref<Str> = "literal".ref()
+    
+    println("{}", owned)
+    println("{}", borrowed)
+    println("{}", stringSlice)
+}

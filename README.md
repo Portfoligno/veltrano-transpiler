@@ -78,11 +78,29 @@ Veltrano provides precise string type control that maps to Rust's string types:
 
 **Examples:**
 ```kotlin
-val literal: Ref<Str> = "Hello"        // &str
-val owned: String = "Hello".toString() // String
-val borrowed: Ref<String> = &owned      // &String
-val boxed: Box<Str> = "Hello".into()    // Box<str>
+val literal: Ref<Str> = "Hello"           // &str (string literals are already references)
+val owned: String = "Hello".toString()    // String
+val borrowed: Ref<String> = owned.ref()   // &String (taking reference with .ref() method)
+val boxed: Box<Str> = "Hello".into()      // Box<str>
 ```
+
+### Reference Creation with `.ref()`
+
+Veltrano provides a convenient `.ref()` method to create references, which transpiles to Rust's `&` operator:
+
+```kotlin
+val owned: String = "Hello"
+val borrowed: Ref<String> = owned.ref()  // Becomes &owned in Rust
+```
+
+**When to use `.ref()`:**
+- Taking references of owned values: `owned.ref()` → `&owned`
+- Creating `Ref<String>` from `String`
+- Creating `Ref<CustomType>` from `CustomType`
+
+**When NOT to use `.ref()`:**
+- String literals are already references: `"hello"` is already `Ref<Str>` (`&str`)
+- Values that are already reference types
 
 ### Naming Convention Conversion
 

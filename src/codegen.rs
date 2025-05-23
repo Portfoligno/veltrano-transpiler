@@ -156,6 +156,9 @@ impl CodeGenerator {
             Expr::Call(call) => {
                 self.generate_call_expression(call);
             }
+            Expr::MethodCall(method_call) => {
+                self.generate_method_call_expression(method_call);
+            }
         }
     }
     
@@ -258,6 +261,30 @@ impl CodeGenerator {
             self.generate_expression(arg);
         }
         self.output.push(')');
+    }
+    
+    fn generate_method_call_expression(&mut self, method_call: &MethodCallExpr) {
+        if method_call.method == "ref" && method_call.args.is_empty() {
+            // Special case: obj.ref() becomes &obj
+            self.output.push('&');
+            self.generate_expression(&method_call.object);
+        } else {
+            // Regular method call: obj.method(args)
+            let snake_method = self.camel_to_snake_case(&method_call.method);
+            self.generate_expression(&method_call.object);
+            self.output.push('.');
+            self.output.push_str(&snake_method);
+            self.output.push('(');
+            
+            for (i, arg) in method_call.args.iter().enumerate() {
+                if i > 0 {
+                    self.output.push_str(", ");
+                }
+                self.generate_expression(arg);
+            }
+            
+            self.output.push(')');
+        }
     }
 }
 

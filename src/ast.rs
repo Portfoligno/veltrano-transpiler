@@ -16,6 +16,7 @@ pub enum Expr {
     Identifier(String),
     Binary(BinaryExpr),
     Call(CallExpr),
+    MethodCall(MethodCallExpr),
 }
 
 #[derive(Debug, Clone)]
@@ -51,6 +52,13 @@ pub enum BinaryOp {
 #[derive(Debug, Clone)]
 pub struct CallExpr {
     pub callee: Box<Expr>,
+    pub args: Vec<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MethodCallExpr {
+    pub object: Box<Expr>,
+    pub method: String,
     pub args: Vec<Expr>,
 }
 
