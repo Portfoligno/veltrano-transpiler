@@ -240,7 +240,11 @@ impl Lexer {
         let mut value = String::new();
         value.push(first_char);
 
-        while !self.is_at_end() && self.peek().map_or(false, |c| c.is_ascii_alphanumeric() || c == '_') {
+        while !self.is_at_end()
+            && self
+                .peek()
+                .map_or(false, |c| c.is_ascii_alphanumeric() || c == '_')
+        {
             if let Some(ch) = self.advance() {
                 value.push(ch);
             }
