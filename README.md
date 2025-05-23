@@ -84,6 +84,42 @@ val borrowed: Ref<String> = &owned      // &String
 val boxed: Box<Str> = "Hello".into()    // Box<str>
 ```
 
+### Naming Convention Conversion
+
+Veltrano uses Kotlin's camelCase naming convention, which is automatically converted to Rust's snake_case convention during transpilation:
+
+| Veltrano (camelCase) | Rust (snake_case) |
+|---------------------|-------------------|
+| `calculateSum` | `calculate_sum` |
+| `firstName` | `first_name` |
+| `veryLongVariableName` | `very_long_variable_name` |
+| `XMLParser` | `x_m_l_parser` |
+| `httpURLConnection` | `http_u_r_l_connection` |
+| `a` | `a` |
+| `aB` | `a_b` |
+
+This conversion applies to:
+- Function names
+- Variable names  
+- Parameter names
+- All identifier references
+
+**Example:**
+```kotlin
+fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
+    val totalResult: Int = firstNumber + secondNumber
+    return totalResult
+}
+```
+
+**Transpiles to:**
+```rust
+fn calculate_sum(first_number: i64, second_number: i64) -> i64 {
+    let total_result: i64 = first_number + second_number;
+    return total_result;
+}
+```
+
 ## Examples
 
 See the `examples/` directory for sample Veltrano programs.
