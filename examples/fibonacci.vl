@@ -7,5 +7,5 @@ fun fibonacci(n: Int): Int {
 
 fun main() {
     val result: Int = fibonacci(10)
-    println(result)
+    println("{}", result)
 }

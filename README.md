@@ -8,7 +8,8 @@ A transpiler from Veltrano (Kotlin-like syntax) to Rust.
 - Type annotations and inference
 - Control flow statements (`if`, `while`, `for`)
 - Function declarations with parameters and return types
-- Basic data types: `Int`, `String`, `Bool`, `Unit`
+- Basic data types: `Int`, `Bool`, `Unit`
+- String types: `Ref<Str>`, `String`, `Ref<String>`, `Box<Str>`
 
 ## Usage
 
@@ -62,6 +63,25 @@ if (condition) {
 while (condition) {
     // loop body
 }
+```
+
+### String Types
+
+Veltrano provides precise string type control that maps to Rust's string types:
+
+| Veltrano Type | Rust Type | Description |
+|---------------|-----------|-------------|
+| `Ref<Str>` | `&str` | String slice, immutable reference |
+| `String` | `String` | Owned, growable string |
+| `Ref<String>` | `&String` | Reference to owned string |
+| `Box<Str>` | `Box<str>` | Owned, fixed-size string |
+
+**Examples:**
+```kotlin
+val literal: Ref<Str> = "Hello"        // &str
+val owned: String = "Hello".to_string() // String
+val borrowed: Ref<String> = &owned      // &String
+val boxed: Box<Str> = "Hello".into()    // Box<str>
 ```
 
 ## Examples

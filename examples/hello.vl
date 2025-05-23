@@ -1,4 +1,4 @@
 fun main() {
     val message: String = "Hello, Veltrano!"
-    println(message)
+    println("{}", message)
 }
