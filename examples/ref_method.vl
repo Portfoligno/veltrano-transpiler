@@ -1,7 +1,7 @@
 fun main() {
-    val owned: String = "Hello World"
+    val owned: String = "Hello World".toString()
     val borrowed: Ref<String> = owned.ref()
-    val stringSlice: Ref<Str> = "literal".ref()
+    val stringSlice: Ref<Str> = "literal"
     
     println("{}", owned)
     println("{}", borrowed)

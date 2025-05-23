@@ -1,4 +1,4 @@
 fun main() {
-    val message: String = "Hello, Veltrano!"
+    val message: Ref<Str> = "Hello, Veltrano!"
     println("{}", message)
 }
