@@ -427,6 +427,75 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
         }
     }
 
+    #[test]
+    fn test_readme_veltrano_snippets_transpile_and_compile() {
+        use crate::lexer::Lexer;
+        use crate::parser::Parser;
+        use std::fs;
+        use std::process::Command;
+
+        let readme_content = fs::read_to_string("README.md").expect("Failed to read README.md");
+        let veltrano_examples = extract_veltrano_code_examples(&readme_content);
+
+        for (index, veltrano_code) in veltrano_examples.iter().enumerate() {
+            // Try to transpile the Veltrano code
+            let mut lexer = Lexer::new(veltrano_code.clone());
+            let tokens = lexer.tokenize();
+            let mut parser = Parser::new(tokens);
+
+            let program = match parser.parse() {
+                Ok(program) => program,
+                Err(err) => {
+                    panic!(
+                        "README Veltrano example {} failed to parse:\n{}\n\nCode:\n{}",
+                        index, err, veltrano_code
+                    );
+                }
+            };
+
+            // Generate Rust code
+            let mut codegen = CodeGenerator::new();
+            let rust_code = codegen.generate(&program);
+
+            // Create a temporary Rust file
+            let temp_file = format!("/tmp/readme_veltrano_example_{}.rs", index);
+
+            // Wrap the code in a main function if it's not already a complete program
+            let complete_rust_code = if rust_code.contains("fn main") {
+                rust_code.clone()
+            } else {
+                format!("fn main() {{\n{}\n}}", rust_code)
+            };
+
+            fs::write(&temp_file, &complete_rust_code)
+                .expect(&format!("Failed to write temp file {}", temp_file));
+
+            // Try to compile the generated Rust code
+            let output = Command::new("rustc")
+                .arg("--crate-type")
+                .arg("bin")
+                .arg("--edition")
+                .arg("2021")
+                .arg("-o")
+                .arg(&format!("/tmp/readme_veltrano_example_{}", index))
+                .arg(&temp_file)
+                .output()
+                .expect("Failed to execute rustc");
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                panic!(
+                    "README Veltrano example {} transpiled but failed to compile:\n{}\n\nVeltrano code:\n{}\n\nGenerated Rust code:\n{}",
+                    index, stderr, veltrano_code, complete_rust_code
+                );
+            }
+
+            // Clean up temporary files
+            let _ = fs::remove_file(&temp_file);
+            let _ = fs::remove_file(&format!("/tmp/readme_veltrano_example_{}", index));
+        }
+    }
+
     fn extract_code_examples(readme: &str) -> Vec<(String, String)> {
         let mut examples = Vec::new();
         let lines: Vec<&str> = readme.lines().collect();
@@ -509,6 +578,53 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
 
                 if !rust_code.trim().is_empty() {
                     examples.push(rust_code.trim().to_string());
+                }
+            }
+            i += 1;
+        }
+
+        examples
+    }
+
+    fn extract_veltrano_code_examples(readme: &str) -> Vec<String> {
+        let mut examples = Vec::new();
+        let lines: Vec<&str> = readme.lines().collect();
+        let mut i = 0;
+
+        while i < lines.len() {
+            if lines[i].trim() == "```kotlin" {
+                let mut veltrano_code = String::new();
+                i += 1;
+
+                while i < lines.len() && lines[i].trim() != "```" {
+                    veltrano_code.push_str(lines[i]);
+                    veltrano_code.push('\n');
+                    i += 1;
+                }
+
+                if !veltrano_code.trim().is_empty() {
+                    // Check if this Veltrano snippet has a corresponding output
+                    let mut has_rust_output = false;
+                    let mut j = i;
+
+                    // Look ahead for "**Transpiles to:**" or "**Output" patterns
+                    while j < lines.len() && j < i + 10 {
+                        if lines[j].contains("**Transpiles to:**") || lines[j].contains("**Output")
+                        {
+                            has_rust_output = true;
+                            break;
+                        }
+                        // Stop looking if we hit another code block or major section
+                        if lines[j].trim().starts_with("```") || lines[j].starts_with("##") {
+                            break;
+                        }
+                        j += 1;
+                    }
+
+                    // Only include snippets that don't have a specified output
+                    if !has_rust_output {
+                        examples.push(veltrano_code.trim().to_string());
+                    }
                 }
             }
             i += 1;
