@@ -13,12 +13,12 @@ pub enum TokenType {
     False,
     Null,
     Class,
-    
+
     // Identifiers and literals
     Identifier(String),
     IntLiteral(i64),
     StringLiteral(String),
-    
+
     // Operators
     Plus,
     Minus,
@@ -32,7 +32,7 @@ pub enum TokenType {
     LessEqual,
     Greater,
     GreaterEqual,
-    
+
     // Delimiters
     LeftParen,
     RightParen,
@@ -43,7 +43,7 @@ pub enum TokenType {
     Comma,
     Dot,
     Arrow,
-    
+
     // Special
     Newline,
     Eof,
@@ -72,36 +72,36 @@ impl Lexer {
             column: 1,
         }
     }
-    
+
     pub fn tokenize(&mut self) -> Vec<Token> {
         let mut tokens = Vec::new();
-        
+
         while !self.is_at_end() {
             self.skip_whitespace();
             if self.is_at_end() {
                 break;
             }
-            
+
             if let Some(token) = self.next_token() {
                 tokens.push(token);
             }
         }
-        
+
         tokens.push(Token {
             token_type: TokenType::Eof,
             line: self.line,
             column: self.column,
         });
-        
+
         tokens
     }
-    
+
     fn next_token(&mut self) -> Option<Token> {
         let start_line = self.line;
         let start_column = self.column;
-        
+
         let ch = self.advance();
-        
+
         let token_type = match ch {
             '(' => TokenType::LeftParen,
             ')' => TokenType::RightParen,
@@ -174,14 +174,14 @@ impl Lexer {
             }
             _ => return None, // Invalid character
         };
-        
+
         Some(Token {
             token_type,
             line: start_line,
             column: start_column,
         })
     }
-    
+
     fn keyword_or_identifier(&self, text: String) -> TokenType {
         match text.as_str() {
             "fun" => TokenType::Fun,
@@ -199,10 +199,10 @@ impl Lexer {
             _ => TokenType::Identifier(text),
         }
     }
-    
+
     fn read_string(&mut self) -> String {
         let mut value = String::new();
-        
+
         while !self.is_at_end() && self.peek() != '"' {
             let ch = self.advance();
             if ch == '\n' {
@@ -211,36 +211,36 @@ impl Lexer {
             }
             value.push(ch);
         }
-        
+
         if !self.is_at_end() {
             self.advance(); // Consume closing quote
         }
-        
+
         value
     }
-    
+
     fn read_number(&mut self, first_digit: char) -> i64 {
         let mut value = String::new();
         value.push(first_digit);
-        
+
         while !self.is_at_end() && self.peek().is_ascii_digit() {
             value.push(self.advance());
         }
-        
+
         value.parse().unwrap_or(0)
     }
-    
+
     fn read_identifier(&mut self, first_char: char) -> String {
         let mut value = String::new();
         value.push(first_char);
-        
+
         while !self.is_at_end() && (self.peek().is_ascii_alphanumeric() || self.peek() == '_') {
             value.push(self.advance());
         }
-        
+
         value
     }
-    
+
     fn skip_whitespace(&mut self) {
         while !self.is_at_end() {
             match self.peek() {
@@ -251,11 +251,11 @@ impl Lexer {
             }
         }
     }
-    
+
     fn is_at_end(&self) -> bool {
         self.position >= self.input.len()
     }
-    
+
     fn advance(&mut self) -> char {
         if self.is_at_end() {
             '\0'
@@ -266,7 +266,7 @@ impl Lexer {
             ch
         }
     }
-    
+
     fn peek(&self) -> char {
         if self.is_at_end() {
             '\0'
