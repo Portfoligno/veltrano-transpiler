@@ -1,2 +1,8 @@
+# IDE files
+/.idea
+
+# Rust build artifacts
 /target
+
+# Generated transpiled files
 /examples/*.rs
