@@ -100,7 +100,10 @@ impl Lexer {
         let start_line = self.line;
         let start_column = self.column;
 
-        let ch = self.advance();
+        let ch = match self.advance() {
+            Some(ch) => ch,
+            None => return None, // End of input
+        };
 
         let token_type = match ch {
             '(' => TokenType::LeftParen,
@@ -113,7 +116,7 @@ impl Lexer {
             '.' => TokenType::Dot,
             '+' => TokenType::Plus,
             '-' => {
-                if self.peek() == '>' {
+                if self.peek() == Some('>') {
                     self.advance();
                     TokenType::Arrow
                 } else {
@@ -124,7 +127,7 @@ impl Lexer {
             '/' => TokenType::Slash,
             '%' => TokenType::Percent,
             '=' => {
-                if self.peek() == '=' {
+                if self.peek() == Some('=') {
                     self.advance();
                     TokenType::EqualEqual
                 } else {
@@ -132,7 +135,7 @@ impl Lexer {
                 }
             }
             '!' => {
-                if self.peek() == '=' {
+                if self.peek() == Some('=') {
                     self.advance();
                     TokenType::NotEqual
                 } else {
@@ -140,7 +143,7 @@ impl Lexer {
                 }
             }
             '<' => {
-                if self.peek() == '=' {
+                if self.peek() == Some('=') {
                     self.advance();
                     TokenType::LessEqual
                 } else {
@@ -148,7 +151,7 @@ impl Lexer {
                 }
             }
             '>' => {
-                if self.peek() == '=' {
+                if self.peek() == Some('=') {
                     self.advance();
                     TokenType::GreaterEqual
                 } else {
@@ -203,13 +206,14 @@ impl Lexer {
     fn read_string(&mut self) -> String {
         let mut value = String::new();
 
-        while !self.is_at_end() && self.peek() != '"' {
-            let ch = self.advance();
-            if ch == '\n' {
-                self.line += 1;
-                self.column = 1;
+        while !self.is_at_end() && self.peek() != Some('"') {
+            if let Some(ch) = self.advance() {
+                if ch == '\n' {
+                    self.line += 1;
+                    self.column = 1;
+                }
+                value.push(ch);
             }
-            value.push(ch);
         }
 
         if !self.is_at_end() {
@@ -223,8 +227,10 @@ impl Lexer {
         let mut value = String::new();
         value.push(first_digit);
 
-        while !self.is_at_end() && self.peek().is_ascii_digit() {
-            value.push(self.advance());
+        while !self.is_at_end() && self.peek().map_or(false, |c| c.is_ascii_digit()) {
+            if let Some(ch) = self.advance() {
+                value.push(ch);
+            }
         }
 
         value.parse().unwrap_or(0)
@@ -234,8 +240,10 @@ impl Lexer {
         let mut value = String::new();
         value.push(first_char);
 
-        while !self.is_at_end() && (self.peek().is_ascii_alphanumeric() || self.peek() == '_') {
-            value.push(self.advance());
+        while !self.is_at_end() && self.peek().map_or(false, |c| c.is_ascii_alphanumeric() || c == '_') {
+            if let Some(ch) = self.advance() {
+                value.push(ch);
+            }
         }
 
         value
@@ -244,7 +252,7 @@ impl Lexer {
     fn skip_whitespace(&mut self) {
         while !self.is_at_end() {
             match self.peek() {
-                ' ' | '\r' | '\t' => {
+                Some(' ') | Some('\r') | Some('\t') => {
                     self.advance();
                 }
                 _ => break,
@@ -256,22 +264,22 @@ impl Lexer {
         self.position >= self.input.len()
     }
 
-    fn advance(&mut self) -> char {
+    fn advance(&mut self) -> Option<char> {
         if self.is_at_end() {
-            '\0'
+            None
         } else {
             let ch = self.input[self.position];
             self.position += 1;
             self.column += 1;
-            ch
+            Some(ch)
         }
     }
 
-    fn peek(&self) -> char {
+    fn peek(&self) -> Option<char> {
         if self.is_at_end() {
-            '\0'
+            None
         } else {
-            self.input[self.position]
+            Some(self.input[self.position])
         }
     }
 }
