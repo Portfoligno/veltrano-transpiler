@@ -4,5 +4,6 @@
 # Rust build artifacts
 /target
 
-# Generated transpiled files
-/examples/*.rs
+# Generated files in examples/
+/examples/*
+!/examples/*.vl
