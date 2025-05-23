@@ -213,7 +213,7 @@ impl CodeGenerator {
     }
     
     fn generate_call_expression(&mut self, call: &CallExpr) {
-        if let Expr::Identifier(name) = &**call.callee {
+        if let Expr::Identifier(name) = call.callee.as_ref() {
             if self.is_rust_macro(name) {
                 self.output.push_str(name);
                 self.output.push('!');

@@ -6,5 +6,5 @@ fn fibonacci(n: i64) -> i64 {
 }
 fn main() {
     let result: i64 = fibonacci(10);
-    println(result);
+    println!(result);
 }
