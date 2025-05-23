@@ -260,3 +260,53 @@ impl CodeGenerator {
         self.output.push(')');
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_camel_to_snake_case() {
+        let codegen = CodeGenerator::new();
+        
+        assert_eq!(codegen.camel_to_snake_case("camelCase"), "camel_case");
+        assert_eq!(codegen.camel_to_snake_case("CamelCase"), "_camel_case");
+        assert_eq!(codegen.camel_to_snake_case("simpleVar"), "simple_var");
+        assert_eq!(codegen.camel_to_snake_case("veryLongCamelCaseVariableName"), "very_long_camel_case_variable_name");
+        assert_eq!(codegen.camel_to_snake_case("a"), "a");
+        assert_eq!(codegen.camel_to_snake_case("aB"), "a_b");
+        assert_eq!(codegen.camel_to_snake_case("aBc"), "a_bc");
+        assert_eq!(codegen.camel_to_snake_case("XMLParser"), "_x_m_l_parser");
+        assert_eq!(codegen.camel_to_snake_case("httpURLConnection"), "http_u_r_l_connection");
+        assert_eq!(codegen.camel_to_snake_case("main"), "main");
+        assert_eq!(codegen.camel_to_snake_case("calculateSum"), "calculate_sum");
+    }
+
+    #[test]
+    fn test_camel_case_transpilation() {
+        use crate::lexer::Lexer;
+        use crate::parser::Parser;
+        
+        let source = r#"
+fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
+    val totalResult: Int = firstNumber + secondNumber
+    return totalResult
+}
+"#;
+        
+        let mut lexer = Lexer::new(source.to_string());
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let program = parser.parse().expect("Parse should succeed");
+        
+        let mut codegen = CodeGenerator::new();
+        let rust_code = codegen.generate(&program);
+        
+        assert!(rust_code.contains("fn calculate_sum"));
+        assert!(rust_code.contains("first_number: i64"));
+        assert!(rust_code.contains("second_number: i64"));
+        assert!(rust_code.contains("let total_result: i64"));
+        assert!(rust_code.contains("first_number + second_number"));
+        assert!(rust_code.contains("return total_result"));
+    }
+}

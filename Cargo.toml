@@ -1,6 +1,14 @@
 [package]
 name = "veltrano"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+
+[[bin]]
+name = "veltrano"
+path = "src/main.rs"
+
+[lib]
+name = "veltrano"
+path = "src/lib.rs"
 
 [dependencies]
