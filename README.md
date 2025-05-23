@@ -10,6 +10,7 @@ A transpiler from Veltrano (Kotlin-like syntax) to Rust.
 - Function declarations with parameters and return types
 - Basic data types: `Int`, `Bool`, `Unit`, `Nothing`
 - String types: `Ref<Str>`, `String`, `Ref<String>`, `Box<Str>`
+- Comments: Line comments (`//`) and block comments (`/* */`)
 
 ## Usage
 
@@ -169,6 +170,39 @@ fn calculate_sum(first_number: i64, second_number: i64) -> i64 {
     return total_result;
 }
 ```
+
+### Comments
+
+Veltrano supports both line comments and block comments, similar to many C-style languages:
+
+```kotlin
+// This is a line comment
+fun main() {
+    // Variable declaration with comment
+    val message: Ref<Str> = "Hello, World!"
+    
+    /* This is a
+       multi-line block comment
+       that spans several lines */
+    println("{}", message)
+    
+    // Another line comment
+    val number: Int = 42 // Inline comment
+    println("{}", number)
+}
+```
+
+**Transpiles to:**
+```rust
+fn main() {
+    let message: &str = "Hello, World!";
+    println!("{}", message);
+    let number: i64 = 42;
+    println!("{}", number);
+}
+```
+
+Comments are filtered out during transpilation and do not appear in the generated Rust code.
 
 ## Examples
 

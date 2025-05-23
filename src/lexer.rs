@@ -44,6 +44,10 @@ pub enum TokenType {
     Dot,
     Arrow,
 
+    // Comments
+    LineComment(String),
+    BlockComment(String),
+
     // Special
     Newline,
     Eof,
@@ -124,7 +128,21 @@ impl Lexer {
                 }
             }
             '*' => TokenType::Star,
-            '/' => TokenType::Slash,
+            '/' => {
+                if self.peek() == Some('/') {
+                    // Line comment
+                    self.advance(); // consume second '/'
+                    let comment = self.read_line_comment();
+                    TokenType::LineComment(comment)
+                } else if self.peek() == Some('*') {
+                    // Block comment
+                    self.advance(); // consume '*'
+                    let comment = self.read_block_comment();
+                    TokenType::BlockComment(comment)
+                } else {
+                    TokenType::Slash
+                }
+            }
             '%' => TokenType::Percent,
             '=' => {
                 if self.peek() == Some('=') {
@@ -253,6 +271,40 @@ impl Lexer {
         value
     }
 
+    fn read_line_comment(&mut self) -> String {
+        let mut comment = String::new();
+        
+        while !self.is_at_end() && self.peek() != Some('\n') {
+            if let Some(ch) = self.advance() {
+                comment.push(ch);
+            }
+        }
+        
+        comment
+    }
+    
+    fn read_block_comment(&mut self) -> String {
+        let mut comment = String::new();
+        
+        while !self.is_at_end() {
+            if self.peek() == Some('*') && self.peek_next() == Some('/') {
+                self.advance(); // consume '*'
+                self.advance(); // consume '/'
+                break;
+            }
+            
+            if let Some(ch) = self.advance() {
+                if ch == '\n' {
+                    self.line += 1;
+                    self.column = 1;
+                }
+                comment.push(ch);
+            }
+        }
+        
+        comment
+    }
+
     fn skip_whitespace(&mut self) {
         while !self.is_at_end() {
             match self.peek() {
@@ -286,4 +338,18 @@ impl Lexer {
             Some(self.input[self.position])
         }
     }
+    
+    fn peek_next(&self) -> Option<char> {
+        if self.position + 1 >= self.input.len() {
+            None
+        } else {
+            Some(self.input[self.position + 1])
+        }
+    }
+}
+
+pub fn skip_comments(tokens: Vec<Token>) -> Vec<Token> {
+    tokens.into_iter()
+        .filter(|token| !matches!(token.token_type, TokenType::LineComment(_) | TokenType::BlockComment(_)))
+        .collect()
 }

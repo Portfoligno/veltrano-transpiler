@@ -359,7 +359,8 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
 
         for (veltrano_code, expected_rust) in examples {
             let mut lexer = Lexer::new(veltrano_code.clone());
-            let tokens = lexer.tokenize();
+            let all_tokens = lexer.tokenize();
+            let tokens = crate::lexer::skip_comments(all_tokens);
             let mut parser = Parser::new(tokens);
 
             if let Ok(program) = parser.parse() {
@@ -440,7 +441,8 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
         for (index, veltrano_code) in veltrano_examples.iter().enumerate() {
             // Try to transpile the Veltrano code
             let mut lexer = Lexer::new(veltrano_code.clone());
-            let tokens = lexer.tokenize();
+            let all_tokens = lexer.tokenize();
+            let tokens = crate::lexer::skip_comments(all_tokens);
             let mut parser = Parser::new(tokens);
 
             let program = match parser.parse() {

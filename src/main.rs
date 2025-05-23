@@ -8,7 +8,7 @@ use std::fs;
 use std::process;
 
 use codegen::CodeGenerator;
-use lexer::Lexer;
+use lexer::{Lexer, skip_comments};
 use parser::Parser;
 
 fn main() {
@@ -30,7 +30,8 @@ fn main() {
     };
 
     let mut lexer = Lexer::new(source_code);
-    let tokens = lexer.tokenize();
+    let all_tokens = lexer.tokenize();
+    let tokens = skip_comments(all_tokens);
 
     let mut parser = Parser::new(tokens);
     let program = match parser.parse() {
