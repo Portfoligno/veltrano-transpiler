@@ -5,6 +5,7 @@ pub enum Type {
     String,
     Bool,
     Unit,
+    Nothing,
     Ref(Box<Type>),
     Box(Box<Type>),
     Custom(String),

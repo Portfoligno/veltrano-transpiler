@@ -382,6 +382,7 @@ impl Parser {
                 "String" => Ok(Type::String),
                 "Bool" => Ok(Type::Bool),
                 "Unit" => Ok(Type::Unit),
+                "Nothing" => Ok(Type::Nothing),
                 "Ref" => self.parse_generic_type(Type::Ref),
                 "Box" => self.parse_generic_type(Type::Box),
                 _ => Ok(Type::Custom(type_name)),

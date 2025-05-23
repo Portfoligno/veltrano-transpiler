@@ -205,6 +205,7 @@ impl CodeGenerator {
             Type::String => self.output.push_str("String"),
             Type::Bool => self.output.push_str("bool"),
             Type::Unit => self.output.push_str("()"),
+            Type::Nothing => self.output.push_str("!"),
             Type::Ref(inner) => {
                 self.output.push('&');
                 self.generate_type(inner);

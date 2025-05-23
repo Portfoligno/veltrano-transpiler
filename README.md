@@ -8,7 +8,7 @@ A transpiler from Veltrano (Kotlin-like syntax) to Rust.
 - Type annotations and inference
 - Control flow statements (`if`, `while`, `for`)
 - Function declarations with parameters and return types
-- Basic data types: `Int`, `Bool`, `Unit`
+- Basic data types: `Int`, `Bool`, `Unit`, `Nothing`
 - String types: `Ref<Str>`, `String`, `Ref<String>`, `Box<Str>`
 
 ## Usage
@@ -76,12 +76,44 @@ Veltrano provides precise string type control that maps to Rust's string types:
 | `Ref<String>` | `&String` | Reference to owned string |
 | `Box<Str>` | `Box<str>` | Owned, fixed-size string |
 
-**Examples:**
+### Never Type
+
+| Veltrano Type | Rust Type | Description |
+|---------------|-----------|-------------|
+| `Nothing` | `!` | Never type - functions that never return |
+
+**String Examples:**
 ```kotlin
 val literal: Ref<Str> = "Hello"           // &str (string literals are already references)
 val owned: String = "Hello".toString()    // String
 val borrowed: Ref<String> = owned.ref()   // &String (taking reference with .ref() method)
 val boxed: Box<Str> = "Hello".into()      // Box<str>
+```
+
+**Never Type Examples:**
+```kotlin
+fun panic(message: String): Nothing {
+    panic(message)  // Never returns
+}
+
+fun infiniteLoop(): Nothing {
+    while (true) {
+        // Never returns
+    }
+}
+```
+
+**Transpiles to:**
+```rust
+fn panic(message: String) -> ! {
+    panic!(message);  // Never returns
+}
+
+fn infinite_loop() -> ! {
+    loop {
+        // Never returns
+    }
+}
 ```
 
 ### Reference Creation with `.ref()`
