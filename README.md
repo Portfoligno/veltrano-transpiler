@@ -32,8 +32,8 @@ fun main() {
 **Output (hello.rs):**
 ```rust
 fn main() {
-    let message: String = "Hello, Veltrano!";
-    println!(message);
+    let message: String = "Hello, Veltrano!".to_string();
+    println!("{}", message);
 }
 ```
 

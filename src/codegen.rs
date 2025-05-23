@@ -379,6 +379,54 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
         }
     }
 
+    #[test]
+    fn test_readme_rust_outputs_compile() {
+        use std::fs;
+        use std::process::Command;
+
+        let readme_content = fs::read_to_string("README.md").expect("Failed to read README.md");
+        let rust_examples = extract_rust_code_examples(&readme_content);
+
+        for (index, rust_code) in rust_examples.iter().enumerate() {
+            // Create a temporary Rust file for each example
+            let temp_file = format!("/tmp/readme_example_{}.rs", index);
+
+            // Wrap the code in a main function if it's not already a complete program
+            let complete_rust_code = if rust_code.contains("fn main") {
+                rust_code.clone()
+            } else {
+                format!("fn main() {{\n{}\n}}", rust_code)
+            };
+
+            fs::write(&temp_file, &complete_rust_code)
+                .expect(&format!("Failed to write temp file {}", temp_file));
+
+            // Try to compile the Rust code
+            let output = Command::new("rustc")
+                .arg("--crate-type")
+                .arg("bin")
+                .arg("--edition")
+                .arg("2021")
+                .arg("-o")
+                .arg(&format!("/tmp/readme_example_{}", index))
+                .arg(&temp_file)
+                .output()
+                .expect("Failed to execute rustc");
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                panic!(
+                    "README Rust example {} failed to compile:\n{}\n\nCode:\n{}",
+                    index, stderr, complete_rust_code
+                );
+            }
+
+            // Clean up temporary files
+            let _ = fs::remove_file(&temp_file);
+            let _ = fs::remove_file(&format!("/tmp/readme_example_{}", index));
+        }
+    }
+
     fn extract_code_examples(readme: &str) -> Vec<(String, String)> {
         let mut examples = Vec::new();
         let lines: Vec<&str> = readme.lines().collect();
@@ -435,6 +483,32 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
                             ));
                         }
                     }
+                }
+            }
+            i += 1;
+        }
+
+        examples
+    }
+
+    fn extract_rust_code_examples(readme: &str) -> Vec<String> {
+        let mut examples = Vec::new();
+        let lines: Vec<&str> = readme.lines().collect();
+        let mut i = 0;
+
+        while i < lines.len() {
+            if lines[i].trim() == "```rust" {
+                let mut rust_code = String::new();
+                i += 1;
+
+                while i < lines.len() && lines[i].trim() != "```" {
+                    rust_code.push_str(lines[i]);
+                    rust_code.push('\n');
+                    i += 1;
+                }
+
+                if !rust_code.trim().is_empty() {
+                    examples.push(rust_code.trim().to_string());
                 }
             }
             i += 1;
