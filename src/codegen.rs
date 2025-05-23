@@ -352,32 +352,28 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
         use crate::lexer::Lexer;
         use crate::parser::Parser;
         use std::fs;
-        
-        let readme_content = fs::read_to_string("README.md")
-            .expect("Failed to read README.md");
-        
+
+        let readme_content = fs::read_to_string("README.md").expect("Failed to read README.md");
+
         let examples = extract_code_examples(&readme_content);
-        
+
         for (veltrano_code, expected_rust) in examples {
             let mut lexer = Lexer::new(veltrano_code.clone());
             let tokens = lexer.tokenize();
             let mut parser = Parser::new(tokens);
-            
+
             if let Ok(program) = parser.parse() {
                 let mut codegen = CodeGenerator::new();
                 let actual_rust = codegen.generate(&program);
-                
+
                 // Normalize whitespace for comparison
                 let actual_normalized = normalize_code(&actual_rust);
                 let expected_normalized = normalize_code(&expected_rust);
-                
+
                 assert_eq!(
-                    actual_normalized, 
-                    expected_normalized,
+                    actual_normalized, expected_normalized,
                     "\nVeltrano code:\n{}\n\nExpected Rust:\n{}\n\nActual Rust:\n{}",
-                    veltrano_code,
-                    expected_rust,
-                    actual_rust
+                    veltrano_code, expected_rust, actual_rust
                 );
             }
         }
@@ -387,7 +383,7 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
         let mut examples = Vec::new();
         let lines: Vec<&str> = readme.lines().collect();
         let mut i = 0;
-        
+
         while i < lines.len() {
             // Look for "Transpiles to:" followed by rust code
             if lines[i].contains("**Transpiles to:**") {
@@ -401,11 +397,12 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
                         break;
                     }
                     // Stop if we hit another "Transpiles to:" or similar
-                    if lines[j].contains("**Transpiles to:**") || lines[j].contains("**Examples:**") {
+                    if lines[j].contains("**Transpiles to:**") || lines[j].contains("**Examples:**")
+                    {
                         break;
                     }
                 }
-                
+
                 if let Some(kotlin_start_idx) = kotlin_start {
                     // Extract kotlin code
                     let mut veltrano_code = String::new();
@@ -415,31 +412,34 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
                         veltrano_code.push('\n');
                         k += 1;
                     }
-                    
+
                     // Look forward for rust code after "Transpiles to:"
                     while i < lines.len() && lines[i].trim() != "```rust" {
                         i += 1;
                     }
-                    
+
                     if i < lines.len() && lines[i].trim() == "```rust" {
                         let mut rust_code = String::new();
                         i += 1;
-                        
+
                         while i < lines.len() && lines[i].trim() != "```" {
                             rust_code.push_str(lines[i]);
                             rust_code.push('\n');
                             i += 1;
                         }
-                        
+
                         if !veltrano_code.trim().is_empty() && !rust_code.trim().is_empty() {
-                            examples.push((veltrano_code.trim().to_string(), rust_code.trim().to_string()));
+                            examples.push((
+                                veltrano_code.trim().to_string(),
+                                rust_code.trim().to_string(),
+                            ));
                         }
                     }
                 }
             }
             i += 1;
         }
-        
+
         examples
     }
 

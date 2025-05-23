@@ -1,0 +1,2 @@
+- Ensure each changed file ends with a trailing empty line
+- Run the code formatter
