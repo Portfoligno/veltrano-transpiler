@@ -92,8 +92,8 @@ val boxed: Box<Str> = "Hello".into()      // Box<str>
 
 **Never Type Examples:**
 ```kotlin
-fun abort(message: String): Nothing {
-    panic(message)  // Never returns
+fun abort(message: Ref<Str>): Nothing {
+    panic("{}", message)  // Never returns
 }
 
 fun infiniteLoop(): Nothing {
@@ -105,8 +105,8 @@ fun infiniteLoop(): Nothing {
 
 **Transpiles to:**
 ```rust
-fn abort(message: String) -> ! {
-    panic!(message);  // Never returns
+fn abort(message: &str) -> ! {
+    panic!("{}", message);  // Never returns
 }
 
 fn infinite_loop() -> ! {
