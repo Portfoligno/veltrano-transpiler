@@ -63,7 +63,7 @@ git commit -a -m "message"
 - **Purpose:** Store project context and memory across Claude Code sessions
 - **Location:** `WORKSPACE.md` (gitignored for privacy)
 - **Usage:** Read at session start, update throughout work
-- **Token Limit:** Maximum 800 tokens (~600 words) to maintain readability and context efficiency
+- **Token Limit:** Maximum 400 tokens (~300 words) to maintain readability and context efficiency
 
 ### Memory Guidelines
 1. **Session Start:** Always read `WORKSPACE.md` to understand project context
@@ -71,7 +71,7 @@ git commit -a -m "message"
 3. **Important Context:** Store key architectural decisions, patterns, and conventions
 4. **Recent Work:** Document completed tasks and current project state
 5. **MANDATORY:** After completing any significant work (bug fixes, features, refactoring), MUST update `WORKSPACE.md` before ending session
-6. **Token Management:** If WORKSPACE.md exceeds 800 tokens, archive older "Recent Work" entries and keep only the most relevant context
+6. **Token Management:** If WORKSPACE.md exceeds 400 tokens, archive older "Recent Work" entries and keep only the most relevant context
 
 ### What to Store in Memory
 - Project purpose and architecture overview
@@ -82,7 +82,7 @@ git commit -a -m "message"
 - Current project status and priorities
 
 ### Memory Maintenance
-When WORKSPACE.md approaches 800 tokens:
+When WORKSPACE.md approaches 400 tokens:
 1. **Archive Strategy:** Move older "Recent Work" entries to end of file under "## Archive" section
 2. **Prioritize Recency:** Keep most recent 3-5 significant work items in main "Recent Work" section
 3. **Preserve Core Context:** Never remove Project Context, Key Files, or Development Guidelines
