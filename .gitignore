@@ -9,4 +9,4 @@
 !/examples/*.vl
 
 # Session memory (not tracked in git)
-/MEMORY.md
+/WORKSPACE.md
