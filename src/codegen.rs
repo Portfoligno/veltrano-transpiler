@@ -29,10 +29,11 @@ impl CodeGenerator {
                 self.indent();
                 self.generate_expression(expr);
                 self.output.push(';');
-                if let Some(comment) = inline_comment {
+                if let Some((content, whitespace)) = inline_comment {
                     if self.config.preserve_comments {
-                        self.output.push_str(" //");
-                        self.output.push_str(comment);
+                        self.output.push_str(whitespace);
+                        self.output.push_str("//");
+                        self.output.push_str(content);
                     }
                 }
                 self.output.push('\n');
@@ -57,10 +58,11 @@ impl CodeGenerator {
                     self.generate_expression(expr);
                 }
                 self.output.push(';');
-                if let Some(comment) = inline_comment {
+                if let Some((content, whitespace)) = inline_comment {
                     if self.config.preserve_comments {
-                        self.output.push_str(" //");
-                        self.output.push_str(comment);
+                        self.output.push_str(whitespace);
+                        self.output.push_str("//");
+                        self.output.push_str(content);
                     }
                 }
                 self.output.push('\n');
@@ -83,7 +85,7 @@ impl CodeGenerator {
         }
     }
 
-    fn generate_var_declaration(&mut self, var_decl: &VarDeclStmt, inline_comment: &Option<String>) {
+    fn generate_var_declaration(&mut self, var_decl: &VarDeclStmt, inline_comment: &Option<(String, String)>) {
         self.indent();
 
         if var_decl.is_mutable {
@@ -106,10 +108,11 @@ impl CodeGenerator {
         }
 
         self.output.push(';');
-        if let Some(comment) = inline_comment {
+        if let Some((content, whitespace)) = inline_comment {
             if self.config.preserve_comments {
-                self.output.push_str(" //");
-                self.output.push_str(comment);
+                self.output.push_str(whitespace);
+                self.output.push_str("//");
+                self.output.push_str(content);
             }
         }
         self.output.push('\n');
@@ -323,11 +326,13 @@ impl CodeGenerator {
     fn generate_comment(&mut self, comment: &CommentStmt) {
         if comment.is_block_comment {
             self.indent();
+            self.output.push_str(&comment.preceding_whitespace);
             self.output.push_str("/*");
             self.output.push_str(&comment.content);
             self.output.push_str("*/\n");
         } else {
             self.indent();
+            self.output.push_str(&comment.preceding_whitespace);
             self.output.push_str("//");
             self.output.push_str(&comment.content);
             self.output.push('\n');

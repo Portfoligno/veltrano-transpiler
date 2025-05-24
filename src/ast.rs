@@ -65,12 +65,12 @@ pub struct MethodCallExpr {
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
-    Expression(Expr, Option<String>), // Expression with optional inline comment
-    VarDecl(VarDeclStmt, Option<String>), // Variable declaration with optional inline comment
+    Expression(Expr, Option<(String, String)>), // Expression with optional inline comment (content, whitespace)
+    VarDecl(VarDeclStmt, Option<(String, String)>), // Variable declaration with optional inline comment (content, whitespace)
     FunDecl(FunDeclStmt),
     If(IfStmt),
     While(WhileStmt),
-    Return(Option<Expr>, Option<String>), // Return statement with optional inline comment
+    Return(Option<Expr>, Option<(String, String)>), // Return statement with optional inline comment (content, whitespace)
     Block(Vec<Stmt>),
     Comment(CommentStmt), // Standalone comments
 }
@@ -79,6 +79,7 @@ pub enum Stmt {
 pub struct CommentStmt {
     pub content: String,
     pub is_block_comment: bool,
+    pub preceding_whitespace: String,
 }
 
 #[derive(Debug, Clone)]

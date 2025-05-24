@@ -46,9 +46,9 @@ pub enum TokenType {
     Dot,
     Arrow,
 
-    // Comments
-    LineComment(String),
-    BlockComment(String),
+    // Comments (with content and preceding whitespace)
+    LineComment(String, String),    // (content, preceding_whitespace)
+    BlockComment(String, String),    // (content, preceding_whitespace)
 
     // Special
     Newline,
@@ -85,15 +85,22 @@ impl Lexer {
         let mut tokens = Vec::new();
 
         while !self.is_at_end() {
-            self.skip_whitespace();
+            let whitespace = self.collect_whitespace();
             if self.is_at_end() {
                 break;
             }
 
-            if let Some(token) = self.next_token() {
-                // Filter comments based on config
-                match &token.token_type {
-                    TokenType::LineComment(_) | TokenType::BlockComment(_) => {
+            if let Some(mut token) = self.next_token() {
+                // Add whitespace to comment tokens
+                match &mut token.token_type {
+                    TokenType::LineComment(content, ws) => {
+                        *ws = whitespace;
+                        if self.config.preserve_comments {
+                            tokens.push(token);
+                        }
+                    }
+                    TokenType::BlockComment(content, ws) => {
+                        *ws = whitespace;
                         if self.config.preserve_comments {
                             tokens.push(token);
                         }
@@ -147,12 +154,12 @@ impl Lexer {
                     // Line comment
                     self.advance(); // consume second '/'
                     let comment = self.read_line_comment();
-                    TokenType::LineComment(comment)
+                    TokenType::LineComment(comment, String::new())
                 } else if self.peek() == Some('*') {
                     // Block comment
                     self.advance(); // consume '*'
                     let comment = self.read_block_comment();
-                    TokenType::BlockComment(comment)
+                    TokenType::BlockComment(comment, String::new())
                 } else {
                     TokenType::Slash
                 }
@@ -319,15 +326,19 @@ impl Lexer {
         comment
     }
 
-    fn skip_whitespace(&mut self) {
+    fn collect_whitespace(&mut self) -> String {
+        let mut whitespace = String::new();
         while !self.is_at_end() {
             match self.peek() {
                 Some(' ') | Some('\r') | Some('\t') => {
-                    self.advance();
+                    if let Some(ch) = self.advance() {
+                        whitespace.push(ch);
+                    }
                 }
                 _ => break,
             }
         }
+        whitespace
     }
 
     fn is_at_end(&self) -> bool {

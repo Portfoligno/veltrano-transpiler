@@ -441,25 +441,27 @@ impl Parser {
         }
     }
 
-    fn consume_newline_or_semicolon(&mut self) -> Result<Option<String>, String> {
+    fn consume_newline_or_semicolon(&mut self) -> Result<Option<(String, String)>, String> {
         // First check for semicolon
         if self.check(&TokenType::Semicolon) {
             self.advance(); // consume semicolon
             // Now check for inline comment after semicolon
-            let inline_comment = if let TokenType::LineComment(content) = &self.peek().token_type {
+            let inline_comment = if let TokenType::LineComment(content, whitespace) = &self.peek().token_type {
                 let content = content.clone();
+                let whitespace = whitespace.clone();
                 self.advance();
-                Some(content)
+                Some((content, whitespace))
             } else {
                 None
             };
             Ok(inline_comment)
         } else {
             // Check for inline comment before newline (no semicolon case)
-            let inline_comment = if let TokenType::LineComment(content) = &self.peek().token_type {
+            let inline_comment = if let TokenType::LineComment(content, whitespace) = &self.peek().token_type {
                 let content = content.clone();
+                let whitespace = whitespace.clone();
                 self.advance();
-                Some(content)
+                Some((content, whitespace))
             } else {
                 None
             };
@@ -531,20 +533,24 @@ impl Parser {
 
     fn try_parse_comment(&mut self) -> Option<Stmt> {
         match &self.peek().token_type {
-            TokenType::LineComment(content) => {
+            TokenType::LineComment(content, whitespace) => {
                 let content = content.clone();
+                let whitespace = whitespace.clone();
                 self.advance();
                 Some(Stmt::Comment(CommentStmt {
                     content,
                     is_block_comment: false,
+                    preceding_whitespace: whitespace,
                 }))
             }
-            TokenType::BlockComment(content) => {
+            TokenType::BlockComment(content, whitespace) => {
                 let content = content.clone();
+                let whitespace = whitespace.clone();
                 self.advance();
                 Some(Stmt::Comment(CommentStmt {
                     content,
                     is_block_comment: true,
+                    preceding_whitespace: whitespace,
                 }))
             }
             _ => None,
