@@ -1,0 +1,18 @@
+fun main() {
+    val simple: Int = 42 // Simple inline comment
+    var mutable: Bool = true // Another inline comment
+    val string: Ref<Str> = "hello" // String with inline comment
+    
+    // Full line comment
+    val complex: String = "test".toString() // Method call with comment
+    
+    if (simple > 0) { // Inline comment after condition
+        println("{}", simple) // Comment in block
+    } else {
+        println("negative") // Comment in else block
+    }
+    
+    while (mutable) { // Loop with inline comment
+        mutable = false // Assignment with comment
+    }
+}
