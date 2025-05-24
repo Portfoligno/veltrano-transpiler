@@ -27,7 +27,7 @@ impl Parser {
             }
 
             match self.declaration() {
-                Ok(stmt) => statements.push(stmt),
+                Ok(stmts) => statements.extend(stmts),
                 Err(err) => return Err(err),
             }
         }
@@ -35,15 +35,15 @@ impl Parser {
         Ok(Program { statements })
     }
 
-    fn declaration(&mut self) -> Result<Stmt, String> {
+    fn declaration(&mut self) -> Result<Vec<Stmt>, String> {
         if self.match_token(&TokenType::Fun) {
-            self.function_declaration()
+            Ok(vec![self.function_declaration()?])
         } else if self.match_token(&TokenType::Var) {
             self.var_declaration(true)
         } else if self.match_token(&TokenType::Val) {
             self.var_declaration(false)
         } else {
-            self.statement()
+            Ok(vec![self.statement()?])
         }
     }
 
@@ -89,7 +89,7 @@ impl Parser {
         }))
     }
 
-    fn var_declaration(&mut self, is_mutable: bool) -> Result<Stmt, String> {
+    fn var_declaration(&mut self, is_mutable: bool) -> Result<Vec<Stmt>, String> {
         let name = self.consume_identifier("Expected variable name")?;
 
         let type_annotation = if self.match_token(&TokenType::Colon) {
@@ -104,14 +104,17 @@ impl Parser {
             None
         };
 
-        self.consume_newline_or_semicolon()?;
+        let inline_comments = self.consume_newline_or_semicolon()?;
 
-        Ok(Stmt::VarDecl(VarDeclStmt {
+        let mut statements = vec![Stmt::VarDecl(VarDeclStmt {
             name,
             is_mutable,
             type_annotation,
             initializer,
-        }))
+        })];
+        
+        statements.extend(inline_comments);
+        Ok(statements)
     }
 
     fn statement(&mut self) -> Result<Stmt, String> {
@@ -183,7 +186,7 @@ impl Parser {
                 continue;
             }
 
-            statements.push(self.declaration()?);
+            statements.extend(self.declaration()?);
         }
 
         self.consume(&TokenType::RightBrace, "Expected '}' after block")?;
@@ -192,7 +195,9 @@ impl Parser {
 
     fn expression_statement(&mut self) -> Result<Stmt, String> {
         let expr = self.expression()?;
-        self.consume_newline_or_semicolon()?;
+        let inline_comments = self.consume_newline_or_semicolon()?;
+        // For now, we'll ignore inline comments after expressions
+        // Could be enhanced to preserve them
         Ok(Stmt::Expression(expr))
     }
 
@@ -424,12 +429,21 @@ impl Parser {
         }
     }
 
-    fn consume_newline_or_semicolon(&mut self) -> Result<(), String> {
+    fn consume_newline_or_semicolon(&mut self) -> Result<Vec<Stmt>, String> {
+        let mut inline_comments = Vec::new();
+        
+        // Collect any inline comments that appear before the newline/semicolon
+        while let TokenType::LineComment(_) | TokenType::BlockComment(_) = &self.peek().token_type {
+            if let Some(comment_stmt) = self.try_parse_comment() {
+                inline_comments.push(comment_stmt);
+            }
+        }
+        
         if self.check(&TokenType::Newline) || self.check(&TokenType::Semicolon) {
             self.advance();
-            Ok(())
+            Ok(inline_comments)
         } else if self.is_at_end() || self.check(&TokenType::RightBrace) {
-            Ok(())
+            Ok(inline_comments)
         } else {
             Err("Expected newline or semicolon".to_string())
         }
@@ -511,3 +525,4 @@ impl Parser {
         }
     }
 }
+
