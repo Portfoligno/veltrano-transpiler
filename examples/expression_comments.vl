@@ -1,5 +1,5 @@
 fun main(): Unit {
-    var x = 5
+    val x = 5
     x + 1 // This comment should be preserved
     x * 2; // This semicolon comment too
 }
