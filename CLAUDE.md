@@ -5,14 +5,22 @@
 - All files MUST be formatted with the appropriate code formatter
 
 ### Trailing Newline Enforcement
-**BEFORE creating or editing ANY file:**
-1. When using `Write` tool: ALWAYS add `\n` at the end of content
-2. When using `Edit` tool: Ensure new_string ends with newline if it's the end of file
-3. When creating new files: ALWAYS verify they end with trailing newline
+**TOOL LIMITATION:** The `Write` and `Edit` tools cannot add trailing newlines directly.
 
-**BEFORE committing:**
-- Use `Read` tool to verify newly created/edited files end with trailing newline
-- If missing, fix immediately before staging
+**WORKAROUND PROCESS:**
+1. **After using `Write` or `Edit` tools:** Always use bash to add trailing newline:
+   ```bash
+   echo "" >> filename
+   ```
+2. **Before committing:** Always verify with `Read` tool and fix if needed
+3. **Verification command:** Use this to check files:
+   ```bash
+   find . -name "*.rs" -o -name "*.vl" -o -name "*.md" -o -name "*.toml" | xargs -I {} sh -c 'if [ ! -s "{}" ] || [ "$(tail -c1 "{}" | wc -l)" -eq 0 ]; then echo "Missing trailing newline: {}"; fi'
+   ```
+
+**MANDATORY STEPS:**
+- After creating/editing ANY file with `Write`/`Edit`: Run `echo "" >> filename`
+- Before any commit: Run verification command and fix all missing newlines
 
 ## Git Workflow - CRITICAL RULES
 
