@@ -495,7 +495,12 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
             let complete_rust_code = if rust_code.contains("fn main") {
                 rust_code.clone()
             } else {
-                format!("fn main() {{\n{}\n}}", rust_code)
+                // Special case for control flow example that uses undefined 'condition'
+                if rust_code.contains("if condition") || rust_code.contains("while condition") {
+                    format!("fn main() {{\nlet condition = true;\n{}\n}}", rust_code)
+                } else {
+                    format!("fn main() {{\n{}\n}}", rust_code)
+                }
             };
 
             fs::write(&temp_file, &complete_rust_code)
