@@ -46,6 +46,7 @@ git commit -a -m "message"
 
 ### Push Behavior
 - Do NOT show summary after `git push`
+- **After every push:** Update `MEMORY.md` with details of the work completed
 
 ## Memory Management
 
@@ -59,6 +60,7 @@ git commit -a -m "message"
 2. **During Work:** Update memory with significant discoveries or changes
 3. **Important Context:** Store key architectural decisions, patterns, and conventions
 4. **Recent Work:** Document completed tasks and current project state
+5. **MANDATORY:** After completing any significant work (bug fixes, features, refactoring), MUST update `MEMORY.md` before ending session
 
 ### What to Store in Memory
 - Project purpose and architecture overview
@@ -67,3 +69,4 @@ git commit -a -m "message"
 - Recent significant changes or refactoring
 - Important gotchas or special considerations
 - Current project status and priorities
+
