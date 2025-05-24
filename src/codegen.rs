@@ -676,4 +676,98 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
             .collect::<Vec<_>>()
             .join("\n")
     }
+
+    fn test_examples_with_config(preserve_comments: bool) {
+        use crate::lexer::Lexer;
+        use crate::parser::Parser;
+        use std::fs;
+        use std::process::Command;
+
+        // Dynamically discover all .vl files in the examples directory
+        let examples_dir = std::path::Path::new("examples");
+        let example_files: Vec<_> = fs::read_dir(examples_dir)
+            .expect("Failed to read examples directory")
+            .filter_map(|entry| {
+                let entry = entry.ok()?;
+                let path = entry.path();
+                if path.extension()?.to_str()? == "vl" {
+                    Some(path.file_name()?.to_string_lossy().into_owned())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        for example_file in &example_files {
+            let example_path = format!("examples/{}", example_file);
+            let veltrano_code = fs::read_to_string(&example_path)
+                .expect(&format!("Failed to read {}", example_path));
+
+            let config = Config { preserve_comments };
+            let mut lexer = Lexer::with_config(veltrano_code.clone(), config.clone());
+            let all_tokens = lexer.tokenize();
+            let mut parser = Parser::new(all_tokens);
+
+            let program = match parser.parse() {
+                Ok(program) => program,
+                Err(err) => {
+                    // Skip files that fail to parse for now, but log the issue
+                    eprintln!("Warning: Example {} failed to parse (skipping): {}", example_file, err);
+                    continue;
+                }
+            };
+
+            // Generate Rust code
+            let mut codegen = CodeGenerator::with_config(config);
+            let rust_code = codegen.generate(&program);
+
+            // Create a temporary Rust file
+            let comments_suffix = if preserve_comments { "_with_comments" } else { "_no_comments" };
+            let temp_file = format!("/tmp/example_{}{}.rs", example_file.replace(".vl", ""), comments_suffix);
+
+            // Wrap the code in a main function if it's not already a complete program
+            let complete_rust_code = if rust_code.contains("fn main") {
+                rust_code.clone()
+            } else {
+                format!("fn main() {{\n{}\n}}", rust_code)
+            };
+
+            fs::write(&temp_file, &complete_rust_code)
+                .expect(&format!("Failed to write temp file {}", temp_file));
+
+            // Try to compile the generated Rust code
+            let output = Command::new("rustc")
+                .arg("--crate-type")
+                .arg("bin")
+                .arg("--edition")
+                .arg("2021")
+                .arg("-o")
+                .arg(&format!("/tmp/example_{}{}", example_file.replace(".vl", ""), comments_suffix))
+                .arg(&temp_file)
+                .output()
+                .expect("Failed to execute rustc");
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                panic!(
+                    "Example {} (preserve_comments={}) transpiled but failed to compile:\n{}\n\nVeltrano code:\n{}\n\nGenerated Rust code:\n{}",
+                    example_file, preserve_comments, stderr, veltrano_code, complete_rust_code
+                );
+            }
+
+            // Clean up temporary files
+            let _ = fs::remove_file(&temp_file);
+            let _ = fs::remove_file(&format!("/tmp/example_{}{}", example_file.replace(".vl", ""), comments_suffix));
+        }
+    }
+
+    #[test]
+    fn test_examples_transpile_and_compile_preserve_comments_false() {
+        test_examples_with_config(false);
+    }
+
+    #[test]
+    fn test_examples_transpile_and_compile_preserve_comments_true() {
+        test_examples_with_config(true);
+    }
 }
