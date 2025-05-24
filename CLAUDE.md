@@ -87,7 +87,3 @@ When WORKSPACE.md approaches 800 tokens:
 2. **Prioritize Recency:** Keep most recent 3-5 significant work items in main "Recent Work" section
 3. **Preserve Core Context:** Never remove Project Context, Key Files, or Development Guidelines
 4. **Rotation:** Archive entries older than 10-15 commits or 2-3 weeks of active development
-
-
-
-
