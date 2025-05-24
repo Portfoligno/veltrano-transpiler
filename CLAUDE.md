@@ -54,6 +54,7 @@ git commit -a -m "message"
 - **Purpose:** Store project context and memory across Claude Code sessions
 - **Location:** `/MEMORY.md` (gitignored for privacy)
 - **Usage:** Read at session start, update throughout work
+- **Token Limit:** Maximum 800 tokens (~600 words) to maintain readability and context efficiency
 
 ### Memory Guidelines
 1. **Session Start:** Always read `MEMORY.md` to understand project context
@@ -61,12 +62,21 @@ git commit -a -m "message"
 3. **Important Context:** Store key architectural decisions, patterns, and conventions
 4. **Recent Work:** Document completed tasks and current project state
 5. **MANDATORY:** After completing any significant work (bug fixes, features, refactoring), MUST update `MEMORY.md` before ending session
+6. **Token Management:** If MEMORY.md exceeds 800 tokens, archive older "Recent Work" entries and keep only the most relevant context
 
 ### What to Store in Memory
 - Project purpose and architecture overview
 - Key file locations and their purposes
 - Development patterns and conventions used
-- Recent significant changes or refactoring
+- Recent significant changes or refactoring (keep latest 3-5 major items)
 - Important gotchas or special considerations
 - Current project status and priorities
+
+### Memory Maintenance
+When MEMORY.md approaches 800 tokens:
+1. **Archive Strategy:** Move older "Recent Work" entries to end of file under "## Archive" section
+2. **Prioritize Recency:** Keep most recent 3-5 significant work items in main "Recent Work" section
+3. **Preserve Core Context:** Never remove Project Context, Key Files, or Development Guidelines
+4. **Rotation:** Archive entries older than 10-15 commits or 2-3 weeks of active development
+
 
