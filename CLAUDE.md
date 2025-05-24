@@ -58,7 +58,7 @@ git commit -a -m "message"
 
 ### WORKSPACE.md File
 - **Purpose:** Store project context and memory across Claude Code sessions
-- **Location:** `/WORKSPACE.md` (gitignored for privacy)
+- **Location:** `WORKSPACE.md` (gitignored for privacy)
 - **Usage:** Read at session start, update throughout work
 - **Token Limit:** Maximum 800 tokens (~600 words) to maintain readability and context efficiency
 
