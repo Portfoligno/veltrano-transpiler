@@ -122,7 +122,7 @@ fn infinite_loop() -> ! {
 Veltrano provides a convenient `.ref()` method to create references, which transpiles to Rust's `&` operator:
 
 ```kotlin
-val owned: String = "Hello"
+val owned: String = "Hello".toString()
 val borrowed: Ref<String> = owned.ref()  // Becomes &owned in Rust
 ```
 
