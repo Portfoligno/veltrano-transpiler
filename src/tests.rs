@@ -263,6 +263,8 @@ fn test_examples_with_config(preserve_comments: bool) {
             .arg("bin")
             .arg("--edition")
             .arg("2021")
+            .arg("-A")
+            .arg("unused_must_use")
             .arg("-o")
             .arg(&format!("/tmp/example_{}{}", example_file.replace(".vl", ""), comments_suffix))
             .arg(&temp_file)
