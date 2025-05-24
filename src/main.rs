@@ -35,10 +35,10 @@ fn main() {
         preserve_comments: false, // Set to true to preserve comments in output
     };
 
-    let mut lexer = Lexer::new(source_code);
+    let mut lexer = Lexer::with_config(source_code, config.clone());
     let all_tokens = lexer.tokenize();
 
-    let mut parser = Parser::with_config(all_tokens, &config);
+    let mut parser = Parser::new(all_tokens);
     let program = match parser.parse() {
         Ok(program) => program,
         Err(err) => {

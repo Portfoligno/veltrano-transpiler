@@ -1,6 +1,5 @@
 use crate::ast::*;
-use crate::config::Config;
-use crate::lexer::{Token, TokenType, skip_comments};
+use crate::lexer::{Token, TokenType};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -8,12 +7,7 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn with_config(tokens: Vec<Token>, config: &Config) -> Self {
-        let tokens = if config.preserve_comments {
-            tokens
-        } else {
-            skip_comments(tokens)
-        };
+    pub fn new(tokens: Vec<Token>) -> Self {
         Self { tokens, current: 0 }
     }
 

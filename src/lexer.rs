@@ -1,3 +1,5 @@
+use crate::config::Config;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     // Keywords
@@ -65,15 +67,17 @@ pub struct Lexer {
     position: usize,
     line: usize,
     column: usize,
+    config: Config,
 }
 
 impl Lexer {
-    pub fn new(input: String) -> Self {
+    pub fn with_config(input: String, config: Config) -> Self {
         Self {
             input: input.chars().collect(),
             position: 0,
             line: 1,
             column: 1,
+            config,
         }
     }
 
@@ -87,7 +91,17 @@ impl Lexer {
             }
 
             if let Some(token) = self.next_token() {
-                tokens.push(token);
+                // Filter comments based on config
+                match &token.token_type {
+                    TokenType::LineComment(_) | TokenType::BlockComment(_) => {
+                        if self.config.preserve_comments {
+                            tokens.push(token);
+                        }
+                    }
+                    _ => {
+                        tokens.push(token);
+                    }
+                }
             }
         }
 
@@ -348,14 +362,3 @@ impl Lexer {
     }
 }
 
-pub fn skip_comments(tokens: Vec<Token>) -> Vec<Token> {
-    tokens
-        .into_iter()
-        .filter(|token| {
-            !matches!(
-                token.token_type,
-                TokenType::LineComment(_) | TokenType::BlockComment(_)
-            )
-        })
-        .collect()
-}

@@ -353,10 +353,10 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
 }
 "#;
 
-        let mut lexer = Lexer::new(source.to_string());
-        let tokens = lexer.tokenize();
         let config = Config { preserve_comments: true };
-        let mut parser = Parser::with_config(tokens, &config);
+        let mut lexer = Lexer::with_config(source.to_string(), config.clone());
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
         let program = parser.parse().expect("Parse should succeed");
 
         let mut codegen = CodeGenerator::with_config(Config {
@@ -383,10 +383,10 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
         let examples = extract_code_examples(&readme_content);
 
         for (veltrano_code, expected_rust) in examples {
-            let mut lexer = Lexer::new(veltrano_code.clone());
-            let all_tokens = lexer.tokenize();
             let config = Config { preserve_comments: true };
-            let mut parser = Parser::with_config(all_tokens, &config);
+            let mut lexer = Lexer::with_config(veltrano_code.clone(), config.clone());
+            let all_tokens = lexer.tokenize();
+            let mut parser = Parser::new(all_tokens);
 
             if let Ok(program) = parser.parse() {
                 let mut codegen = CodeGenerator::with_config(Config {
@@ -467,10 +467,10 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
 
         for (index, veltrano_code) in veltrano_examples.iter().enumerate() {
             // Try to transpile the Veltrano code
-            let mut lexer = Lexer::new(veltrano_code.clone());
-            let all_tokens = lexer.tokenize();
             let config = Config { preserve_comments: true };
-            let mut parser = Parser::with_config(all_tokens, &config);
+            let mut lexer = Lexer::with_config(veltrano_code.clone(), config.clone());
+            let all_tokens = lexer.tokenize();
+            let mut parser = Parser::new(all_tokens);
 
             let program = match parser.parse() {
                 Ok(program) => program,
