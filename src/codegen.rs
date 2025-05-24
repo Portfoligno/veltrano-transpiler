@@ -163,9 +163,16 @@ impl CodeGenerator {
 
     fn generate_while_statement(&mut self, while_stmt: &WhileStmt) {
         self.indent();
-        self.output.push_str("while ");
-        self.generate_expression(&while_stmt.condition);
-        self.output.push(' ');
+        
+        // Check if this is an infinite loop (while true)
+        if let Expr::Literal(LiteralExpr::Bool(true)) = &while_stmt.condition {
+            self.output.push_str("loop ");
+        } else {
+            self.output.push_str("while ");
+            self.generate_expression(&while_stmt.condition);
+            self.output.push(' ');
+        }
+        
         self.generate_statement(&while_stmt.body);
     }
 
