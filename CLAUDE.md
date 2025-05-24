@@ -46,3 +46,24 @@ git commit -a -m "message"
 
 ### Push Behavior
 - Do NOT show summary after `git push`
+
+## Memory Management
+
+### MEMORY.md File
+- **Purpose:** Store project context and memory across Claude Code sessions
+- **Location:** `/MEMORY.md` (gitignored for privacy)
+- **Usage:** Read at session start, update throughout work
+
+### Memory Guidelines
+1. **Session Start:** Always read `MEMORY.md` to understand project context
+2. **During Work:** Update memory with significant discoveries or changes
+3. **Important Context:** Store key architectural decisions, patterns, and conventions
+4. **Recent Work:** Document completed tasks and current project state
+
+### What to Store in Memory
+- Project purpose and architecture overview
+- Key file locations and their purposes
+- Development patterns and conventions used
+- Recent significant changes or refactoring
+- Important gotchas or special considerations
+- Current project status and priorities
