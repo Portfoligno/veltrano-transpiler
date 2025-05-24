@@ -65,14 +65,14 @@ pub struct MethodCallExpr {
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
-    Expression(Expr),
-    VarDecl(VarDeclStmt),
+    Expression(Expr, Option<String>), // Expression with optional inline comment
+    VarDecl(VarDeclStmt, Option<String>), // Variable declaration with optional inline comment
     FunDecl(FunDeclStmt),
     If(IfStmt),
     While(WhileStmt),
-    Return(Option<Expr>),
+    Return(Option<Expr>, Option<String>), // Return statement with optional inline comment
     Block(Vec<Stmt>),
-    Comment(CommentStmt),
+    Comment(CommentStmt), // Standalone comments
 }
 
 #[derive(Debug, Clone)]

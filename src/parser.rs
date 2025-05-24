@@ -104,17 +104,14 @@ impl Parser {
             None
         };
 
-        let inline_comments = self.consume_newline_or_semicolon()?;
+        let inline_comment = self.consume_newline_or_semicolon_with_inline_comment()?;
 
-        let mut statements = vec![Stmt::VarDecl(VarDeclStmt {
+        Ok(vec![Stmt::VarDecl(VarDeclStmt {
             name,
             is_mutable,
             type_annotation,
             initializer,
-        })];
-        
-        statements.extend(inline_comments);
-        Ok(statements)
+        }, inline_comment)])
     }
 
     fn statement(&mut self) -> Result<Vec<Stmt>, String> {
@@ -183,8 +180,8 @@ impl Parser {
             Some(self.expression()?)
         };
 
-        self.consume_newline_or_semicolon()?;
-        Ok(Stmt::Return(value))
+        let inline_comment = self.consume_newline_or_semicolon_with_inline_comment()?;
+        Ok(Stmt::Return(value, inline_comment))
     }
 
     fn block_statement(&mut self) -> Result<Stmt, String> {
@@ -211,11 +208,9 @@ impl Parser {
 
     fn expression_statement(&mut self) -> Result<Vec<Stmt>, String> {
         let expr = self.expression()?;
-        let inline_comments = self.consume_newline_or_semicolon()?;
+        let inline_comment = self.consume_newline_or_semicolon_with_inline_comment()?;
         
-        let mut statements = vec![Stmt::Expression(expr)];
-        statements.extend(inline_comments);
-        Ok(statements)
+        Ok(vec![Stmt::Expression(expr, inline_comment)])
     }
 
     fn expression(&mut self) -> Result<Expr, String> {
@@ -463,6 +458,40 @@ impl Parser {
             Ok(inline_comments)
         } else {
             Err("Expected newline or semicolon".to_string())
+        }
+    }
+
+    fn consume_newline_or_semicolon_with_inline_comment(&mut self) -> Result<Option<String>, String> {
+        // First check for semicolon
+        if self.check(&TokenType::Semicolon) {
+            self.advance(); // consume semicolon
+            // Now check for inline comment after semicolon
+            let inline_comment = if let TokenType::LineComment(content) = &self.peek().token_type {
+                let content = content.clone();
+                self.advance();
+                Some(content)
+            } else {
+                None
+            };
+            Ok(inline_comment)
+        } else {
+            // Check for inline comment before newline (no semicolon case)
+            let inline_comment = if let TokenType::LineComment(content) = &self.peek().token_type {
+                let content = content.clone();
+                self.advance();
+                Some(content)
+            } else {
+                None
+            };
+            
+            if self.check(&TokenType::Newline) {
+                self.advance();
+                Ok(inline_comment)
+            } else if self.is_at_end() || self.check(&TokenType::RightBrace) {
+                Ok(inline_comment)
+            } else {
+                Err("Expected newline or semicolon".to_string())
+            }
         }
     }
 

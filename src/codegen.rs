@@ -25,13 +25,20 @@ impl CodeGenerator {
 
     fn generate_statement(&mut self, stmt: &Stmt) {
         match stmt {
-            Stmt::Expression(expr) => {
+            Stmt::Expression(expr, inline_comment) => {
                 self.indent();
                 self.generate_expression(expr);
-                self.output.push_str(";\n");
+                self.output.push(';');
+                if let Some(comment) = inline_comment {
+                    if self.config.preserve_comments {
+                        self.output.push_str(" //");
+                        self.output.push_str(comment);
+                    }
+                }
+                self.output.push('\n');
             }
-            Stmt::VarDecl(var_decl) => {
-                self.generate_var_declaration(var_decl);
+            Stmt::VarDecl(var_decl, inline_comment) => {
+                self.generate_var_declaration(var_decl, inline_comment);
             }
             Stmt::FunDecl(fun_decl) => {
                 self.generate_function_declaration(fun_decl);
@@ -42,14 +49,21 @@ impl CodeGenerator {
             Stmt::While(while_stmt) => {
                 self.generate_while_statement(while_stmt);
             }
-            Stmt::Return(expr) => {
+            Stmt::Return(expr, inline_comment) => {
                 self.indent();
                 self.output.push_str("return");
                 if let Some(expr) = expr {
                     self.output.push(' ');
                     self.generate_expression(expr);
                 }
-                self.output.push_str(";\n");
+                self.output.push(';');
+                if let Some(comment) = inline_comment {
+                    if self.config.preserve_comments {
+                        self.output.push_str(" //");
+                        self.output.push_str(comment);
+                    }
+                }
+                self.output.push('\n');
             }
             Stmt::Block(statements) => {
                 self.output.push_str("{\n");
@@ -69,7 +83,7 @@ impl CodeGenerator {
         }
     }
 
-    fn generate_var_declaration(&mut self, var_decl: &VarDeclStmt) {
+    fn generate_var_declaration(&mut self, var_decl: &VarDeclStmt, inline_comment: &Option<String>) {
         self.indent();
 
         if var_decl.is_mutable {
@@ -91,7 +105,14 @@ impl CodeGenerator {
             self.generate_expression(initializer);
         }
 
-        self.output.push_str(";\n");
+        self.output.push(';');
+        if let Some(comment) = inline_comment {
+            if self.config.preserve_comments {
+                self.output.push_str(" //");
+                self.output.push_str(comment);
+            }
+        }
+        self.output.push('\n');
     }
 
     fn generate_function_declaration(&mut self, fun_decl: &FunDeclStmt) {
