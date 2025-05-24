@@ -194,15 +194,23 @@ fun main() {
 
 **Transpiles to:**
 ```rust
+// This is a line comment
 fn main() {
+    // Variable declaration with comment
     let message: &str = "Hello, World!";
+    
+    /* This is a
+       multi-line block comment
+       that spans several lines */
     println!("{}", message);
-    let number: i64 = 42;
+    
+    // Another line comment
+    let number: i64 = 42; // Inline comment
     println!("{}", number);
 }
 ```
 
-Comments are filtered out during transpilation and do not appear in the generated Rust code.
+Comments are preserved during transpilation with their original formatting intact.
 
 ## Examples
 
