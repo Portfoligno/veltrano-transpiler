@@ -27,9 +27,3 @@ git commit -a -m "message"
 
 ### Push Behavior
 - Do NOT show summary after `git push`
-
-## General Development Rules
-- Do what is asked; nothing more, nothing less
-- NEVER create files unless absolutely necessary
-- ALWAYS prefer editing existing files over creating new ones  
-- NEVER proactively create documentation files (*.md, README) unless explicitly requested
