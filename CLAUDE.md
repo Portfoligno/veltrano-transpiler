@@ -1,5 +1,8 @@
 # Veltrano Transpiler Development Guidelines
 
+## Session Start Protocol - CRITICAL
+- **FIRST ACTION:** Always read `WORKSPACE.md` using Read tool to load project context and memory
+
 ## File Formatting - CRITICAL RULES
 - **EVERY file MUST end with a trailing newline (empty line)**
 - All files MUST be formatted with the appropriate code formatter
@@ -84,6 +87,7 @@ When WORKSPACE.md approaches 800 tokens:
 2. **Prioritize Recency:** Keep most recent 3-5 significant work items in main "Recent Work" section
 3. **Preserve Core Context:** Never remove Project Context, Key Files, or Development Guidelines
 4. **Rotation:** Archive entries older than 10-15 commits or 2-3 weeks of active development
+
 
 
 
