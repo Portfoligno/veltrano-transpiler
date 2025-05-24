@@ -68,23 +68,33 @@ git commit -a -m "message"
 
 ### Memory Guidelines
 1. **Session Start:** Always read `WORKSPACE.md` to understand project context
-2. **During Work:** Update memory with significant discoveries or changes
-3. **Important Context:** Store key architectural decisions, patterns, and conventions
-4. **Recent Work:** Document completed tasks and current project state
-5. **MANDATORY:** After completing any significant work (bug fixes, features, refactoring), MUST update `WORKSPACE.md` before ending session
-6. **Token Management:** If WORKSPACE.md exceeds 400 tokens, archive older "Recent Work" entries and keep only the most relevant context
+2. **During Work:** Update `WORKSPACE.md` immediately after completing any significant work or discoveries
+3. **Update Triggers:** After fixing bugs, adding features, refactoring, or discovering important patterns/gotchas
 
-### What to Store in Memory
-- Project purpose and architecture overview
-- Key file locations and their purposes
-- Development patterns and conventions used
-- Recent significant changes or refactoring (keep latest 3-5 major items)
-- Important gotchas or special considerations
-- Current project status and priorities
+### Value-Driven Update Strategy
 
-### Memory Maintenance
-When WORKSPACE.md approaches 400 tokens:
-1. **Archive Strategy:** Move older "Recent Work" entries to end of file under "## Archive" section
-2. **Prioritize Recency:** Keep most recent 3-5 significant work items in main "Recent Work" section
-3. **Preserve Core Context:** Never remove Project Context, Key Files, or Development Guidelines
-4. **Rotation:** Archive entries older than 10-15 commits or 2-3 weeks of active development
+**Goal:** Store information that maximizes context reuse for future sessions, regardless of format.
+
+#### **Update Immediately After:**
+- **Completing any significant work** - bug fixes, features, refactoring
+- **Making important discoveries** - architectural insights, gotchas, patterns
+- **Solving problems** - debugging breakthroughs, build issues, testing approaches
+- **Major file changes** - new files, moved files, significant restructuring
+
+#### **High-Value Information (Always Keep)**
+- **Current project state** - what works, what's broken, active issues
+- **Recent significant changes** - with enough detail for future context
+- **Critical discoveries** - gotchas, performance insights, debugging tips
+- **Active development context** - files being worked on, testing approaches
+
+#### **Flexible Content Strategy**
+- **Format freedom:** Use whatever structure best conveys the information
+- **Context over convention:** Prioritize useful content over maintaining sections
+- **Optimize for handoff:** Focus on "What would I need to know to continue this work?"
+- **Token management:** When approaching 400 tokens, remove least valuable content first
+
+#### **Maintenance Process**
+- **Immediate updates:** Don't wait for session end - update as you work
+- **Token pruning:** Remove old/less-relevant content when space is needed
+- **Value assessment:** Keep information that provides ongoing context, remove completed work that won't help future sessions
+
