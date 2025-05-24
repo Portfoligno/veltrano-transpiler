@@ -1,5 +1,6 @@
 mod ast;
 mod codegen;
+mod config;
 mod lexer;
 mod parser;
 
@@ -8,7 +9,8 @@ use std::fs;
 use std::process;
 
 use codegen::CodeGenerator;
-use lexer::{Lexer, skip_comments};
+use config::Config;
+use lexer::Lexer;
 use parser::Parser;
 
 fn main() {
@@ -29,11 +31,14 @@ fn main() {
         }
     };
 
+    let config = Config {
+        preserve_comments: false, // Set to true to preserve comments in output
+    };
+
     let mut lexer = Lexer::new(source_code);
     let all_tokens = lexer.tokenize();
-    let tokens = skip_comments(all_tokens);
 
-    let mut parser = Parser::new(tokens);
+    let mut parser = Parser::with_config(all_tokens, &config);
     let program = match parser.parse() {
         Ok(program) => program,
         Err(err) => {
@@ -42,7 +47,7 @@ fn main() {
         }
     };
 
-    let mut codegen = CodeGenerator::new();
+    let mut codegen = CodeGenerator::with_config(config);
     let rust_code = codegen.generate(&program);
 
     let output_file = input_file.replace(".vl", ".rs");

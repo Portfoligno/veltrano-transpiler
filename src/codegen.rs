@@ -1,15 +1,18 @@
 use crate::ast::*;
+use crate::config::Config;
 
 pub struct CodeGenerator {
     output: String,
     indent_level: usize,
+    config: Config,
 }
 
 impl CodeGenerator {
-    pub fn new() -> Self {
+    pub fn with_config(config: Config) -> Self {
         Self {
             output: String::new(),
             indent_level: 0,
+            config,
         }
     }
 
@@ -57,6 +60,11 @@ impl CodeGenerator {
                 self.indent_level -= 1;
                 self.indent();
                 self.output.push_str("}\n");
+            }
+            Stmt::Comment(comment) => {
+                if self.config.preserve_comments {
+                    self.generate_comment(comment);
+                }
             }
         }
     }
@@ -290,6 +298,20 @@ impl CodeGenerator {
             self.output.push(')');
         }
     }
+
+    fn generate_comment(&mut self, comment: &CommentStmt) {
+        if comment.is_block_comment {
+            self.indent();
+            self.output.push_str("/*");
+            self.output.push_str(&comment.content);
+            self.output.push_str("*/\n");
+        } else {
+            self.indent();
+            self.output.push_str("//");
+            self.output.push_str(&comment.content);
+            self.output.push('\n');
+        }
+    }
 }
 
 #[cfg(test)]
@@ -298,7 +320,7 @@ mod tests {
 
     #[test]
     fn test_camel_to_snake_case() {
-        let codegen = CodeGenerator::new();
+        let codegen = CodeGenerator::with_config(Config::default());
 
         assert_eq!(codegen.camel_to_snake_case("camelCase"), "camel_case");
         assert_eq!(codegen.camel_to_snake_case("CamelCase"), "camel_case");
@@ -333,10 +355,13 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
 
         let mut lexer = Lexer::new(source.to_string());
         let tokens = lexer.tokenize();
-        let mut parser = Parser::new(tokens);
+        let config = Config { preserve_comments: true };
+        let mut parser = Parser::with_config(tokens, &config);
         let program = parser.parse().expect("Parse should succeed");
 
-        let mut codegen = CodeGenerator::new();
+        let mut codegen = CodeGenerator::with_config(Config {
+            preserve_comments: true,
+        });
         let rust_code = codegen.generate(&program);
 
         assert!(rust_code.contains("fn calculate_sum"));
@@ -360,11 +385,13 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
         for (veltrano_code, expected_rust) in examples {
             let mut lexer = Lexer::new(veltrano_code.clone());
             let all_tokens = lexer.tokenize();
-            let tokens = crate::lexer::skip_comments(all_tokens);
-            let mut parser = Parser::new(tokens);
+            let config = Config { preserve_comments: true };
+            let mut parser = Parser::with_config(all_tokens, &config);
 
             if let Ok(program) = parser.parse() {
-                let mut codegen = CodeGenerator::new();
+                let mut codegen = CodeGenerator::with_config(Config {
+                    preserve_comments: true,
+                });
                 let actual_rust = codegen.generate(&program);
 
                 // Normalize whitespace for comparison
@@ -442,8 +469,8 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
             // Try to transpile the Veltrano code
             let mut lexer = Lexer::new(veltrano_code.clone());
             let all_tokens = lexer.tokenize();
-            let tokens = crate::lexer::skip_comments(all_tokens);
-            let mut parser = Parser::new(tokens);
+            let config = Config { preserve_comments: true };
+            let mut parser = Parser::with_config(all_tokens, &config);
 
             let program = match parser.parse() {
                 Ok(program) => program,
@@ -456,7 +483,9 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
             };
 
             // Generate Rust code
-            let mut codegen = CodeGenerator::new();
+            let mut codegen = CodeGenerator::with_config(Config {
+                preserve_comments: true,
+            });
             let rust_code = codegen.generate(&program);
 
             // Create a temporary Rust file

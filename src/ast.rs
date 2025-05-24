@@ -72,6 +72,13 @@ pub enum Stmt {
     While(WhileStmt),
     Return(Option<Expr>),
     Block(Vec<Stmt>),
+    Comment(CommentStmt),
+}
+
+#[derive(Debug, Clone)]
+pub struct CommentStmt {
+    pub content: String,
+    pub is_block_comment: bool,
 }
 
 #[derive(Debug, Clone)]

@@ -1,5 +1,6 @@
 use crate::ast::*;
-use crate::lexer::{Token, TokenType};
+use crate::config::Config;
+use crate::lexer::{Token, TokenType, skip_comments};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -7,7 +8,12 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
+    pub fn with_config(tokens: Vec<Token>, config: &Config) -> Self {
+        let tokens = if config.preserve_comments {
+            tokens
+        } else {
+            skip_comments(tokens)
+        };
         Self { tokens, current: 0 }
     }
 
@@ -17,6 +23,12 @@ impl Parser {
         while !self.is_at_end() {
             if self.check(&TokenType::Newline) {
                 self.advance();
+                continue;
+            }
+
+            // Handle comment tokens
+            if let Some(comment_stmt) = self.try_parse_comment() {
+                statements.push(comment_stmt);
                 continue;
             }
 
@@ -168,6 +180,12 @@ impl Parser {
         while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
             if self.check(&TokenType::Newline) {
                 self.advance();
+                continue;
+            }
+
+            // Handle comment tokens in blocks
+            if let Some(comment_stmt) = self.try_parse_comment() {
+                statements.push(comment_stmt);
                 continue;
             }
 
@@ -474,6 +492,28 @@ impl Parser {
             Ok(self.advance())
         } else {
             Err(message.to_string())
+        }
+    }
+
+    fn try_parse_comment(&mut self) -> Option<Stmt> {
+        match &self.peek().token_type {
+            TokenType::LineComment(content) => {
+                let content = content.clone();
+                self.advance();
+                Some(Stmt::Comment(CommentStmt {
+                    content,
+                    is_block_comment: false,
+                }))
+            }
+            TokenType::BlockComment(content) => {
+                let content = content.clone();
+                self.advance();
+                Some(Stmt::Comment(CommentStmt {
+                    content,
+                    is_block_comment: true,
+                }))
+            }
+            _ => None,
         }
     }
 }

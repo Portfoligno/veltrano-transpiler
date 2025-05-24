@@ -273,26 +273,26 @@ impl Lexer {
 
     fn read_line_comment(&mut self) -> String {
         let mut comment = String::new();
-        
+
         while !self.is_at_end() && self.peek() != Some('\n') {
             if let Some(ch) = self.advance() {
                 comment.push(ch);
             }
         }
-        
+
         comment
     }
-    
+
     fn read_block_comment(&mut self) -> String {
         let mut comment = String::new();
-        
+
         while !self.is_at_end() {
             if self.peek() == Some('*') && self.peek_next() == Some('/') {
                 self.advance(); // consume '*'
                 self.advance(); // consume '/'
                 break;
             }
-            
+
             if let Some(ch) = self.advance() {
                 if ch == '\n' {
                     self.line += 1;
@@ -301,7 +301,7 @@ impl Lexer {
                 comment.push(ch);
             }
         }
-        
+
         comment
     }
 
@@ -338,7 +338,7 @@ impl Lexer {
             Some(self.input[self.position])
         }
     }
-    
+
     fn peek_next(&self) -> Option<char> {
         if self.position + 1 >= self.input.len() {
             None
@@ -349,7 +349,13 @@ impl Lexer {
 }
 
 pub fn skip_comments(tokens: Vec<Token>) -> Vec<Token> {
-    tokens.into_iter()
-        .filter(|token| !matches!(token.token_type, TokenType::LineComment(_) | TokenType::BlockComment(_)))
+    tokens
+        .into_iter()
+        .filter(|token| {
+            !matches!(
+                token.token_type,
+                TokenType::LineComment(_) | TokenType::BlockComment(_)
+            )
+        })
         .collect()
 }
