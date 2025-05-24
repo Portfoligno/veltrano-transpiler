@@ -43,7 +43,7 @@ impl Parser {
         } else if self.match_token(&TokenType::Val) {
             self.var_declaration(false)
         } else {
-            Ok(vec![self.statement()?])
+            self.statement()
         }
     }
 
@@ -117,15 +117,15 @@ impl Parser {
         Ok(statements)
     }
 
-    fn statement(&mut self) -> Result<Stmt, String> {
+    fn statement(&mut self) -> Result<Vec<Stmt>, String> {
         if self.match_token(&TokenType::If) {
-            self.if_statement()
+            Ok(vec![self.if_statement()?])
         } else if self.match_token(&TokenType::While) {
-            self.while_statement()
+            Ok(vec![self.while_statement()?])
         } else if self.match_token(&TokenType::Return) {
-            self.return_statement()
+            Ok(vec![self.return_statement()?])
         } else if self.match_token(&TokenType::LeftBrace) {
-            Ok(self.block_statement()?)
+            Ok(vec![self.block_statement()?])
         } else {
             self.expression_statement()
         }
@@ -136,9 +136,20 @@ impl Parser {
         let condition = self.expression()?;
         self.consume(&TokenType::RightParen, "Expected ')' after if condition")?;
 
-        let then_branch = Box::new(self.statement()?);
+        let then_stmts = self.statement()?;
+        let then_branch = if then_stmts.len() == 1 {
+            Box::new(then_stmts.into_iter().next().unwrap())
+        } else {
+            Box::new(Stmt::Block(then_stmts))
+        };
+        
         let else_branch = if self.match_token(&TokenType::Else) {
-            Some(Box::new(self.statement()?))
+            let else_stmts = self.statement()?;
+            Some(if else_stmts.len() == 1 {
+                Box::new(else_stmts.into_iter().next().unwrap())
+            } else {
+                Box::new(Stmt::Block(else_stmts))
+            })
         } else {
             None
         };
@@ -155,7 +166,12 @@ impl Parser {
         let condition = self.expression()?;
         self.consume(&TokenType::RightParen, "Expected ')' after while condition")?;
 
-        let body = Box::new(self.statement()?);
+        let body_stmts = self.statement()?;
+        let body = if body_stmts.len() == 1 {
+            Box::new(body_stmts.into_iter().next().unwrap())
+        } else {
+            Box::new(Stmt::Block(body_stmts))
+        };
 
         Ok(Stmt::While(WhileStmt { condition, body }))
     }
@@ -193,12 +209,13 @@ impl Parser {
         Ok(Stmt::Block(statements))
     }
 
-    fn expression_statement(&mut self) -> Result<Stmt, String> {
+    fn expression_statement(&mut self) -> Result<Vec<Stmt>, String> {
         let expr = self.expression()?;
         let inline_comments = self.consume_newline_or_semicolon()?;
-        // For now, we'll ignore inline comments after expressions
-        // Could be enhanced to preserve them
-        Ok(Stmt::Expression(expr))
+        
+        let mut statements = vec![Stmt::Expression(expr)];
+        statements.extend(inline_comments);
+        Ok(statements)
     }
 
     fn expression(&mut self) -> Result<Expr, String> {
