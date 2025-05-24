@@ -1,15 +1,35 @@
-# Changed File Rules
-- Ensure each changed file ends with a trailing empty line
-- Ensure each changed file is formatted with the code formatter
+# Veltrano Transpiler Development Guidelines
 
-# Git Commit and Push Behavior
-- ALWAYS combine git add and git commit in a single tool call - NEVER run git add separately
-- Use parallel tool calls to run git add and git commit commands together
-- Alternative: Use `git commit -a` to automatically stage and commit all modified files
-- Do not show a summary after git push
+## File Formatting
+- Each file MUST end with a trailing empty line
+- All files MUST be formatted with the appropriate code formatter
 
-## Git Workflow Reminder
-When committing changes, follow this exact pattern:
-1. Run git status, git diff, and git log in parallel to understand changes
-2. Combine git add and git commit in a single tool call (or use git commit -a)
-3. Push without showing summary
+## Git Workflow - CRITICAL RULES
+
+### Staging and Committing
+❌ **NEVER** run `git add` as a separate command  
+✅ **ALWAYS** combine staging and committing in ONE tool call
+
+**Required Pattern:**
+```bash
+git add file1 file2 && git commit -m "message"
+```
+
+**OR use automatic staging:**
+```bash
+git commit -a -m "message"
+```
+
+### Commit Process
+1. **Analyze changes:** Run `git status`, `git diff`, and `git log` in parallel
+2. **Stage + Commit:** Single tool call combining `git add` and `git commit`
+3. **Push:** Run `git push` (no summary output required)
+
+### Push Behavior
+- Do NOT show summary after `git push`
+
+## General Development Rules
+- Do what is asked; nothing more, nothing less
+- NEVER create files unless absolutely necessary
+- ALWAYS prefer editing existing files over creating new ones  
+- NEVER proactively create documentation files (*.md, README) unless explicitly requested
