@@ -54,7 +54,8 @@ git commit -a -m "message"
 4. **Push:** Run `git push` (no summary output required)
 
 ### Push Behavior
-- Do NOT show summary after `git push`
+- Use `git push --no-progress` to suppress progress indicators while keeping push summary
+- Alternative: `git push --quiet` for minimal output (errors only)
 - **After every push:** Update `WORKSPACE.md` with details of the work completed
 
 ## Memory Management
