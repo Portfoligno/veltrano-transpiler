@@ -437,3 +437,27 @@ fn normalize_code(code: &str) -> String {
         .collect::<Vec<_>>()
         .join("\n")
 }
+
+
+#[test]
+fn test_while_true_to_loop_conversion() {
+    // Test that while(true) converts to loop
+    let veltrano_code = r#"fun infiniteLoop(): Nothing {
+    while (true) {
+        val x = 42
+    }
+}"#;
+
+    let config = Config { preserve_comments: false };
+    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
+    let all_tokens = lexer.tokenize();
+    let mut parser = Parser::new(all_tokens);
+
+    let program = parser.parse().expect("Failed to parse");
+    let mut codegen = CodeGenerator::with_config(config.clone());
+    let actual_rust = codegen.generate(&program);
+
+    // Check that the output contains "loop" instead of "while true"
+    assert!(actual_rust.contains("loop {"), "Expected 'loop {{' but got: {}", actual_rust);
+    assert!(!actual_rust.contains("while true"), "Should not contain 'while true', got: {}", actual_rust);
+}
