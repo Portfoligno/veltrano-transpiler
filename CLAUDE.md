@@ -8,18 +8,24 @@
 **TOOL LIMITATION:** The `Write` and `Edit` tools cannot add trailing newlines directly.
 
 **WORKAROUND PROCESS:**
-1. **After using `Write` or `Edit` tools:** Always use bash to add trailing newline:
+1. **After using `Write` or `Edit` tools:** Always check with `Read` tool first to see current newline status
+2. **Add newline only if missing:** If content ends immediately without empty line, then add:
    ```bash
    echo "" >> filename
    ```
-2. **Before committing:** Always verify with `Read` tool and fix if needed
-3. **Verification command:** Use this to check files:
+3. **Visual indicators in `Read` tool:**
+   - Missing newline: Content ends immediately (e.g., "line 5    some text")
+   - Has newline: Shows empty line after content (e.g., "line 5    some text\nline 6")
+   - Double newlines: Shows two empty lines (avoid this!)
+4. **Before committing:** Always verify with `Read` tool and fix if needed
+5. **Verification command:** Use this to check files:
    ```bash
    find . -name "*.rs" -o -name "*.vl" -o -name "*.md" -o -name "*.toml" | xargs -I {} sh -c 'if [ ! -s "{}" ] || [ "$(tail -c1 "{}" | wc -l)" -eq 0 ]; then echo "Missing trailing newline: {}"; fi'
    ```
 
 **MANDATORY STEPS:**
-- After creating/editing ANY file with `Write`/`Edit`: Run `echo "" >> filename`
+- After creating/editing ANY file with `Write`/`Edit`: Use `Read` tool to check, then add newline only if missing
+- **NEVER** blindly run `echo "" >> filename` without checking first - this creates duplicate newlines
 - Before any commit: Run verification command and fix all missing newlines
 
 ## Git Workflow - CRITICAL RULES
@@ -78,5 +84,6 @@ When MEMORY.md approaches 800 tokens:
 2. **Prioritize Recency:** Keep most recent 3-5 significant work items in main "Recent Work" section
 3. **Preserve Core Context:** Never remove Project Context, Key Files, or Development Guidelines
 4. **Rotation:** Archive entries older than 10-15 commits or 2-3 weeks of active development
+
 
 
