@@ -104,7 +104,7 @@ impl Parser {
             None
         };
 
-        let inline_comment = self.consume_newline_or_semicolon_with_inline_comment()?;
+        let inline_comment = self.consume_newline_or_semicolon()?;
 
         Ok(vec![Stmt::VarDecl(VarDeclStmt {
             name,
@@ -180,7 +180,7 @@ impl Parser {
             Some(self.expression()?)
         };
 
-        let inline_comment = self.consume_newline_or_semicolon_with_inline_comment()?;
+        let inline_comment = self.consume_newline_or_semicolon()?;
         Ok(Stmt::Return(value, inline_comment))
     }
 
@@ -208,7 +208,7 @@ impl Parser {
 
     fn expression_statement(&mut self) -> Result<Vec<Stmt>, String> {
         let expr = self.expression()?;
-        let inline_comment = self.consume_newline_or_semicolon_with_inline_comment()?;
+        let inline_comment = self.consume_newline_or_semicolon()?;
         
         Ok(vec![Stmt::Expression(expr, inline_comment)])
     }
@@ -441,27 +441,7 @@ impl Parser {
         }
     }
 
-    fn consume_newline_or_semicolon(&mut self) -> Result<Vec<Stmt>, String> {
-        let mut inline_comments = Vec::new();
-        
-        // Collect any inline comments that appear before the newline/semicolon
-        while let TokenType::LineComment(_) | TokenType::BlockComment(_) = &self.peek().token_type {
-            if let Some(comment_stmt) = self.try_parse_comment() {
-                inline_comments.push(comment_stmt);
-            }
-        }
-        
-        if self.check(&TokenType::Newline) || self.check(&TokenType::Semicolon) {
-            self.advance();
-            Ok(inline_comments)
-        } else if self.is_at_end() || self.check(&TokenType::RightBrace) {
-            Ok(inline_comments)
-        } else {
-            Err("Expected newline or semicolon".to_string())
-        }
-    }
-
-    fn consume_newline_or_semicolon_with_inline_comment(&mut self) -> Result<Option<String>, String> {
+    fn consume_newline_or_semicolon(&mut self) -> Result<Option<String>, String> {
         // First check for semicolon
         if self.check(&TokenType::Semicolon) {
             self.advance(); // consume semicolon
