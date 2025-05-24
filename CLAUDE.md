@@ -1,2 +1,3 @@
 - Ensure each changed file ends with a trailing empty line
 - Run the code formatter
+- Do not show summary after git push
