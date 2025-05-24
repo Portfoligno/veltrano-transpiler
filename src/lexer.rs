@@ -93,13 +93,13 @@ impl Lexer {
             if let Some(mut token) = self.next_token() {
                 // Add whitespace to comment tokens
                 match &mut token.token_type {
-                    TokenType::LineComment(content, ws) => {
+                    TokenType::LineComment(_, ws) => {
                         *ws = whitespace;
                         if self.config.preserve_comments {
                             tokens.push(token);
                         }
                     }
-                    TokenType::BlockComment(content, ws) => {
+                    TokenType::BlockComment(_, ws) => {
                         *ws = whitespace;
                         if self.config.preserve_comments {
                             tokens.push(token);
