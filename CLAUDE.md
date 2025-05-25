@@ -142,6 +142,37 @@ When the user requests a release:
 2. **During Work:** Update `WORKSPACE.md` immediately after completing any significant work or discoveries
 3. **Update Triggers:** After fixing bugs, adding features, refactoring, or discovering important patterns/gotchas
 
+### TODO Management in WORKSPACE.md
+**Proactively maintain a TODO section** to track work across sessions:
+
+1. **Automatic TODO Updates**
+   - When starting a task: Mark as "IN PROGRESS"
+   - When completing a task: Mark with `[x]` immediately
+   - When discovering issues: Add new TODOs right away
+   - When finding blockers: Document them with the TODO
+
+2. **TODO Format:**
+   ```markdown
+   ## TODO
+   ### Category Name
+   - [x] Completed task
+   - [ ] Pending task - IN PROGRESS (if actively working)
+   - [ ] Future task (with context/reason)
+   ```
+
+3. **Best Practices**
+   - Group related tasks under descriptive categories
+   - Include error messages or line numbers for bugs
+   - Note which files/examples are affected
+   - Add "CRITICAL:" prefix for blocking issues
+   - Keep TODOs actionable and specific
+
+4. **Continuous Maintenance**
+   - Don't wait for user to ask about TODOs
+   - Update immediately as work progresses
+   - Remove completed work only if no longer relevant
+   - Preserve context for future sessions
+
 ### Value-Driven Update Strategy
 
 **Goal:** Store information that maximizes context reuse for future sessions, regardless of format.
