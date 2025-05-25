@@ -97,14 +97,21 @@ fn test_readme_rust_outputs_compile() {
     let rust_examples = extract_rust_code_examples(&readme_content);
 
     for (index, rust_code) in rust_examples.iter().enumerate() {
+        // Remove lines with intentional errors (marked with // ERROR comment)
+        let cleaned_rust_code = rust_code
+            .lines()
+            .filter(|line| !line.contains("// ERROR"))
+            .collect::<Vec<_>>()
+            .join("\n");
+
         // Create a temporary Rust file for each example
         let temp_file = format!("/tmp/readme_example_{}.rs", index);
 
         // Wrap the code in a main function if it's not already a complete program
-        let complete_rust_code = if rust_code.contains("fn main") {
-            rust_code.clone()
+        let complete_rust_code = if cleaned_rust_code.contains("fn main") {
+            cleaned_rust_code.clone()
         } else {
-            format!("fn main() {{\n{}\n}}", rust_code)
+            format!("fn main() {{\n{}\n}}", cleaned_rust_code)
         };
 
         fs::write(&temp_file, &complete_rust_code)
@@ -142,6 +149,12 @@ fn test_readme_veltrano_snippets_transpile_and_compile() {
     let veltrano_examples = extract_veltrano_code_examples(&readme_content);
 
     for (index, veltrano_code) in veltrano_examples.iter().enumerate() {
+        // Skip examples that are marked as Kotlin (not Veltrano)
+        if veltrano_code.trim().starts_with("// Kotlin") {
+            println!("Skipping Kotlin example {} (not Veltrano)", index);
+            continue;
+        }
+
         // Try to transpile the Veltrano code
         let config = Config {
             preserve_comments: true,
