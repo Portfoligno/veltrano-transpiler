@@ -7,6 +7,12 @@
 - **EVERY file MUST end with a trailing newline (empty line)**
 - All files MUST be formatted with the appropriate code formatter
 
+### Rust Code Formatting
+- **Tool:** Use `cargo fmt` to format all Rust files
+- **When to run:** Before every commit, after making code changes
+- **Command:** `cargo fmt` (formats entire project)
+- **Check formatting:** `cargo fmt --check` (verifies without modifying)
+
 ### Trailing Newline Enforcement
 **TOOL LIMITATION:** The `Write` and `Edit` tools cannot add trailing newlines directly.
 
@@ -49,9 +55,10 @@ git commit -a -m "message"
 
 ### Commit Process
 1. **Analyze changes:** Run `git status`, `git diff`, and `git log` in parallel
-2. **Verify formatting:** Check that new/edited files end with trailing newlines
-3. **Stage + Commit:** Single tool call combining `git add` and `git commit`
-4. **Push:** Run `git push` (no summary output required)
+2. **Format code:** Run `cargo fmt` to ensure consistent formatting
+3. **Verify formatting:** Check that new/edited files end with trailing newlines
+4. **Stage + Commit:** Single tool call combining `git add` and `git commit`
+5. **Push:** Run `git push` (no summary output required)
 
 ### Push Behavior
 - Use `git push --no-progress` to suppress progress indicators while keeping push summary
