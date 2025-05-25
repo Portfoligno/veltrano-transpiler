@@ -55,10 +55,15 @@
 git add file1 file2 && git commit -m "message"
 ```
 
-**OR use automatic staging:**
+**OR use automatic staging (for modified files only):**
 ```bash
 git commit -a -m "message"
 ```
+
+**Special Cases:**
+- **File renames:** `git add old_name new_name && git commit -m "message"`
+- **File deletions:** `git add deleted_file && git commit -m "message"`
+- **Multiple operations:** Stage all affected files together to preserve Git's rename detection
 
 ### Commit Process
 1. **Analyze changes:** Run `git status`, `git diff`, and `git log` in parallel
