@@ -6,11 +6,11 @@
 ## File Formatting - CRITICAL RULES
 - **EVERY file MUST end with a trailing newline (empty line)**
 - All files MUST be formatted with the appropriate code formatter
-- **ALWAYS run `cargo fmt` before EVERY commit** - NO EXCEPTIONS
+- **Run `cargo fmt` before committing Rust code changes**
 
 ### Rust Code Formatting
 - **Tool:** Use `cargo fmt` to format all Rust files
-- **When to run:** Before every commit, after making code changes
+- **When to run:** Before committing changes that include Rust files
 - **Command:** `cargo fmt` (formats entire project)
 - **Check formatting:** `cargo fmt --check` (verifies without modifying)
 
