@@ -65,6 +65,68 @@ git commit -a -m "message"
 - Alternative: `git push --quiet` for minimal output (errors only)
 - **After every push:** Update `WORKSPACE.md` with details of the work completed
 
+## Release Process
+
+### Version Numbering Pattern
+This project uses a development version with `-dev` suffix that gets released without the suffix:
+
+1. **Development Version**: Work happens on version with `-dev` suffix (e.g., `0.1.2-dev`)
+2. **Release Version**: When ready to release, remove `-dev` suffix (e.g., `0.1.2`)
+3. **Next Development**: After tagging, bump to next version with `-dev` (e.g., `0.1.3-dev`)
+
+The pattern repeats: develop on `X-dev`, release as `X`, then move to `(X+1)-dev`.
+
+### Release Steps
+When the user requests a release:
+
+1. **Update version for release**
+   - Remove `-dev` suffix from version in `Cargo.toml`
+   - Update or create `CHANGELOG.md` entry for the new version
+   
+2. **Commit the release**
+   ```bash
+   git add Cargo.toml CHANGELOG.md && git commit -m "Release X.Y.Z
+
+   - Summary of major changes
+   - Other important notes
+
+   🤖 Generated with [Claude Code](https://claude.ai/code)
+
+   Co-Authored-By: Claude <noreply@anthropic.com>"
+   ```
+
+3. **Create annotated tag** (without 'v' prefix)
+   ```bash
+   git tag -a X.Y.Z -m "Release X.Y.Z
+   
+   Brief summary of release
+   
+   See CHANGELOG.md for full details."
+   ```
+
+4. **Push commits and tag**
+   ```bash
+   git push && git push origin X.Y.Z
+   ```
+
+5. **Begin next development cycle**
+   - Bump version to next patch/minor/major with `-dev` suffix
+   - Commit: 
+   ```bash
+   git commit -m "Begin X.Y.Z-dev development cycle
+
+   🤖 Generated with [Claude Code](https://claude.ai/code)
+
+   Co-Authored-By: Claude <noreply@anthropic.com>"
+   ```
+   - Push the development version
+
+### Important Notes
+- Version tags do NOT use 'v' prefix (use `0.1.2`, not `v0.1.2`)
+- Development versions always use `-dev` suffix
+- The version in Cargo.toml should match the release tag exactly when tagging
+- Update WORKSPACE.md after pushing the release
+
 ## Memory Management
 
 ### WORKSPACE.md File
