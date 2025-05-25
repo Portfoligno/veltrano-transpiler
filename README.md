@@ -216,3 +216,50 @@ Comments are preserved during transpilation with their original formatting intac
 ## Examples
 
 See the `examples/` directory for sample Veltrano programs.
+
+## Design Notes
+
+### Why No `var` (For Now)
+
+Veltrano currently supports only `val` (immutable variables) without a `var` keyword. This is a deliberate choice based on a semantic mismatch between Kotlin's `var` and Rust's `let mut` that I haven't yet found a satisfactory way to resolve.
+
+#### The Semantic Challenge
+
+In Kotlin, `var` is a **storage declaration** that only affects whether the variable binding can be reassigned:
+
+```kotlin
+// Kotlin
+var x = 5
+x = 10  // OK - rebinding allowed
+
+val list = mutableListOf(1, 2, 3)
+list.add(4)  // OK - val doesn't prevent mutation of the data!
+```
+
+In Rust, `let mut` has **recursive semantics** - it affects both the binding AND enables mutation of the data:
+
+```rust
+// Rust
+let mut x = vec![1, 2, 3];
+x.push(4);      // Mutating the data (requires mut)
+x = vec![5, 6]; // Rebinding (also requires mut)
+
+let y = vec![1, 2, 3];
+y.push(4);      // ERROR - cannot mutate without mut
+```
+
+This fundamental difference makes a direct mapping of `var` to `let mut` potentially confusing. Kotlin developers would expect `var` to only control rebinding, not data mutability.
+
+#### Current Approach
+
+While exploring syntax options that accurately represent both languages' semantics, Veltrano takes an immutability-first approach:
+
+1. **Direct Mapping** - `val` corresponds directly to `let`, maintaining clear semantics
+
+2. **Consistent Behavior** - No surprising differences between source and target language behavior
+
+3. **Functional Patterns** - Encourages immutable data transformations
+
+4. **Future Flexibility** - Leaves room for a more nuanced mutability syntax that accurately represents both Kotlin and Rust semantics
+
+This is an active area of language design for Veltrano. I'm exploring ways to support mutability that feel natural to Kotlin developers while generating idiomatic Rust code.
