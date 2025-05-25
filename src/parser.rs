@@ -459,7 +459,7 @@ impl Parser {
         // First check for semicolon
         if self.check(&TokenType::Semicolon) {
             self.advance(); // consume semicolon
-            // Now check for inline comment after semicolon
+                            // Now check for inline comment after semicolon
             Ok(self.parse_inline_comment())
         } else {
             // Check for inline comment before newline (no semicolon case)

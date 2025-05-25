@@ -239,10 +239,7 @@ fn test_examples_with_config(preserve_comments: bool) {
         let program = match parser.parse() {
             Ok(program) => program,
             Err(err) => {
-                panic!(
-                    "Example {} failed to parse: {}",
-                    example_file, err
-                );
+                panic!("Example {} failed to parse: {}", example_file, err);
             }
         };
 
