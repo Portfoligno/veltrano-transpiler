@@ -221,91 +221,59 @@ impl Parser {
     }
 
     fn equality(&mut self) -> Result<Expr, String> {
-        let mut expr = self.comparison()?;
-
-        while self.match_tokens(&[TokenType::NotEqual, TokenType::EqualEqual]) {
-            let operator = match self.previous().token_type {
+        self.parse_binary_expression(
+            Self::comparison,
+            &[TokenType::NotEqual, TokenType::EqualEqual],
+            |token_type| match token_type {
                 TokenType::EqualEqual => BinaryOp::Equal,
                 TokenType::NotEqual => BinaryOp::NotEqual,
                 _ => unreachable!(),
-            };
-            let right = self.comparison()?;
-            expr = Expr::Binary(BinaryExpr {
-                left: Box::new(expr),
-                operator,
-                right: Box::new(right),
-            });
-        }
-
-        Ok(expr)
+            },
+        )
     }
 
     fn comparison(&mut self) -> Result<Expr, String> {
-        let mut expr = self.term()?;
-
-        while self.match_tokens(&[
-            TokenType::Greater,
-            TokenType::GreaterEqual,
-            TokenType::Less,
-            TokenType::LessEqual,
-        ]) {
-            let operator = match self.previous().token_type {
+        self.parse_binary_expression(
+            Self::term,
+            &[
+                TokenType::Greater,
+                TokenType::GreaterEqual,
+                TokenType::Less,
+                TokenType::LessEqual,
+            ],
+            |token_type| match token_type {
                 TokenType::Greater => BinaryOp::Greater,
                 TokenType::GreaterEqual => BinaryOp::GreaterEqual,
                 TokenType::Less => BinaryOp::Less,
                 TokenType::LessEqual => BinaryOp::LessEqual,
                 _ => unreachable!(),
-            };
-            let right = self.term()?;
-            expr = Expr::Binary(BinaryExpr {
-                left: Box::new(expr),
-                operator,
-                right: Box::new(right),
-            });
-        }
-
-        Ok(expr)
+            },
+        )
     }
 
     fn term(&mut self) -> Result<Expr, String> {
-        let mut expr = self.factor()?;
-
-        while self.match_tokens(&[TokenType::Minus, TokenType::Plus]) {
-            let operator = match self.previous().token_type {
+        self.parse_binary_expression(
+            Self::factor,
+            &[TokenType::Minus, TokenType::Plus],
+            |token_type| match token_type {
                 TokenType::Minus => BinaryOp::Subtract,
                 TokenType::Plus => BinaryOp::Add,
                 _ => unreachable!(),
-            };
-            let right = self.factor()?;
-            expr = Expr::Binary(BinaryExpr {
-                left: Box::new(expr),
-                operator,
-                right: Box::new(right),
-            });
-        }
-
-        Ok(expr)
+            },
+        )
     }
 
     fn factor(&mut self) -> Result<Expr, String> {
-        let mut expr = self.call()?;
-
-        while self.match_tokens(&[TokenType::Slash, TokenType::Star, TokenType::Percent]) {
-            let operator = match self.previous().token_type {
+        self.parse_binary_expression(
+            Self::call,
+            &[TokenType::Slash, TokenType::Star, TokenType::Percent],
+            |token_type| match token_type {
                 TokenType::Slash => BinaryOp::Divide,
                 TokenType::Star => BinaryOp::Multiply,
                 TokenType::Percent => BinaryOp::Modulo,
                 _ => unreachable!(),
-            };
-            let right = self.call()?;
-            expr = Expr::Binary(BinaryExpr {
-                left: Box::new(expr),
-                operator,
-                right: Box::new(right),
-            });
-        }
-
-        Ok(expr)
+            },
+        )
     }
 
     fn call(&mut self) -> Result<Expr, String> {
@@ -558,5 +526,30 @@ impl Parser {
             }
             _ => None,
         }
+    }
+
+    fn parse_binary_expression<F, M>(
+        &mut self,
+        next: F,
+        operators: &[TokenType],
+        map_operator: M,
+    ) -> Result<Expr, String>
+    where
+        F: Fn(&mut Self) -> Result<Expr, String>,
+        M: Fn(&TokenType) -> BinaryOp,
+    {
+        let mut expr = next(self)?;
+
+        while self.match_tokens(operators) {
+            let operator = map_operator(&self.previous().token_type);
+            let right = next(self)?;
+            expr = Expr::Binary(BinaryExpr {
+                left: Box::new(expr),
+                operator,
+                right: Box::new(right),
+            });
+        }
+
+        Ok(expr)
     }
 }
