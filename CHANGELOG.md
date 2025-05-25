@@ -5,6 +5,20 @@ All notable changes to the Veltrano Transpiler will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2025-01-25
+
+### Changed
+- Improved parser error messages with detailed location and token information
+- Refactored lexer to eliminate code duplication using generic `read_while` method
+- Refactored parser to remove duplicate binary expression parsing logic
+- Refactored code generator to consolidate inline comment generation
+- Enhanced test framework to properly fail on parse errors instead of warnings
+- Removed 'v' prefix from version display in help message
+
+### Internal
+- Reduced codebase by ~165 lines through systematic refactoring
+- Applied consistent code formatting across all Rust files
+
 ## [0.1.5] - 2025-01-25
 
 ### Added
