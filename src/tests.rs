@@ -239,12 +239,10 @@ fn test_examples_with_config(preserve_comments: bool) {
         let program = match parser.parse() {
             Ok(program) => program,
             Err(err) => {
-                // Skip files that fail to parse for now, but log the issue
-                eprintln!(
-                    "Warning: Example {} failed to parse (skipping): {}",
+                panic!(
+                    "Example {} failed to parse: {}",
                     example_file, err
                 );
-                continue;
             }
         };
 
