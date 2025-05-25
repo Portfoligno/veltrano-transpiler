@@ -14,7 +14,7 @@ use lexer::Lexer;
 use parser::Parser;
 
 fn print_help(program_name: &str) {
-    println!("Veltrano Transpiler v{}", env!("CARGO_PKG_VERSION"));
+    println!("Veltrano Transpiler {}", env!("CARGO_PKG_VERSION"));
     println!("A transpiler for the Veltrano programming language");
     println!();
     println!("USAGE:");
