@@ -490,3 +490,84 @@ fn test_while_true_to_loop_conversion() {
         actual_rust
     );
 }
+
+#[test]
+fn test_inline_comments_with_and_without_preservation() {
+    let veltrano_code = r#"fun main() {
+    val simple: Int = 42 // Simple inline comment
+    var mutable: Bool = true // Another inline comment
+    val string: Ref<Str> = "hello" // String with inline comment
+    
+    // Full line comment
+    val complex: String = "test".toString() // Method call with comment
+    
+    if (simple > 0) { // Inline comment after condition
+        println("{}", simple) // Comment in block
+    } else {
+        println("negative") // Comment in else block
+    }
+    
+    while (true) { // Loop with inline comment
+        println("infinite loop") // Comment in loop body
+        break // Break to avoid infinite loop
+    }
+}"#;
+
+    // Test with comment preservation enabled
+    let config_with_comments = Config {
+        preserve_comments: true,
+    };
+    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config_with_comments.clone());
+    let all_tokens = lexer.tokenize();
+    let mut parser = Parser::new(all_tokens);
+    let program = parser
+        .parse()
+        .expect("Failed to parse inline comments test");
+    let mut codegen = CodeGenerator::with_config(config_with_comments);
+    let rust_code_with_comments = codegen.generate(&program);
+
+    // Check that all comments are preserved
+    assert!(rust_code_with_comments.contains("// Simple inline comment"));
+    assert!(rust_code_with_comments.contains("// Another inline comment"));
+    assert!(rust_code_with_comments.contains("// String with inline comment"));
+    assert!(rust_code_with_comments.contains("// Full line comment"));
+    assert!(rust_code_with_comments.contains("// Method call with comment"));
+    assert!(rust_code_with_comments.contains("// Inline comment after condition"));
+    assert!(rust_code_with_comments.contains("// Comment in block"));
+    assert!(rust_code_with_comments.contains("// Comment in else block"));
+    assert!(rust_code_with_comments.contains("// Loop with inline comment"));
+    assert!(rust_code_with_comments.contains("// Comment in loop body"));
+    assert!(rust_code_with_comments.contains("// Break to avoid infinite loop"));
+
+    // Test with comment preservation disabled
+    let config_no_comments = Config {
+        preserve_comments: false,
+    };
+    let mut lexer2 = Lexer::with_config(veltrano_code.to_string(), config_no_comments.clone());
+    let all_tokens2 = lexer2.tokenize();
+    let mut parser2 = Parser::new(all_tokens2);
+    let program2 = parser2
+        .parse()
+        .expect("Failed to parse inline comments test");
+    let mut codegen2 = CodeGenerator::with_config(config_no_comments);
+    let rust_code_no_comments = codegen2.generate(&program2);
+
+    // Check that NO comments are preserved
+    assert!(!rust_code_no_comments.contains("// Simple inline comment"));
+    assert!(!rust_code_no_comments.contains("// Another inline comment"));
+    assert!(!rust_code_no_comments.contains("// String with inline comment"));
+    assert!(!rust_code_no_comments.contains("// Full line comment"));
+    assert!(!rust_code_no_comments.contains("// Method call with comment"));
+    assert!(!rust_code_no_comments.contains("// Inline comment after condition"));
+    assert!(!rust_code_no_comments.contains("// Comment in block"));
+    assert!(!rust_code_no_comments.contains("// Comment in else block"));
+    assert!(!rust_code_no_comments.contains("// Loop with inline comment"));
+    assert!(!rust_code_no_comments.contains("// Comment in loop body"));
+    assert!(!rust_code_no_comments.contains("// Break to avoid infinite loop"));
+
+    // Verify the code structure is the same (minus comments)
+    assert!(rust_code_with_comments.contains("let simple: i64 = 42"));
+    assert!(rust_code_no_comments.contains("let simple: i64 = 42"));
+    assert!(rust_code_with_comments.contains("let mut mutable: bool = true"));
+    assert!(rust_code_no_comments.contains("let mut mutable: bool = true"));
+}
