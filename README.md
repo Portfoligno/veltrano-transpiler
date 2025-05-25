@@ -68,7 +68,9 @@ while (condition) {
 
 ### String Types
 
-Veltrano provides precise string type control that maps to Rust's string types:
+Veltrano provides precise string type control that maps to Rust's string types.
+
+**Note on `Ref<T>` naming:** In Veltrano, `Ref<T>` represents a borrowed reference and transpiles to Rust's `&T`. While this name conflicts with Rust's `std::cell::Ref`, it was chosen for consistency with common Rust idioms like `.as_ref()` and the `ref` keyword. Rust developers are familiar with context-dependent meanings of "ref" throughout the standard library.
 
 | Veltrano Type | Rust Type | Description |
 |---------------|-----------|-------------|
