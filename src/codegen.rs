@@ -85,7 +85,11 @@ impl CodeGenerator {
         }
     }
 
-    fn generate_var_declaration(&mut self, var_decl: &VarDeclStmt, inline_comment: &Option<(String, String)>) {
+    fn generate_var_declaration(
+        &mut self,
+        var_decl: &VarDeclStmt,
+        inline_comment: &Option<(String, String)>,
+    ) {
         self.indent();
 
         if var_decl.is_mutable {
@@ -163,7 +167,7 @@ impl CodeGenerator {
 
     fn generate_while_statement(&mut self, while_stmt: &WhileStmt) {
         self.indent();
-        
+
         // Check if this is an infinite loop (while true)
         if let Expr::Literal(LiteralExpr::Bool(true)) = &while_stmt.condition {
             self.output.push_str("loop ");
@@ -172,7 +176,7 @@ impl CodeGenerator {
             self.generate_expression(&while_stmt.condition);
             self.output.push(' ');
         }
-        
+
         self.generate_statement(&while_stmt.body);
     }
 

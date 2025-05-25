@@ -47,8 +47,8 @@ pub enum TokenType {
     Arrow,
 
     // Comments (with content and preceding whitespace)
-    LineComment(String, String),    // (content, preceding_whitespace)
-    BlockComment(String, String),    // (content, preceding_whitespace)
+    LineComment(String, String),  // (content, preceding_whitespace)
+    BlockComment(String, String), // (content, preceding_whitespace)
 
     // Special
     Newline,

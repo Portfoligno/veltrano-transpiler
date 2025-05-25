@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::codegen::CodeGenerator;
+use crate::config::Config;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use std::fs;
@@ -37,7 +37,9 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
 }
 "#;
 
-    let config = Config { preserve_comments: true };
+    let config = Config {
+        preserve_comments: true,
+    };
     let mut lexer = Lexer::with_config(source.to_string(), config.clone());
     let tokens = lexer.tokenize();
     let mut parser = Parser::new(tokens);
@@ -63,7 +65,9 @@ fn test_readme_examples() {
     let examples = extract_code_examples(&readme_content);
 
     for (veltrano_code, expected_rust) in examples {
-        let config = Config { preserve_comments: true };
+        let config = Config {
+            preserve_comments: true,
+        };
         let mut lexer = Lexer::with_config(veltrano_code.clone(), config.clone());
         let all_tokens = lexer.tokenize();
         let mut parser = Parser::new(all_tokens);
@@ -139,7 +143,9 @@ fn test_readme_veltrano_snippets_transpile_and_compile() {
 
     for (index, veltrano_code) in veltrano_examples.iter().enumerate() {
         // Try to transpile the Veltrano code
-        let config = Config { preserve_comments: true };
+        let config = Config {
+            preserve_comments: true,
+        };
         let mut lexer = Lexer::with_config(veltrano_code.clone(), config.clone());
         let all_tokens = lexer.tokenize();
         let mut parser = Parser::new(all_tokens);
@@ -222,8 +228,8 @@ fn test_examples_with_config(preserve_comments: bool) {
 
     for example_file in &example_files {
         let example_path = format!("examples/{}", example_file);
-        let veltrano_code = fs::read_to_string(&example_path)
-            .expect(&format!("Failed to read {}", example_path));
+        let veltrano_code =
+            fs::read_to_string(&example_path).expect(&format!("Failed to read {}", example_path));
 
         let config = Config { preserve_comments };
         let mut lexer = Lexer::with_config(veltrano_code.clone(), config.clone());
@@ -234,7 +240,10 @@ fn test_examples_with_config(preserve_comments: bool) {
             Ok(program) => program,
             Err(err) => {
                 // Skip files that fail to parse for now, but log the issue
-                eprintln!("Warning: Example {} failed to parse (skipping): {}", example_file, err);
+                eprintln!(
+                    "Warning: Example {} failed to parse (skipping): {}",
+                    example_file, err
+                );
                 continue;
             }
         };
@@ -244,8 +253,16 @@ fn test_examples_with_config(preserve_comments: bool) {
         let rust_code = codegen.generate(&program);
 
         // Create a temporary Rust file
-        let comments_suffix = if preserve_comments { "_with_comments" } else { "_no_comments" };
-        let temp_file = format!("/tmp/example_{}{}.rs", example_file.replace(".vl", ""), comments_suffix);
+        let comments_suffix = if preserve_comments {
+            "_with_comments"
+        } else {
+            "_no_comments"
+        };
+        let temp_file = format!(
+            "/tmp/example_{}{}.rs",
+            example_file.replace(".vl", ""),
+            comments_suffix
+        );
 
         // Wrap the code in a main function if it's not already a complete program
         let complete_rust_code = if rust_code.contains("fn main") {
@@ -266,7 +283,11 @@ fn test_examples_with_config(preserve_comments: bool) {
             .arg("-A")
             .arg("unused_must_use")
             .arg("-o")
-            .arg(&format!("/tmp/example_{}{}", example_file.replace(".vl", ""), comments_suffix))
+            .arg(&format!(
+                "/tmp/example_{}{}",
+                example_file.replace(".vl", ""),
+                comments_suffix
+            ))
             .arg(&temp_file)
             .output()
             .expect("Failed to execute rustc");
@@ -281,7 +302,11 @@ fn test_examples_with_config(preserve_comments: bool) {
 
         // Clean up temporary files
         let _ = fs::remove_file(&temp_file);
-        let _ = fs::remove_file(&format!("/tmp/example_{}{}", example_file.replace(".vl", ""), comments_suffix));
+        let _ = fs::remove_file(&format!(
+            "/tmp/example_{}{}",
+            example_file.replace(".vl", ""),
+            comments_suffix
+        ));
     }
 }
 
@@ -313,8 +338,7 @@ fn extract_code_examples(readme: &str) -> Vec<(String, String)> {
                     break;
                 }
                 // Stop if we hit another "Transpiles to:" or similar
-                if lines[j].contains("**Transpiles to:**") || lines[j].contains("**Examples:**")
-                {
+                if lines[j].contains("**Transpiles to:**") || lines[j].contains("**Examples:**") {
                     break;
                 }
             }
@@ -408,8 +432,7 @@ fn extract_veltrano_code_examples(readme: &str) -> Vec<String> {
 
                 // Look ahead for "**Transpiles to:**" or "**Output" patterns
                 while j < lines.len() && j < i + 10 {
-                    if lines[j].contains("**Transpiles to:**") || lines[j].contains("**Output")
-                    {
+                    if lines[j].contains("**Transpiles to:**") || lines[j].contains("**Output") {
                         has_rust_output = true;
                         break;
                     }
@@ -440,7 +463,6 @@ fn normalize_code(code: &str) -> String {
         .join("\n")
 }
 
-
 #[test]
 fn test_while_true_to_loop_conversion() {
     // Test that while(true) converts to loop
@@ -450,7 +472,9 @@ fn test_while_true_to_loop_conversion() {
     }
 }"#;
 
-    let config = Config { preserve_comments: false };
+    let config = Config {
+        preserve_comments: false,
+    };
     let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
     let all_tokens = lexer.tokenize();
     let mut parser = Parser::new(all_tokens);
@@ -460,6 +484,14 @@ fn test_while_true_to_loop_conversion() {
     let actual_rust = codegen.generate(&program);
 
     // Check that the output contains "loop" instead of "while true"
-    assert!(actual_rust.contains("loop {"), "Expected 'loop {{' but got: {}", actual_rust);
-    assert!(!actual_rust.contains("while true"), "Should not contain 'while true', got: {}", actual_rust);
+    assert!(
+        actual_rust.contains("loop {"),
+        "Expected 'loop {{' but got: {}",
+        actual_rust
+    );
+    assert!(
+        !actual_rust.contains("while true"),
+        "Should not contain 'while true', got: {}",
+        actual_rust
+    );
 }

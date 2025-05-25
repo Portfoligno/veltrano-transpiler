@@ -106,12 +106,15 @@ impl Parser {
 
         let inline_comment = self.consume_newline_or_semicolon()?;
 
-        Ok(vec![Stmt::VarDecl(VarDeclStmt {
-            name,
-            is_mutable,
-            type_annotation,
-            initializer,
-        }, inline_comment)])
+        Ok(vec![Stmt::VarDecl(
+            VarDeclStmt {
+                name,
+                is_mutable,
+                type_annotation,
+                initializer,
+            },
+            inline_comment,
+        )])
     }
 
     fn statement(&mut self) -> Result<Vec<Stmt>, String> {
@@ -139,7 +142,7 @@ impl Parser {
         } else {
             Box::new(Stmt::Block(then_stmts))
         };
-        
+
         let else_branch = if self.match_token(&TokenType::Else) {
             let else_stmts = self.statement()?;
             Some(if else_stmts.len() == 1 {
@@ -209,7 +212,7 @@ impl Parser {
     fn expression_statement(&mut self) -> Result<Vec<Stmt>, String> {
         let expr = self.expression()?;
         let inline_comment = self.consume_newline_or_semicolon()?;
-        
+
         Ok(vec![Stmt::Expression(expr, inline_comment)])
     }
 
@@ -445,27 +448,29 @@ impl Parser {
         // First check for semicolon
         if self.check(&TokenType::Semicolon) {
             self.advance(); // consume semicolon
-            // Now check for inline comment after semicolon
-            let inline_comment = if let TokenType::LineComment(content, whitespace) = &self.peek().token_type {
-                let content = content.clone();
-                let whitespace = whitespace.clone();
-                self.advance();
-                Some((content, whitespace))
-            } else {
-                None
-            };
+                            // Now check for inline comment after semicolon
+            let inline_comment =
+                if let TokenType::LineComment(content, whitespace) = &self.peek().token_type {
+                    let content = content.clone();
+                    let whitespace = whitespace.clone();
+                    self.advance();
+                    Some((content, whitespace))
+                } else {
+                    None
+                };
             Ok(inline_comment)
         } else {
             // Check for inline comment before newline (no semicolon case)
-            let inline_comment = if let TokenType::LineComment(content, whitespace) = &self.peek().token_type {
-                let content = content.clone();
-                let whitespace = whitespace.clone();
-                self.advance();
-                Some((content, whitespace))
-            } else {
-                None
-            };
-            
+            let inline_comment =
+                if let TokenType::LineComment(content, whitespace) = &self.peek().token_type {
+                    let content = content.clone();
+                    let whitespace = whitespace.clone();
+                    self.advance();
+                    Some((content, whitespace))
+                } else {
+                    None
+                };
+
             if self.check(&TokenType::Newline) {
                 self.advance();
                 Ok(inline_comment)
