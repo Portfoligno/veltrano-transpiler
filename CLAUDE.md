@@ -4,7 +4,8 @@
 - **FIRST ACTION:** Always read `WORKSPACE.md` using Read tool to load project context and memory
 
 ## File Formatting - CRITICAL RULES
-- **EVERY file MUST end with a trailing newline (empty line)**
+- **EVERY Git-tracked file MUST end with a trailing newline (empty line)**
+  - Gitignored files do not require trailing newline checks
 - All files MUST be formatted with the appropriate code formatter
 - **Run `cargo fmt` before committing Rust code changes**
 
@@ -23,6 +24,8 @@
 ### Trailing Newline Enforcement
 **TOOL LIMITATION:** The `Write` and `Edit` tools cannot add trailing newlines directly.
 
+**SCOPE:** This applies only to Git-tracked files. Gitignored files do not require trailing newline checks.
+
 **WORKAROUND PROCESS:**
 1. **After using `Write` or `Edit` tools:** Always check with `Read` tool first to see current newline status
 2. **Add newline only if missing:** If content ends immediately without empty line, then add:
@@ -34,9 +37,9 @@
    - Has newline: Shows empty line after content (e.g., "line 5    some text\nline 6")
    - Double newlines: Shows two empty lines (avoid this!)
 4. **Before committing:** Always verify with `Read` tool and fix if needed
-5. **Verification command:** Use this to check files:
+5. **Verification command:** Use this to check Git-tracked files only:
    ```bash
-   find . -name "*.rs" -o -name "*.vl" -o -name "*.md" -o -name "*.toml" | xargs -I {} sh -c 'if [ ! -s "{}" ] || [ "$(tail -c1 "{}" | wc -l)" -eq 0 ]; then echo "Missing trailing newline: {}"; fi'
+   git ls-files '*.rs' '*.vl' '*.md' '*.toml' | xargs -I {} sh -c 'if [ ! -s "{}" ] || [ "$(tail -c1 "{}" | wc -l)" -eq 0 ]; then echo "Missing trailing newline: {}"; fi'
    ```
 
 **WARNING about `tail -n`:**
