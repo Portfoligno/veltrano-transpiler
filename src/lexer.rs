@@ -58,8 +58,8 @@ pub enum TokenType {
 #[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
-    pub _line: usize,
-    pub _column: usize,
+    pub line: usize,
+    pub column: usize,
 }
 
 pub struct Lexer {
@@ -114,8 +114,8 @@ impl Lexer {
 
         tokens.push(Token {
             token_type: TokenType::Eof,
-            _line: self.line,
-            _column: self.column,
+            line: self.line,
+            column: self.column,
         });
 
         tokens
@@ -219,8 +219,8 @@ impl Lexer {
 
         Some(Token {
             token_type,
-            _line: start_line,
-            _column: start_column,
+            line: start_line,
+            column: start_column,
         })
     }
 

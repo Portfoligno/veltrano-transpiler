@@ -471,7 +471,11 @@ impl Parser {
             } else if self.is_at_end() || self.check(&TokenType::RightBrace) {
                 Ok(inline_comment)
             } else {
-                Err("Expected newline or semicolon after statement".to_string())
+                let unexpected = self.peek();
+                Err(format!(
+                    "Expected newline or semicolon after statement at line {}, column {}, but found {:?}",
+                    unexpected.line, unexpected.column, unexpected.token_type
+                ))
             }
         }
     }
