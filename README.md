@@ -4,7 +4,7 @@ A transpiler from Veltrano (Kotlin-like syntax) to Rust.
 
 ## Features
 
-- Kotlin-like syntax with familiar keywords (`fun`, `var`, `val`)
+- Kotlin-like syntax with familiar keywords (`fun`, `val`)
 - Type annotations and inference
 - Control flow statements (`if`, `while`, `for`)
 - Function declarations with parameters and return types
@@ -42,7 +42,6 @@ fn main() {
 
 ### Variables
 ```kotlin
-var mutable_var: Int = 42
 val immutable_var: Ref<Str> = "Hello"
 ```
 

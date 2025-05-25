@@ -4,7 +4,6 @@ use crate::config::Config;
 pub enum TokenType {
     // Keywords
     Fun,
-    Var,
     Val,
     If,
     Else,
@@ -227,7 +226,6 @@ impl Lexer {
     fn keyword_or_identifier(&self, text: String) -> TokenType {
         match text.as_str() {
             "fun" => TokenType::Fun,
-            "var" => TokenType::Var,
             "val" => TokenType::Val,
             "if" => TokenType::If,
             "else" => TokenType::Else,

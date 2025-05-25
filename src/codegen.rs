@@ -80,11 +80,7 @@ impl CodeGenerator {
     ) {
         self.indent();
 
-        if var_decl.is_mutable {
-            self.output.push_str("let mut ");
-        } else {
-            self.output.push_str("let ");
-        }
+        self.output.push_str("let ");
 
         let snake_name = self.camel_to_snake_case(&var_decl.name);
         self.output.push_str(&snake_name);

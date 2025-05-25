@@ -38,10 +38,8 @@ impl Parser {
     fn declaration(&mut self) -> Result<Vec<Stmt>, String> {
         if self.match_token(&TokenType::Fun) {
             Ok(vec![self.function_declaration()?])
-        } else if self.match_token(&TokenType::Var) {
-            self.var_declaration(true)
         } else if self.match_token(&TokenType::Val) {
-            self.var_declaration(false)
+            self.var_declaration()
         } else {
             self.statement()
         }
@@ -89,7 +87,7 @@ impl Parser {
         }))
     }
 
-    fn var_declaration(&mut self, is_mutable: bool) -> Result<Vec<Stmt>, String> {
+    fn var_declaration(&mut self) -> Result<Vec<Stmt>, String> {
         let name = self.consume_identifier("Expected variable name")?;
 
         let type_annotation = if self.match_token(&TokenType::Colon) {
@@ -109,7 +107,6 @@ impl Parser {
         Ok(vec![Stmt::VarDecl(
             VarDeclStmt {
                 name,
-                is_mutable,
                 type_annotation,
                 initializer,
             },

@@ -85,7 +85,6 @@ pub struct CommentStmt {
 #[derive(Debug, Clone)]
 pub struct VarDeclStmt {
     pub name: String,
-    pub is_mutable: bool,
     pub type_annotation: Option<Type>,
     pub initializer: Option<Expr>,
 }
