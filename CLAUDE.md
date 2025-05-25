@@ -2,6 +2,9 @@
 
 ## Session Start Protocol - CRITICAL
 - **FIRST ACTION:** Always read `WORKSPACE.md` using Read tool to load project context and memory
+  - This MUST happen before ANY other action, even if the user gives a specific request
+  - NO EXCEPTIONS: Even for "quick" tasks or urgent requests
+  - If you haven't read WORKSPACE.md yet, stop and read it first
 
 ## File Formatting - CRITICAL RULES
 - **EVERY Git-tracked file MUST end with a trailing newline (empty line)**
@@ -187,6 +190,8 @@ When the user requests a release:
 1. **Session Start:** Always read `WORKSPACE.md` to understand project context
 2. **During Work:** Update `WORKSPACE.md` immediately after completing any significant work or discoveries
 3. **Update Triggers:** After fixing bugs, adding features, refactoring, or discovering important patterns/gotchas
+4. **Before Major Actions:** Re-read WORKSPACE.md if you realize you haven't loaded context yet
+5. **Commit Reminder:** After any git push, immediately update WORKSPACE.md with what was done
 
 ### TODO Management in WORKSPACE.md
 **Proactively maintain a TODO section** to track work across sessions:
@@ -245,4 +250,21 @@ When the user requests a release:
 - **Immediate updates:** Don't wait for session end - update as you work
 - **Token pruning:** Remove old/less-relevant content when space is needed
 - **Value assessment:** Keep information that provides ongoing context, remove completed work that won't help future sessions
+
+## Common Pitfalls to Avoid
+
+### 1. Skipping WORKSPACE.md on Session Start
+**Problem:** Jumping directly into user requests without loading context
+**Solution:** Make reading WORKSPACE.md a reflex action - do it before even thinking about the user's request
+**Self-Check:** "Have I read WORKSPACE.md yet?" - If no, stop everything and read it
+
+### 2. Forgetting to Update WORKSPACE.md After Work
+**Problem:** Completing work without documenting it for future sessions
+**Solution:** After every git push or significant change, immediately update WORKSPACE.md
+**Self-Check:** "Did I just push code? Time to update WORKSPACE.md"
+
+### 3. Not Using TODO Management
+**Problem:** Losing track of ongoing work across sessions
+**Solution:** Actively maintain TODO section, marking items as IN PROGRESS or completed
+**Self-Check:** "Is my current task in the TODO list? Are completed items marked?"
 
