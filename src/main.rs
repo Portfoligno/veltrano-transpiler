@@ -81,7 +81,11 @@ fn main() {
     let mut codegen = CodeGenerator::with_config(config);
     let rust_code = codegen.generate(&program);
 
-    let output_file = input_file.replace(".vl", ".rs");
+    let output_file = if input_file.ends_with(".vl") {
+        format!("{}.rs", &input_file[..input_file.len() - 3])
+    } else {
+        format!("{}.rs", input_file)
+    };
 
     match fs::write(&output_file, rust_code) {
         Ok(_) => println!(
