@@ -1,6 +1,6 @@
 [package]
 name = "veltrano"
-version = "0.1.5"
+version = "0.1.6-dev"
 edition = "2021"
 autoexamples = false
 
