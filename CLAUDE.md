@@ -81,11 +81,12 @@ When the user requests a release:
 
 1. **Update version for release**
    - Remove `-dev` suffix from version in `Cargo.toml`
+   - Run `cargo build` or `cargo check` to update `Cargo.lock`
    - Update or create `CHANGELOG.md` entry for the new version
    
 2. **Commit the release**
    ```bash
-   git add Cargo.toml CHANGELOG.md && git commit -m "Release X.Y.Z
+   git add Cargo.toml Cargo.lock CHANGELOG.md && git commit -m "Release X.Y.Z
 
    - Summary of major changes
    - Other important notes
@@ -110,10 +111,11 @@ When the user requests a release:
    ```
 
 5. **Begin next development cycle**
-   - Bump version to next patch/minor/major with `-dev` suffix
+   - Bump version to next patch/minor/major with `-dev` suffix in `Cargo.toml`
+   - Run `cargo build` or `cargo check` to update `Cargo.lock`
    - Commit: 
    ```bash
-   git commit -m "Begin X.Y.Z-dev development cycle
+   git add Cargo.toml Cargo.lock && git commit -m "Begin X.Y.Z-dev development cycle
 
    🤖 Generated with [Claude Code](https://claude.ai/code)
 
