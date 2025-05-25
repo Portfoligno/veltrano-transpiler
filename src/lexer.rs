@@ -244,7 +244,7 @@ impl Lexer {
 
     fn read_string(&mut self) -> String {
         let value = self.read_while(|ch| ch != '"');
-        
+
         if !self.is_at_end() {
             self.advance(); // Consume closing quote
         }
