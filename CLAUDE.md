@@ -100,13 +100,35 @@ This project uses a development version with `-dev` suffix that gets released wi
 
 The pattern repeats: develop on `X-dev`, release as `X`, then move to `(X+1)-dev`.
 
+### CHANGELOG.md Guidelines
+
+**What to include in CHANGELOG entries:**
+- User-facing changes to the transpiler functionality
+- Bug fixes that affect transpiler behavior
+- Performance improvements
+- New language features or syntax support
+- Changes to CLI behavior or options
+- Breaking changes or deprecations
+
+**What NOT to include in CHANGELOG entries:**
+- Changes to `CLAUDE.md` or development guidelines
+- Internal documentation updates (unless they affect users)
+- Development workflow improvements
+- Build process changes (unless they affect users)
+- Code formatting or style changes (unless they fix bugs)
+
+**Format:**
+- Follow [Keep a Changelog](https://keepachangelog.com/) format
+- Group changes under: Added, Changed, Fixed, Deprecated, Removed, Security
+- Focus on what users need to know, not internal development details
+
 ### Release Steps
 When the user requests a release:
 
 1. **Update version for release**
    - Remove `-dev` suffix from version in `Cargo.toml`
    - Run `cargo build` or `cargo check` to update `Cargo.lock`
-   - Update or create `CHANGELOG.md` entry for the new version
+   - Update or create `CHANGELOG.md` entry for the new version (following guidelines above)
    
 2. **Commit the release**
    ```bash
