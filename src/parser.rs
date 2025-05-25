@@ -444,32 +444,26 @@ impl Parser {
         }
     }
 
+    fn parse_inline_comment(&mut self) -> Option<(String, String)> {
+        if let TokenType::LineComment(content, whitespace) = &self.peek().token_type {
+            let content = content.clone();
+            let whitespace = whitespace.clone();
+            self.advance();
+            Some((content, whitespace))
+        } else {
+            None
+        }
+    }
+
     fn consume_newline_or_semicolon(&mut self) -> Result<Option<(String, String)>, String> {
         // First check for semicolon
         if self.check(&TokenType::Semicolon) {
             self.advance(); // consume semicolon
-                            // Now check for inline comment after semicolon
-            let inline_comment =
-                if let TokenType::LineComment(content, whitespace) = &self.peek().token_type {
-                    let content = content.clone();
-                    let whitespace = whitespace.clone();
-                    self.advance();
-                    Some((content, whitespace))
-                } else {
-                    None
-                };
-            Ok(inline_comment)
+            // Now check for inline comment after semicolon
+            Ok(self.parse_inline_comment())
         } else {
             // Check for inline comment before newline (no semicolon case)
-            let inline_comment =
-                if let TokenType::LineComment(content, whitespace) = &self.peek().token_type {
-                    let content = content.clone();
-                    let whitespace = whitespace.clone();
-                    self.advance();
-                    Some((content, whitespace))
-                } else {
-                    None
-                };
+            let inline_comment = self.parse_inline_comment();
 
             if self.check(&TokenType::Newline) {
                 self.advance();
