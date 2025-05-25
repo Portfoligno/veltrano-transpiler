@@ -243,18 +243,8 @@ impl Lexer {
     }
 
     fn read_string(&mut self) -> String {
-        let mut value = String::new();
-
-        while !self.is_at_end() && self.peek() != Some('"') {
-            if let Some(ch) = self.advance() {
-                if ch == '\n' {
-                    self.line += 1;
-                    self.column = 1;
-                }
-                value.push(ch);
-            }
-        }
-
+        let value = self.read_while(|ch| ch != '"');
+        
         if !self.is_at_end() {
             self.advance(); // Consume closing quote
         }
@@ -263,45 +253,19 @@ impl Lexer {
     }
 
     fn read_number(&mut self, first_digit: char) -> i64 {
-        let mut value = String::new();
-        value.push(first_digit);
-
-        while !self.is_at_end() && self.peek().map_or(false, |c| c.is_ascii_digit()) {
-            if let Some(ch) = self.advance() {
-                value.push(ch);
-            }
-        }
-
+        let mut value = String::from(first_digit);
+        value.push_str(&self.read_while(|c| c.is_ascii_digit()));
         value.parse().unwrap_or(0)
     }
 
     fn read_identifier(&mut self, first_char: char) -> String {
-        let mut value = String::new();
-        value.push(first_char);
-
-        while !self.is_at_end()
-            && self
-                .peek()
-                .map_or(false, |c| c.is_ascii_alphanumeric() || c == '_')
-        {
-            if let Some(ch) = self.advance() {
-                value.push(ch);
-            }
-        }
-
+        let mut value = String::from(first_char);
+        value.push_str(&self.read_while(|c| c.is_ascii_alphanumeric() || c == '_'));
         value
     }
 
     fn read_line_comment(&mut self) -> String {
-        let mut comment = String::new();
-
-        while !self.is_at_end() && self.peek() != Some('\n') {
-            if let Some(ch) = self.advance() {
-                comment.push(ch);
-            }
-        }
-
-        comment
+        self.read_while(|ch| ch != '\n')
     }
 
     fn read_block_comment(&mut self) -> String {
@@ -327,18 +291,7 @@ impl Lexer {
     }
 
     fn collect_whitespace(&mut self) -> String {
-        let mut whitespace = String::new();
-        while !self.is_at_end() {
-            match self.peek() {
-                Some(' ') | Some('\r') | Some('\t') => {
-                    if let Some(ch) = self.advance() {
-                        whitespace.push(ch);
-                    }
-                }
-                _ => break,
-            }
-        }
-        whitespace
+        self.read_while(|ch| matches!(ch, ' ' | '\r' | '\t'))
     }
 
     fn is_at_end(&self) -> bool {
@@ -370,5 +323,29 @@ impl Lexer {
         } else {
             Some(self.input[self.position + 1])
         }
+    }
+
+    fn read_while<F>(&mut self, mut predicate: F) -> String
+    where
+        F: FnMut(char) -> bool,
+    {
+        let mut value = String::new();
+
+        while !self.is_at_end() {
+            if let Some(ch) = self.peek() {
+                if !predicate(ch) {
+                    break;
+                }
+                if let Some(ch) = self.advance() {
+                    if ch == '\n' {
+                        self.line += 1;
+                        self.column = 1;
+                    }
+                    value.push(ch);
+                }
+            }
+        }
+
+        value
     }
 }
