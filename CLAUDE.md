@@ -15,9 +15,9 @@
 - **Check formatting:** `cargo fmt --check` (verifies without modifying)
 
 ### MANDATORY Pre-Commit Checklist
-1. Run `cargo fmt` - ALWAYS, even for small changes
+1. If Rust files (`.rs`) changed: Run `cargo fmt`
 2. Check for any new/modified files with `git status`
-3. Verify tests pass with `cargo test`
+3. If Rust code changed: Verify tests pass with `cargo test`
 4. Only then proceed with commit
 
 ### Trailing Newline Enforcement
@@ -72,8 +72,10 @@ git commit -a -m "message"
 
 ### Commit Process
 1. **Analyze changes:** Run `git status`, `git diff`, and `git log` in parallel
-2. **FORMAT CODE - MANDATORY:** Run `cargo fmt` to ensure consistent formatting
-   - This step is NOT optional - formatter MUST be run before every commit
+2. **FORMAT CODE - ONLY IF RUST FILES CHANGED:** 
+   - Check if any `.rs` files were modified: `git diff --name-only | grep -q '\.rs$'`
+   - If Rust files changed: Run `cargo fmt` to ensure consistent formatting
+   - If only non-Rust files changed (e.g., `.md`, `.toml`): Skip cargo fmt
    - If formatter makes changes, include those in the commit
 3. **Verify formatting:** Check that new/edited files end with trailing newlines
 4. **Stage + Commit:** Single tool call combining `git add` and `git commit`
