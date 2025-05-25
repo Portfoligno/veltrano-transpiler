@@ -471,7 +471,7 @@ impl Parser {
             } else if self.is_at_end() || self.check(&TokenType::RightBrace) {
                 Ok(inline_comment)
             } else {
-                Err("Expected newline or semicolon".to_string())
+                Err("Expected newline or semicolon after statement".to_string())
             }
         }
     }
