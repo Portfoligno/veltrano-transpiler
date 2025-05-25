@@ -29,13 +29,7 @@ impl CodeGenerator {
                 self.indent();
                 self.generate_expression(expr);
                 self.output.push(';');
-                if let Some((content, whitespace)) = inline_comment {
-                    if self.config.preserve_comments {
-                        self.output.push_str(whitespace);
-                        self.output.push_str("//");
-                        self.output.push_str(content);
-                    }
-                }
+                self.generate_inline_comment(inline_comment);
                 self.output.push('\n');
             }
             Stmt::VarDecl(var_decl, inline_comment) => {
@@ -58,13 +52,7 @@ impl CodeGenerator {
                     self.generate_expression(expr);
                 }
                 self.output.push(';');
-                if let Some((content, whitespace)) = inline_comment {
-                    if self.config.preserve_comments {
-                        self.output.push_str(whitespace);
-                        self.output.push_str("//");
-                        self.output.push_str(content);
-                    }
-                }
+                self.generate_inline_comment(inline_comment);
                 self.output.push('\n');
             }
             Stmt::Block(statements) => {
@@ -112,13 +100,7 @@ impl CodeGenerator {
         }
 
         self.output.push(';');
-        if let Some((content, whitespace)) = inline_comment {
-            if self.config.preserve_comments {
-                self.output.push_str(whitespace);
-                self.output.push_str("//");
-                self.output.push_str(content);
-            }
-        }
+        self.generate_inline_comment(inline_comment);
         self.output.push('\n');
     }
 
@@ -347,6 +329,16 @@ impl CodeGenerator {
             self.output.push_str("//");
             self.output.push_str(&comment.content);
             self.output.push('\n');
+        }
+    }
+
+    fn generate_inline_comment(&mut self, inline_comment: &Option<(String, String)>) {
+        if let Some((content, whitespace)) = inline_comment {
+            if self.config.preserve_comments {
+                self.output.push_str(whitespace);
+                self.output.push_str("//");
+                self.output.push_str(content);
+            }
         }
     }
 }
