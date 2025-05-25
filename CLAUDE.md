@@ -39,6 +39,11 @@
    find . -name "*.rs" -o -name "*.vl" -o -name "*.md" -o -name "*.toml" | xargs -I {} sh -c 'if [ ! -s "{}" ] || [ "$(tail -c1 "{}" | wc -l)" -eq 0 ]; then echo "Missing trailing newline: {}"; fi'
    ```
 
+**WARNING about `tail -n`:**
+- **NEVER use `tail -n X`** to check for trailing newlines - it only shows non-empty lines
+- `tail -n 5 file` will NOT show trailing empty lines, leading to false conclusions
+- **ALWAYS use:** `tail -c1 file | wc -l` or the Read tool to properly detect newlines
+
 **MANDATORY STEPS:**
 - After creating/editing ANY file with `Write`/`Edit`: Use `Read` tool to check, then add newline only if missing
 - **NEVER** blindly run `echo "" >> filename` without checking first - this creates duplicate newlines
