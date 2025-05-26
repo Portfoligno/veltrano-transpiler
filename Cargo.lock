@@ -4,4 +4,4 @@ version = 4
 
 [[package]]
 name = "veltrano"
-version = "0.1.8-dev"
+version = "0.1.8"
