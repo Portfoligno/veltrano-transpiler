@@ -335,7 +335,7 @@ fn extract_code_examples(readme: &str) -> Vec<(String, String)> {
 
     while i < lines.len() {
         // Look for "Transpiles to:" followed by rust code
-        if lines[i].contains("**Transpiles to:**") {
+        if lines[i].contains("**Transpiles to:**") || lines[i].contains("transpiles to:**") {
             // Look backwards for the most recent kotlin block
             let mut kotlin_start = None;
             let mut j = i;
