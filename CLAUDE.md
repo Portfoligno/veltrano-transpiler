@@ -52,6 +52,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `tail -n 5 file` will NOT show trailing empty lines, leading to false conclusions
 - **ALWAYS use:** `tail -c1 file | wc -l` or the Read tool to properly detect newlines
 
+**WARNING about cargo fmt output:**
+- When cargo fmt shows "No newline at end of file" in system reminders, this can be misleading
+- This message might appear even when the file HAS a trailing newline
+- **ALWAYS verify with Read tool** before adding a newline - never trust the message alone
+- Adding a newline when one already exists creates unwanted double newlines
+
 **MANDATORY STEPS:**
 - After creating/editing ANY file with `Write`/`Edit`: Use `Read` tool to check, then add newline only if missing
 - **NEVER** blindly run `echo "" >> filename` without checking first - this creates duplicate newlines
