@@ -9,6 +9,7 @@ A transpiler from Veltrano (Kotlin-like syntax) to Rust.
 - Control flow statements (`if`, `while`, `for`)
 - Function declarations with parameters and return types
 - Basic data types: `Int`, `Bool`, `Unit`, `Nothing`
+- Reference types: `Ref<T>` (immutable), `MutRef<T>` (mutable)
 - String types: `Ref<Str>`, `String`, `Ref<String>`, `Box<Str>`
 - Comments: Line comments (`//`) and block comments (`/* */`)
 
@@ -143,6 +144,41 @@ val borrowed: Ref<String> = owned.ref()  // Becomes &owned in Rust
 **When NOT to use `.ref()`:**
 - String literals are already references: `"hello"` is already `Ref<Str>` (`&str`)
 - Values that are already reference types
+
+### Mutable References with `MutRef<T>` and `.mutRef()`
+
+Veltrano supports mutable references through the `MutRef<T>` type and `.mutRef()` method:
+
+| Veltrano Type | Rust Type | Description |
+|---------------|-----------|-------------|
+| `MutRef<T>` | `&mut T` | Mutable reference to type T |
+
+```kotlin
+fun modify(value: MutRef<Int>) {
+    // Function accepting a mutable reference
+}
+
+fun main() {
+    val number: Int = 42
+    val mutableRef: MutRef<Int> = number.mutRef()  // Creates mutable reference
+    modify(mutableRef)
+}
+```
+
+**Transpiles to:**
+```rust
+fn modify(value: &mut i64) {
+    // Function accepting a mutable reference
+}
+
+fn main() {
+    let number: i64 = 42;
+    let mutable_ref: &mut i64 = &mut (number.clone());  // Creates mutable reference
+    modify(mutable_ref);
+}
+```
+
+**Note:** Since Veltrano only supports `val` (immutable bindings), the `.mutRef()` method creates a mutable reference to a cloned value. This maintains Rust's borrowing rules while working within Veltrano's immutability-first design.
 
 ### Naming Convention Conversion
 
