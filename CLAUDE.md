@@ -1,4 +1,6 @@
-# Veltrano Transpiler Development Guidelines
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Session Start Protocol - CRITICAL
 - **FIRST ACTION:** Always read `WORKSPACE.md` using Read tool to load project context and memory
