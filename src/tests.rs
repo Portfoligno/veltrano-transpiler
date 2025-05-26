@@ -584,3 +584,60 @@ fn test_inline_comments_with_and_without_preservation() {
     // assert!(rust_code_with_comments.contains("let mut mutable: bool = true"));
     // assert!(rust_code_no_comments.contains("let mut mutable: bool = true"));
 }
+
+#[test]
+fn test_mut_ref_type_and_method() {
+    // Test MutRef type annotation
+    let veltrano_code = r#"fun testMutRef() {
+    val value: MutRef<Int> = someVar.mutRef()
+    val strRef: MutRef<String> = text.mutRef()
+}"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
+    let all_tokens = lexer.tokenize();
+    let mut parser = Parser::new(all_tokens);
+
+    let program = parser.parse().expect("Failed to parse MutRef test");
+    let mut codegen = CodeGenerator::with_config(config.clone());
+    let rust_code = codegen.generate(&program);
+
+    // Check that MutRef<T> becomes &mut T
+    assert!(
+        rust_code.contains("let value: &mut i64 = &mut (some_var.clone())"),
+        "Expected 'let value: &mut i64 = &mut (some_var.clone())' but got: {}",
+        rust_code
+    );
+    assert!(
+        rust_code.contains("let str_ref: &mut String = &mut (text.clone())"),
+        "Expected 'let str_ref: &mut String = &mut (text.clone())' but got: {}",
+        rust_code
+    );
+
+    // Test mutRef() method call without type annotation
+    let veltrano_code2 = r#"fun testMutRefMethod() {
+    val mutableRef = number.mutRef()
+    val another = "test".mutRef()
+}"#;
+
+    let mut lexer2 = Lexer::with_config(veltrano_code2.to_string(), config.clone());
+    let all_tokens2 = lexer2.tokenize();
+    let mut parser2 = Parser::new(all_tokens2);
+    let program2 = parser2.parse().expect("Failed to parse mutRef method test");
+    let mut codegen2 = CodeGenerator::with_config(config.clone());
+    let rust_code2 = codegen2.generate(&program2);
+
+    // Check that .mutRef() becomes &mut (x.clone())
+    assert!(
+        rust_code2.contains("let mutable_ref = &mut (number.clone())"),
+        "Expected 'let mutable_ref = &mut (number.clone())' but got: {}",
+        rust_code2
+    );
+    assert!(
+        rust_code2.contains("let another = &mut (\"test\".clone())"),
+        "Expected 'let another = &mut (\"test\".clone())' but got: {}",
+        rust_code2
+    );
+}

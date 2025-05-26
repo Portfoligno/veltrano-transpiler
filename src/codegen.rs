@@ -231,6 +231,10 @@ impl CodeGenerator {
                 self.output.push('&');
                 self.generate_type(inner);
             }
+            Type::MutRef(inner) => {
+                self.output.push_str("&mut ");
+                self.generate_type(inner);
+            }
             Type::Box(inner) => {
                 self.output.push_str("Box<");
                 self.generate_type(inner);
@@ -293,6 +297,12 @@ impl CodeGenerator {
             // Special case: obj.ref() becomes &obj
             self.output.push('&');
             self.generate_expression(&method_call.object);
+        } else if method_call.method == "mutRef" && method_call.args.is_empty() {
+            // Special case: obj.mutRef() becomes &mut (obj.clone())
+            // We need to create a mutable copy first since val creates immutable bindings
+            self.output.push_str("&mut (");
+            self.generate_expression(&method_call.object);
+            self.output.push_str(".clone())");
         } else {
             // Regular method call: obj.method(args)
             let snake_method = self.camel_to_snake_case(&method_call.method);

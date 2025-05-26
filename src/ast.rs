@@ -7,6 +7,7 @@ pub enum Type {
     Unit,
     Nothing,
     Ref(Box<Type>),
+    MutRef(Box<Type>),
     Box(Box<Type>),
     Custom(String),
 }

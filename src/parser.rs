@@ -381,6 +381,7 @@ impl Parser {
                 "Unit" => Ok(Type::Unit),
                 "Nothing" => Ok(Type::Nothing),
                 "Ref" => self.parse_generic_type(Type::Ref),
+                "MutRef" => self.parse_generic_type(Type::MutRef),
                 "Box" => self.parse_generic_type(Type::Box),
                 _ => Ok(Type::Custom(type_name)),
             }

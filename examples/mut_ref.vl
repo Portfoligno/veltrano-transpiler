@@ -1,0 +1,17 @@
+fun modify(value: MutRef<Int>) {
+    // In Rust, this would require dereferencing: *value = 42
+    // But we could add syntactic sugar later
+}
+
+fun main() {
+    val number: Int = 10
+    val mutableRef: MutRef<Int> = number.mutRef()
+    
+    modify(mutableRef)
+    
+    // Demonstrate with String
+    val text: String = "Hello".toString()
+    val mutableTextRef: MutRef<String> = text.mutRef()
+    
+    println("Original: {}", text)
+}
