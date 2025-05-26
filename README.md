@@ -20,6 +20,14 @@ cargo run <input.vl>
 
 This will transpile the Veltrano source file to Rust and save it as `<input>.rs`.
 
+### Options
+
+- `--preserve-comments` - Preserve comments from the source file in the generated Rust code
+
+```bash
+cargo run -- --preserve-comments <input.vl>
+```
+
 ## Example
 
 **Input (hello.vl):**
@@ -193,7 +201,13 @@ fun main() {
 }
 ```
 
-**Transpiles to:**
+By default, comments are not included in the generated Rust code. To preserve comments during transpilation, use the `--preserve-comments` flag:
+
+```bash
+cargo run -- --preserve-comments input.vl
+```
+
+**With `--preserve-comments`, transpiles to:**
 ```rust
 // This is a line comment
 fn main() {
@@ -210,8 +224,6 @@ fn main() {
     println!("{}", number);
 }
 ```
-
-Comments are preserved during transpilation with their original formatting intact.
 
 ## Examples
 

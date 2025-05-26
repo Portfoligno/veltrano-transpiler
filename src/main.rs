@@ -18,41 +18,71 @@ fn print_help(program_name: &str) {
     println!("A transpiler for the Veltrano programming language");
     println!();
     println!("USAGE:");
-    println!("    {} <input.vl>", program_name);
+    println!("    {} [OPTIONS] <input.vl>", program_name);
     println!();
     println!("OPTIONS:");
-    println!("    -h, --help       Print help information");
-    println!("    -v, --version    Print version information");
+    println!("    -h, --help               Print help information");
+    println!("    -v, --version            Print version information");
+    println!("    --preserve-comments      Preserve comments in generated Rust code");
     println!();
     println!("ARGS:");
-    println!("    <input.vl>       The Veltrano source file to transpile");
+    println!("    <input.vl>               The Veltrano source file to transpile");
     println!();
     println!("EXAMPLES:");
     println!("    {} hello.vl", program_name);
-    println!("    {} examples/fibonacci.vl", program_name);
+    println!(
+        "    {} --preserve-comments examples/fibonacci.vl",
+        program_name
+    );
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() != 2 {
-        eprintln!("Usage: {} <input.vl>", args[0]);
+    if args.len() < 2 {
+        eprintln!("Usage: {} [OPTIONS] <input.vl>", args[0]);
         process::exit(1);
     }
 
-    let input_file = &args[1];
+    let mut preserve_comments = false;
+    let mut input_file = None;
 
-    // Handle --version flag
-    if input_file == "--version" || input_file == "-v" {
-        println!("veltrano {}", env!("CARGO_PKG_VERSION"));
-        process::exit(0);
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--version" | "-v" => {
+                println!("veltrano {}", env!("CARGO_PKG_VERSION"));
+                process::exit(0);
+            }
+            "--help" | "-h" => {
+                print_help(&args[0]);
+                process::exit(0);
+            }
+            "--preserve-comments" => {
+                preserve_comments = true;
+                i += 1;
+            }
+            _ => {
+                if input_file.is_none() {
+                    input_file = Some(&args[i]);
+                    i += 1;
+                } else {
+                    eprintln!("Unexpected argument: {}", args[i]);
+                    eprintln!("Usage: {} [OPTIONS] <input.vl>", args[0]);
+                    process::exit(1);
+                }
+            }
+        }
     }
 
-    // Handle --help flag
-    if input_file == "--help" || input_file == "-h" {
-        print_help(&args[0]);
-        process::exit(0);
-    }
+    let input_file = match input_file {
+        Some(file) => file,
+        None => {
+            eprintln!("Missing input file");
+            eprintln!("Usage: {} [OPTIONS] <input.vl>", args[0]);
+            process::exit(1);
+        }
+    };
 
     let source_code = match fs::read_to_string(input_file) {
         Ok(content) => content,
@@ -62,9 +92,7 @@ fn main() {
         }
     };
 
-    let config = Config {
-        preserve_comments: false, // Set to true to preserve comments in output
-    };
+    let config = Config { preserve_comments };
 
     let mut lexer = Lexer::with_config(source_code, config.clone());
     let all_tokens = lexer.tokenize();
@@ -98,3 +126,4 @@ fn main() {
         }
     }
 }
+
