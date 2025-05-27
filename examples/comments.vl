@@ -1,7 +1,7 @@
 // This is a line comment
 fun main() {
     // Variable declaration with comment
-    val message: Ref<Str> = "Hello, World!"
+    val message: Str = "Hello, World!"
     
     /* This is a
        multi-line block comment

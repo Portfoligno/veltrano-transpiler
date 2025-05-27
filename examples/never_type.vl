@@ -1,4 +1,4 @@
-fun abort(message: Ref<Str>): Nothing {
+fun abort(message: Str): Nothing {
     panic("{}", message)
 }
 

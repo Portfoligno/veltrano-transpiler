@@ -1,0 +1,4 @@
+// Expected error: Cannot use Own<MutRef<T>>. MutRef<T> is already owned.
+fun main() {
+    val x: Own<MutRef<String>> = MutRef(something)
+}

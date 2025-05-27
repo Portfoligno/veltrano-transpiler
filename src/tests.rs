@@ -232,7 +232,13 @@ fn test_examples_with_config(preserve_comments: bool) {
             let entry = entry.ok()?;
             let path = entry.path();
             if path.extension()?.to_str()? == "vl" {
-                Some(path.file_name()?.to_string_lossy().into_owned())
+                let filename = path.file_name()?.to_string_lossy().into_owned();
+                // Skip test files that are meant to fail
+                if filename.contains(".fail.") {
+                    None
+                } else {
+                    Some(filename)
+                }
             } else {
                 None
             }
@@ -509,10 +515,10 @@ fn test_inline_comments_with_and_without_preservation() {
     let veltrano_code = r#"fun main() {
     val simple: Int = 42 // Simple inline comment
     // var mutable: Bool = true // Another inline comment
-    val string: Ref<Str> = "hello" // String with inline comment
+    val string: Str = "hello" // String with inline comment
     
     // Full line comment
-    val complex: String = "test".toString() // Method call with comment
+    val complex: Own<String> = "test".toString() // Method call with comment
     
     if (simple > 0) { // Inline comment after condition
         println("{}", simple) // Comment in block
@@ -590,7 +596,7 @@ fn test_mut_ref_type_and_function() {
     // Test MutRef type annotation
     let veltrano_code = r#"fun testMutRef() {
     val value: MutRef<Int> = MutRef(someVar)
-    val strRef: MutRef<String> = MutRef(text)
+    val strRef: MutRef<Own<String>> = MutRef(text)
 }"#;
 
     let config = Config {
@@ -642,4 +648,165 @@ fn test_mut_ref_type_and_function() {
         "Expected 'let another = &mut (\"test\".clone())' but got: {}",
         rust_code2
     );
+}
+
+#[test]
+fn test_own_value_type_validation() {
+    // Test that Own<Int> is rejected
+    let veltrano_code = r#"fun main() {
+    val x: Own<Int> = 42
+}"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
+    let all_tokens = lexer.tokenize();
+    let mut parser = Parser::new(all_tokens);
+
+    let result = parser.parse();
+    assert!(result.is_err(), "Expected parse error for Own<Int>");
+    assert!(
+        result
+            .unwrap_err()
+            .contains("Cannot use Own<Int>. Int is already owned"),
+        "Expected error message about Own<Int>"
+    );
+
+    // Test that Own<Bool> is rejected
+    let veltrano_code2 = r#"fun main() {
+    val flag: Own<Bool> = true
+}"#;
+
+    let mut lexer2 = Lexer::with_config(veltrano_code2.to_string(), config.clone());
+    let all_tokens2 = lexer2.tokenize();
+    let mut parser2 = Parser::new(all_tokens2);
+
+    let result2 = parser2.parse();
+    assert!(result2.is_err(), "Expected parse error for Own<Bool>");
+
+    // Test that Own<String> is accepted
+    let veltrano_code3 = r#"fun main() {
+    val text: Own<String> = "hello".toString()
+}"#;
+
+    let mut lexer3 = Lexer::with_config(veltrano_code3.to_string(), config.clone());
+    let all_tokens3 = lexer3.tokenize();
+    let mut parser3 = Parser::new(all_tokens3);
+
+    let result3 = parser3.parse();
+    assert!(result3.is_ok(), "Expected Own<String> to be accepted");
+
+    // Test that Own<MutRef<T>> is rejected
+    let veltrano_code4 = r#"fun main() {
+    val x: Own<MutRef<String>> = something
+}"#;
+
+    let mut lexer4 = Lexer::with_config(veltrano_code4.to_string(), config.clone());
+    let all_tokens4 = lexer4.tokenize();
+    let mut parser4 = Parser::new(all_tokens4);
+
+    let result4 = parser4.parse();
+    assert!(result4.is_err(), "Expected parse error for Own<MutRef<T>>");
+    assert!(
+        result4.unwrap_err().contains("MutRef<T> is already owned"),
+        "Expected error message about mutable references"
+    );
+
+    // Test that Own<Box<T>> is rejected
+    let veltrano_code5 = r#"fun main() {
+    val x: Own<Box<String>> = something
+}"#;
+
+    let mut lexer5 = Lexer::with_config(veltrano_code5.to_string(), config.clone());
+    let all_tokens5 = lexer5.tokenize();
+    let mut parser5 = Parser::new(all_tokens5);
+
+    let result5 = parser5.parse();
+    assert!(result5.is_err(), "Expected parse error for Own<Box<T>>");
+    assert!(
+        result5.unwrap_err().contains("Box<T> is already owned"),
+        "Expected error message about Box already being owned"
+    );
+
+    // Test that Own<Own<T>> is rejected
+    let veltrano_code6 = r#"fun main() {
+    val x: Own<Own<String>> = something
+}"#;
+
+    let mut lexer6 = Lexer::with_config(veltrano_code6.to_string(), config.clone());
+    let all_tokens6 = lexer6.tokenize();
+    let mut parser6 = Parser::new(all_tokens6);
+
+    let result6 = parser6.parse();
+    assert!(result6.is_err(), "Expected parse error for Own<Own<T>>");
+    assert!(
+        result6.unwrap_err().contains("Own<T> is already owned"),
+        "Expected error message about Own already being owned"
+    );
+}
+
+#[test]
+fn test_fail_examples() {
+    // Test that .fail.vl files actually fail to parse with expected errors
+    let examples_dir = std::path::Path::new("examples");
+    let fail_files: Vec<_> = fs::read_dir(examples_dir)
+        .expect("Failed to read examples directory")
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let path = entry.path();
+            if path.extension()?.to_str()? == "vl" {
+                let filename = path.file_name()?.to_string_lossy().into_owned();
+                // Only include test files that are meant to fail
+                if filename.contains(".fail.") {
+                    Some(filename)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    for fail_file in &fail_files {
+        let example_path = format!("examples/{}", fail_file);
+        let veltrano_code =
+            fs::read_to_string(&example_path).expect(&format!("Failed to read {}", example_path));
+
+        // Extract expected error from first line comment if present
+        let expected_error = veltrano_code.lines().next().and_then(|line| {
+            if line.starts_with("// Expected error:") {
+                Some(line.trim_start_matches("// Expected error:").trim())
+            } else {
+                None
+            }
+        });
+
+        let config = Config {
+            preserve_comments: false,
+        };
+        let mut lexer = Lexer::with_config(veltrano_code.clone(), config.clone());
+        let all_tokens = lexer.tokenize();
+        let mut parser = Parser::new(all_tokens);
+
+        let result = parser.parse();
+        assert!(
+            result.is_err(),
+            "Expected {} to fail parsing, but it succeeded",
+            fail_file
+        );
+
+        // Check for expected error message if specified
+        if let Some(expected) = expected_error {
+            let actual_error = result.unwrap_err();
+            assert!(
+                actual_error.contains(expected),
+                "Expected error containing '{}' for {}, but got: '{}'",
+                expected,
+                fail_file,
+                actual_error
+            );
+        }
+    }
 }

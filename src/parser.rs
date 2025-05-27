@@ -381,6 +381,38 @@ impl Parser {
                 "Unit" => Ok(Type::Unit),
                 "Nothing" => Ok(Type::Nothing),
                 "Ref" => self.parse_generic_type(Type::Ref),
+                "Own" => {
+                    let own_type = self.parse_generic_type(Type::Own)?;
+                    // Validate that Own<T> is not used with invalid types
+                    if let Type::Own(inner) = &own_type {
+                        match inner.as_ref() {
+                            Type::Int | Type::Bool | Type::Unit => {
+                                return Err(format!(
+                                    "Cannot use Own<{:?}>. {:?} is already owned.",
+                                    inner, inner
+                                ));
+                            }
+                            Type::MutRef(_) => {
+                                return Err(
+                                    "Cannot use Own<MutRef<T>>. MutRef<T> is already owned."
+                                        .to_string(),
+                                );
+                            }
+                            Type::Box(_) => {
+                                return Err(
+                                    "Cannot use Own<Box<T>>. Box<T> is already owned.".to_string()
+                                );
+                            }
+                            Type::Own(_) => {
+                                return Err(
+                                    "Cannot use Own<Own<T>>. Own<T> is already owned.".to_string()
+                                );
+                            }
+                            _ => {}
+                        }
+                    }
+                    Ok(own_type)
+                }
                 "MutRef" => self.parse_generic_type(Type::MutRef),
                 "Box" => self.parse_generic_type(Type::Box),
                 _ => Ok(Type::Custom(type_name)),

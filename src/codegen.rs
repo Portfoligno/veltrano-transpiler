@@ -220,29 +220,80 @@ impl CodeGenerator {
     }
 
     fn generate_type(&mut self, type_annotation: &Type) {
+        // Smart type generation based on value vs reference semantics
+        match type_annotation {
+            // Int, Bool, Unit, Nothing - these are treated as owned by default
+            Type::Int => self.output.push_str("i64"),
+            Type::Bool => self.output.push_str("bool"),
+            Type::Unit => self.output.push_str("()"),
+            Type::Nothing => self.output.push_str("!"),
+
+            // Str, String - these default to borrowed
+            Type::Str => self.output.push_str("&str"),
+            Type::String => self.output.push_str("&String"),
+
+            // Explicit reference wrapper
+            Type::Ref(inner) => {
+                // Ref<T> generates the same as T (both are references)
+                // E.g., Ref<String> becomes &String (same as String)
+                self.generate_type(inner);
+            }
+
+            // Explicit ownership wrapper
+            Type::Own(inner) => {
+                self.generate_owned_type(inner);
+            }
+
+            // Mutable reference
+            Type::MutRef(inner) => {
+                self.output.push_str("&mut ");
+                self.generate_type(inner);
+            }
+
+            // Box is always owned
+            Type::Box(inner) => {
+                self.output.push_str("Box<");
+                self.generate_owned_type(inner);
+                self.output.push('>');
+            }
+
+            // Custom types default to references
+            Type::Custom(name) => {
+                self.output.push('&');
+                self.output.push_str(name);
+            }
+        }
+    }
+
+    fn generate_owned_type(&mut self, type_annotation: &Type) {
+        // Generate owned version of types
         match type_annotation {
             Type::Int => self.output.push_str("i64"),
-            Type::Str => self.output.push_str("str"),
+            Type::Str => self.output.push_str("str"), // For Box<Str> we want Box<str>
             Type::String => self.output.push_str("String"),
             Type::Bool => self.output.push_str("bool"),
             Type::Unit => self.output.push_str("()"),
             Type::Nothing => self.output.push_str("!"),
             Type::Ref(inner) => {
-                self.output.push('&');
+                // Ref<T> in owned context still generates reference type
                 self.generate_type(inner);
             }
-            Type::MutRef(inner) => {
-                self.output.push_str("&mut ");
-                self.generate_type(inner);
+            Type::Own(inner) => {
+                // Nested Own<Own<T>> just becomes T
+                self.generate_owned_type(inner);
+            }
+            Type::MutRef(_) => {
+                panic!("Cannot have MutRef inside Own")
             }
             Type::Box(inner) => {
                 self.output.push_str("Box<");
-                self.generate_type(inner);
+                self.generate_owned_type(inner);
                 self.output.push('>');
             }
             Type::Custom(name) => self.output.push_str(name),
         }
     }
+
 
     fn indent(&mut self) {
         for _ in 0..self.indent_level {
@@ -321,7 +372,8 @@ impl CodeGenerator {
 
     fn generate_method_call_expression(&mut self, method_call: &MethodCallExpr) {
         if method_call.method == "ref" && method_call.args.is_empty() {
-            // Special case: obj.ref() becomes &obj
+            // Special case: ownedValue.ref() becomes &ownedValue
+            // This converts Own<T> to T (which is &T in Rust)
             self.output.push('&');
             self.generate_expression(&method_call.object);
         } else {

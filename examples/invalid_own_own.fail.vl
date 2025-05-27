@@ -1,0 +1,4 @@
+// Expected error: Cannot use Own<Own<T>>. Own<T> is already owned.
+fun main() {
+    val x: Own<Own<String>> = something
+}

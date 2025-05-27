@@ -1,0 +1,5 @@
+// Expected error: Cannot use Own<Int>. Int is already owned
+fun main() {
+    val x: Own<Int> = 42
+    val y: Own<Bool> = true
+}

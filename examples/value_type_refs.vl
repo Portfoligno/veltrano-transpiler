@@ -1,0 +1,29 @@
+fun takesInt(x: Int) {
+    println("Got int: {}", x)
+}
+
+fun takesString(x: String) {
+    println("Got string reference: {}", x)
+}
+
+fun takesOwnedString(x: Own<String>) {
+    println("Got owned string: {}", x)
+}
+
+fun main() {
+    // Value types are always owned
+    val number: Int = 42
+    val flag: Bool = true
+    
+    // Reference types can be owned or borrowed
+    val ownedStr: Own<String> = "Hello".toString()
+    val borrowedStr: String = ownedStr.ref()
+    
+    // Passing value types - always by value
+    takesInt(number)
+    
+    // Passing reference types
+    takesString(borrowedStr)
+    takesString(ownedStr.ref())
+    takesOwnedString(ownedStr)
+}

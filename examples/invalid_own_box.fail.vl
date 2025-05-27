@@ -1,0 +1,4 @@
+// Expected error: Cannot use Own<Box<T>>. Box<T> is already owned.
+fun main() {
+    val boxed: Own<Box<String>> = "hello".into()
+}

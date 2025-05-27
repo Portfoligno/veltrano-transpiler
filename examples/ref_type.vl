@@ -1,0 +1,31 @@
+// Test explicit Ref<T> type alongside reference-by-default design
+fun takesRef(s: Ref<String>) {
+    // Function that explicitly takes &&String
+    println("Got ref: {}", s)
+}
+
+fun takesString(s: String) {
+    // Function that takes &String
+    println("Got string: {}", s)
+}
+
+fun main() {
+    // Owned string
+    val owned: Own<String> = "Hello".toString()
+    
+    // String type means &String
+    val borrowed: String = owned.ref()
+    
+    // Ref<String> means &&String - a reference to a reference
+    val refToBorrowed: Ref<String> = borrowed.ref()
+    
+    takesString(borrowed)
+    takesRef(refToBorrowed)
+    
+    // With MutRef - demonstrates full type coverage
+    // val mutable: MutRef<String> = MutRef(owned)  // Would be &mut &String
+    // MutRef<Own<String>> covers the owned case:
+    val ownedMutable: MutRef<Own<String>> = MutRef(owned)
+    // This would be MutRef<Ref<String>> → &mut &&String
+    // val mutRefToRef: MutRef<Ref<String>> = MutRef(borrowed)
+}

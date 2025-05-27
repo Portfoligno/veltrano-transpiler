@@ -10,8 +10,8 @@ fun main() {
     modify(mutableRef)
     
     // Demonstrate with String
-    val text: String = "Hello".toString()
-    val mutableTextRef: MutRef<String> = MutRef(text)
+    val text: Own<String> = "Hello".toString()
+    val mutableTextRef: MutRef<Own<String>> = MutRef(text)
     
     println("Original: {}", text)
 }

@@ -4,14 +4,19 @@ A transpiler from Veltrano (Kotlin-like syntax) to Rust.
 
 ## Features
 
+**Language Syntax:**
 - Kotlin-like syntax with familiar keywords (`fun`, `val`)
 - Type annotations and inference
 - Control flow statements (`if`, `while`, `for`)
 - Function declarations with parameters and return types
-- Basic data types: `Int`, `Bool`, `Unit`, `Nothing`
-- Reference types: `Ref<T>` (immutable), `MutRef<T>` (mutable)
-- String types: `Ref<Str>`, `String`, `Ref<String>`, `Box<Str>`
 - Comments: Line comments (`//`) and block comments (`/* */`)
+
+**Type System:**
+- Reference-by-default design: `String`, `Str` are references by default
+- Explicit ownership: `Own<T>` for owned values
+- Explicit references: `Ref<T>` for additional reference levels
+- Mutable references: `MutRef<T>` with `MutRef()` function
+- Basic types: `Int`, `Bool`, `Unit`, `Nothing` (always owned)
 
 ## Usage
 
@@ -34,7 +39,7 @@ cargo run -- --preserve-comments <input.vl>
 **Input (hello.vl):**
 ```kotlin
 fun main() {
-    val message: Ref<Str> = "Hello, Veltrano!"
+    val message: Str = "Hello, Veltrano!"
     println("{}", message)
 }
 ```
@@ -51,7 +56,7 @@ fn main() {
 
 ### Variables
 ```kotlin
-val immutable_var: Ref<Str> = "Hello"
+val immutable_var: Str = "Hello"
 ```
 
 ### Functions
@@ -78,13 +83,15 @@ while (condition) {
 
 Veltrano provides precise string type control that maps to Rust's string types.
 
-**Note on `Ref<T>` naming:** In Veltrano, `Ref<T>` represents a borrowed reference and transpiles to Rust's `&T`. While this name conflicts with Rust's `std::cell::Ref`, it was chosen for consistency with common Rust idioms like `.as_ref()` and the `ref` keyword. Rust developers are familiar with context-dependent meanings of "ref" throughout the standard library.
+**Note on reference-by-default design:** In Veltrano, types without `Own<>` are references by default. This design treats borrowing as the default case and makes ownership explicit when needed. Types like `Int` and `Bool` are always owned.
+
+**Own<T> restrictions:** Cannot wrap already-owned types. Valid: `Own<String>`, `Own<Str>`, `Own<CustomType>`.
 
 | Veltrano Type | Rust Type | Description |
 |---------------|-----------|-------------|
-| `Ref<Str>` | `&str` | String slice, immutable reference |
-| `String` | `String` | Owned, growable string |
-| `Ref<String>` | `&String` | Reference to owned string |
+| `Str` | `&str` | String slice reference |
+| `String` | `&String` | String reference |
+| `Own<String>` | `String` | Owned string |
 | `Box<Str>` | `Box<str>` | Owned, fixed-size string |
 
 ### Never Type
@@ -95,15 +102,15 @@ Veltrano provides precise string type control that maps to Rust's string types.
 
 **String Examples:**
 ```kotlin
-val literal: Ref<Str> = "Hello"           // &str (string literals are already references)
-val owned: String = "Hello".toString()    // String
-val borrowed: Ref<String> = owned.ref()   // &String (taking reference with .ref() method)
-val boxed: Box<Str> = "Hello".into()      // Box<str>
+val literal: Str = "Hello"                   // &str
+val owned: Own<String> = "Hello".toString()  // String (owned)
+val borrowed: String = owned.ref()           // &String (reference to owned)
+val boxed: Box<Str> = "Hello".into()         // Box<str>
 ```
 
 **Never Type Examples:**
 ```kotlin
-fun abort(message: Ref<Str>): Nothing {
+fun abort(message: Str): Nothing {
     panic("{}", message)  // Never returns
 }
 
@@ -132,18 +139,17 @@ fn infinite_loop() -> ! {
 Veltrano provides a convenient `.ref()` method to create references, which transpiles to Rust's `&` operator:
 
 ```kotlin
-val owned: String = "Hello".toString()
-val borrowed: Ref<String> = owned.ref()  // Becomes &owned in Rust
+val owned: Own<String> = "Hello".toString()
+val borrowed: String = owned.ref()  // Becomes &owned in Rust
 ```
 
 **When to use `.ref()`:**
-- Taking references of owned values: `owned.ref()` → `&owned`
-- Creating `Ref<String>` from `String`
-- Creating `Ref<CustomType>` from `CustomType`
+- Converting owned values to references: `Own<T>` → `T`
+- Example: `Own<String>` → `String` (which transpiles to `&String`)
 
-**When NOT to use `.ref()`:**
-- String literals are already references: `"hello"` is already `Ref<Str>` (`&str`)
-- Values that are already reference types
+**Remember:**
+- Types without `Own<>` are already references
+- `.ref()` is only needed when you have an owned value (`Own<T>`) and need a reference
 
 ### Mutable References with `MutRef<T>` and `MutRef()` function
 
@@ -224,7 +230,7 @@ Veltrano supports both line comments and block comments, similar to many C-style
 // This is a line comment
 fun main() {
     // Variable declaration with comment
-    val message: Ref<Str> = "Hello, World!"
+    val message: Str = "Hello, World!"
     
     /* This is a
        multi-line block comment

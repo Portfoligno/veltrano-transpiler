@@ -1,0 +1,34 @@
+// Demonstrates symmetric behavior of Ref<T> and MutRef<T>
+fun takesRef(value: String) {
+    println("Ref: {}", value)
+}
+
+fun takesExplicitRef(value: Ref<String>) {
+    println("Explicit ref: {}", value)
+}
+
+fun takesMutRef(value: MutRef<String>) {
+    println("Mutable ref: {}", value)
+}
+
+fun takesMutRefOwned(value: MutRef<Own<String>>) {
+    println("Mutable ref to owned: {}", value)
+}
+
+fun main() {
+    val owned: Own<String> = "Hello".toString()
+    val borrowed: String = owned.ref()
+    
+    // Symmetric behavior:
+    // String and Ref<String> are equivalent (both &String)
+    takesRef(borrowed)
+    takesExplicitRef(borrowed)  // Ref<String> same as String
+    
+    // MutRef<String> would be &mut &String (mutable ref to immutable ref)
+    // Note: Current MutRef() function implementation doesn't handle this case yet
+    // takesMutRef(mutRefToBorrowed)
+    
+    // MutRef<Own<String>> is &mut String (covers owned values)
+    val mutRefToOwned: MutRef<Own<String>> = MutRef(owned)
+    takesMutRefOwned(mutRefToOwned)
+}
