@@ -113,6 +113,12 @@ The pattern repeats: develop on `X-dev`, release as `X`, then move to `(X+1)-dev
 
 ### CHANGELOG.md Guidelines
 
+**CRITICAL: Verify Against Previous Release**
+Before writing any CHANGELOG entry:
+1. **Check what existed in the previous release** - Use `git show <prev-tag>:src/ast.rs` etc.
+2. **Only document actual changes** - Features that didn't exist before go in "Added", not "Changed"
+3. **Verify breaking changes** - Only mark as BREAKING if it changes existing behavior
+
 **What to include in CHANGELOG entries:**
 - User-facing changes to the transpiler functionality
 - Bug fixes that affect transpiler behavior
@@ -127,11 +133,24 @@ The pattern repeats: develop on `X-dev`, release as `X`, then move to `(X+1)-dev
 - Development workflow improvements
 - Build process changes (unless they affect users)
 - Code formatting or style changes (unless they fix bugs)
+- Evolution of features added in the same release cycle
+
+**Accuracy Guidelines:**
+- **Added**: Only for features that didn't exist in the previous release
+- **Changed**: Only for modifications to existing features (must exist in previous release)
+- **Removed**: Only for features that existed in previous release but are now gone
+- **Breaking**: Only when existing code would stop working after the update
+
+**Examples of Common Mistakes:**
+- ❌ Listing `.mutRef()` changes as "Changed" when it was added after last release
+- ❌ Marking removal of unary `+` as "Removed" when it never existed before
+- ❌ Documenting iterative development of new features as separate changes
 
 **Format:**
 - Follow [Keep a Changelog](https://keepachangelog.com/) format
 - Group changes under: Added, Changed, Fixed, Deprecated, Removed, Security
 - Focus on what users need to know, not internal development details
+- Be specific about what generates what (e.g., "MutRef(v) generates &mut (&v).clone()")
 
 ### Release Steps
 When the user requests a release:
@@ -275,4 +294,5 @@ When the user requests a release:
 **Problem:** Losing track of ongoing work across sessions
 **Solution:** Actively maintain TODO section, marking items as IN PROGRESS or completed
 **Self-Check:** "Is my current task in the TODO list? Are completed items marked?"
+
 
