@@ -471,6 +471,37 @@ fn extract_veltrano_code_examples(readme: &str) -> Vec<String> {
     examples
 }
 
+fn extract_table_examples(readme: &str) -> Vec<String> {
+    let mut examples = Vec::new();
+    let lines: Vec<&str> = readme.lines().collect();
+    let mut i = 0;
+
+    while i < lines.len() {
+        let line = lines[i];
+        
+        // Look for table rows with Veltrano code examples
+        if line.contains("|") && line.contains("val ") {
+            // Extract the example column (typically the last column)
+            let columns: Vec<&str> = line.split('|').collect();
+            if columns.len() >= 4 {
+                let example_column = columns[columns.len() - 2].trim(); // Second to last column (last is usually empty)
+                
+                // Look for Veltrano code patterns
+                if example_column.starts_with("`val ") && example_column.ends_with("`") {
+                    // Extract the code between backticks
+                    let code = example_column.trim_start_matches('`').trim_end_matches('`');
+                    if !code.is_empty() {
+                        examples.push(code.to_string());
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+
+    examples
+}
+
 fn normalize_code(code: &str) -> String {
     code.lines()
         .map(|line| line.trim())
@@ -947,4 +978,96 @@ fn test_mutref_method_chaining() {
         "Expected '&mut owned' but got: {}",
         rust_code
     );
+}
+
+#[test]
+fn test_readme_table_examples() {
+    let readme_content = fs::read_to_string("README.md").expect("Failed to read README.md");
+    let table_examples = extract_table_examples(&readme_content);
+    
+    println!("Found {} table examples", table_examples.len());
+
+    for (index, example) in table_examples.iter().enumerate() {
+        let config = Config {
+            preserve_comments: false,
+        };
+        let mut lexer = Lexer::with_config(example.clone(), config.clone());
+        let all_tokens = lexer.tokenize();
+        let mut parser = Parser::new(all_tokens);
+
+        let program = match parser.parse() {
+            Ok(program) => program,
+            Err(_err) => {
+                // Some table examples might be fragments, let's try wrapping in a function
+                let wrapped_example = format!("fun main() {{\n    {}\n}}", example);
+                let mut lexer2 = Lexer::with_config(wrapped_example.clone(), config.clone());
+                let all_tokens2 = lexer2.tokenize();
+                let mut parser2 = Parser::new(all_tokens2);
+                
+                match parser2.parse() {
+                    Ok(program) => program,
+                    Err(_) => {
+                        println!("Skipping table example {} (fragment): {}", index, example);
+                        continue;
+                    }
+                }
+            }
+        };
+
+        // Generate Rust code
+        let mut codegen = CodeGenerator::with_config(config.clone());
+        let rust_code = codegen.generate(&program);
+
+        // Create a temporary Rust file
+        let temp_file = format!("/tmp/table_example_{}.rs", index);
+
+        // Wrap the code in a main function if it's not already a complete program
+        let complete_rust_code = if rust_code.contains("fn main") {
+            rust_code.clone()
+        } else {
+            // Add common variable declarations for table examples
+            let mut vars = String::new();
+            if rust_code.contains("owned") {
+                vars.push_str("let owned = String::from(\"example\");\n");
+            }
+            if rust_code.contains("borrowed") {
+                vars.push_str("let borrowed = &String::from(\"example\");\n");
+            }
+            if rust_code.contains("num") {
+                vars.push_str("let num = 42i64;\n");
+            }
+            if rust_code.contains("&s") && !rust_code.contains("let s") {
+                vars.push_str("let s = &String::from(\"example\");\n");
+            }
+            
+            format!("fn main() {{\n{}{}\n}}", vars, rust_code)
+        };
+
+        fs::write(&temp_file, &complete_rust_code)
+            .expect(&format!("Failed to write temp file {}", temp_file));
+
+        // Try to compile the generated Rust code
+        let output = Command::new("rustc")
+            .arg("--crate-type")
+            .arg("bin")
+            .arg("--edition")
+            .arg("2021")
+            .arg("-o")
+            .arg(&format!("/tmp/table_example_{}", index))
+            .arg(&temp_file)
+            .output()
+            .expect("Failed to execute rustc");
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            panic!(
+                "Table example {} failed to compile:\n{}\n\nVeltrano code:\n{}\n\nGenerated Rust code:\n{}",
+                index, stderr, example, complete_rust_code
+            );
+        }
+
+        // Clean up temporary files
+        let _ = fs::remove_file(&temp_file);
+        let _ = fs::remove_file(&format!("/tmp/table_example_{}", index));
+    }
 }
