@@ -196,6 +196,9 @@ impl CodeGenerator {
             LiteralExpr::Bool(value) => {
                 self.output.push_str(&value.to_string());
             }
+            LiteralExpr::Unit => {
+                self.output.push_str("()");
+            }
             LiteralExpr::Null => {
                 self.output.push_str("None");
             }

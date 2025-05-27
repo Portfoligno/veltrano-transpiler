@@ -1,0 +1,19 @@
+// Unit literal examples
+fun main() {
+    // Unit literal usage
+    val unit_value = Unit
+    val explicit_unit: Unit = Unit
+    
+    // Unit is useful for functions that return nothing meaningful
+    fun do_something(): Unit {
+        println("Doing something...")
+        Unit
+    }
+    
+    // Unit can be returned from functions
+    val result = do_something()
+    
+    // Unit values can be passed around
+    val another_unit = unit_value
+    println("Unit value: {:?}", unit_value)
+}

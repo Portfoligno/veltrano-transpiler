@@ -356,6 +356,10 @@ impl Parser {
         if let TokenType::Identifier(name) = &self.peek().token_type {
             let name = name.clone();
             self.advance();
+            // Check if this is the Unit literal
+            if name == "Unit" {
+                return Ok(Expr::Literal(LiteralExpr::Unit));
+            }
             return Ok(Expr::Identifier(name));
         }
 

@@ -40,6 +40,7 @@ pub enum LiteralExpr {
     Int(i64),
     String(String),
     Bool(bool),
+    Unit,
     Null,
 }
 

@@ -63,7 +63,7 @@ fn test_readme_examples() {
     let readme_content = fs::read_to_string("README.md").expect("Failed to read README.md");
 
     let examples = extract_code_examples(&readme_content);
-    
+
     // Check expected count of transpilation examples (Veltrano -> Rust pairs)
     assert_eq!(
         examples.len(), 3,
@@ -102,7 +102,7 @@ fn test_readme_examples() {
 fn test_readme_rust_outputs_compile() {
     let readme_content = fs::read_to_string("README.md").expect("Failed to read README.md");
     let rust_examples = extract_rust_code_examples(&readme_content);
-    
+
     // Check expected count of Rust code blocks
     assert_eq!(
         rust_examples.len(), 4,
@@ -161,7 +161,7 @@ fn test_readme_rust_outputs_compile() {
 fn test_readme_veltrano_snippets_transpile_and_compile() {
     let readme_content = fs::read_to_string("README.md").expect("Failed to read README.md");
     let veltrano_examples = extract_veltrano_code_examples(&readme_content);
-    
+
     // Check expected count of standalone Veltrano code blocks
     assert_eq!(
         veltrano_examples.len(), 12,
@@ -364,7 +364,10 @@ fn extract_code_examples(readme: &str) -> Vec<(String, String)> {
 
     while i < lines.len() {
         // Look for "Transpiles to:" or "Generated Output" followed by rust code
-        if lines[i].contains("**Transpiles to:**") || lines[i].contains("transpiles to:**") || lines[i].contains("**Generated Output") {
+        if lines[i].contains("**Transpiles to:**")
+            || lines[i].contains("transpiles to:**")
+            || lines[i].contains("**Generated Output")
+        {
             // Look backwards for the most recent kotlin block
             let mut kotlin_start = None;
             let mut j = i;
@@ -375,7 +378,10 @@ fn extract_code_examples(readme: &str) -> Vec<(String, String)> {
                     break;
                 }
                 // Stop if we hit another "Transpiles to:" or similar
-                if lines[j].contains("**Transpiles to:**") || lines[j].contains("**Examples:**") || lines[j].contains("**Example Input") {
+                if lines[j].contains("**Transpiles to:**")
+                    || lines[j].contains("**Examples:**")
+                    || lines[j].contains("**Example Input")
+                {
                     break;
                 }
             }
@@ -499,14 +505,14 @@ fn extract_table_examples(readme: &str) -> Vec<String> {
 
     while i < lines.len() {
         let line = lines[i];
-        
+
         // Look for table rows with Veltrano code examples
         if line.contains("|") && line.contains("val ") {
             // Extract the example column (typically the last column)
             let columns: Vec<&str> = line.split('|').collect();
             if columns.len() >= 4 {
                 let example_column = columns[columns.len() - 2].trim(); // Second to last column (last is usually empty)
-                
+
                 // Look for Veltrano code patterns
                 if example_column.starts_with("`val ") && example_column.ends_with("`") {
                     // Extract the code between backticks
@@ -1005,7 +1011,7 @@ fn test_mutref_method_chaining() {
 fn test_readme_table_examples() {
     let readme_content = fs::read_to_string("README.md").expect("Failed to read README.md");
     let table_examples = extract_table_examples(&readme_content);
-    
+
     // Check expected count of table examples
     assert_eq!(
         table_examples.len(), 4,
@@ -1029,7 +1035,7 @@ fn test_readme_table_examples() {
                 let mut lexer2 = Lexer::with_config(wrapped_example.clone(), config.clone());
                 let all_tokens2 = lexer2.tokenize();
                 let mut parser2 = Parser::new(all_tokens2);
-                
+
                 match parser2.parse() {
                     Ok(program) => program,
                     Err(_) => {
@@ -1065,7 +1071,7 @@ fn test_readme_table_examples() {
             if rust_code.contains("&s") && !rust_code.contains("let s") {
                 vars.push_str("let s = &String::from(\"example\");\n");
             }
-            
+
             format!("fn main() {{\n{}{}\n}}", vars, rust_code)
         };
 
@@ -1096,4 +1102,31 @@ fn test_readme_table_examples() {
         let _ = fs::remove_file(&temp_file);
         let _ = fs::remove_file(&format!("/tmp/table_example_{}", index));
     }
+}
+
+#[test]
+fn test_unit_literal() {
+    let source = r#"
+fun main() {
+    val x: Unit = Unit
+    val y = Unit
+    println("{:?}", x)
+    println("{:?}", y)
+}
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut codegen = CodeGenerator::with_config(config);
+    let rust_code = codegen.generate(&program);
+
+    // Check that Unit literal is transpiled to ()
+    assert!(rust_code.contains("let x: () = ()"));
+    assert!(rust_code.contains("let y = ()"));
 }

@@ -11,7 +11,7 @@ fun main() {
     // Different types
     val number: Int = 42
     val flag: Bool = true
-    // val empty: Unit = ()  // TODO: Unit literal not yet supported
+    val empty: Unit = Unit  // Unit literal
     
     println("Number: {}", number)
     println("Flag: {}", flag)
