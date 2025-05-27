@@ -6,7 +6,10 @@ pub struct Type {
 
 impl Type {
     pub fn owned(base: BaseType) -> Self {
-        Type { base, reference_depth: 0 }
+        Type {
+            base,
+            reference_depth: 0,
+        }
     }
 }
 

@@ -741,8 +741,10 @@ fn test_own_value_type_validation() {
     let result6 = parser6.parse();
     assert!(result6.is_err(), "Expected parse error for Own<Own<T>>");
     assert!(
-        result6.unwrap_err().contains("Own<T> is already owned"),
-        "Expected error message about Own already being owned"
+        result6
+            .unwrap_err()
+            .contains("Cannot use Own<> on already owned type"),
+        "Expected error message about Own on already owned type"
     );
 }
 

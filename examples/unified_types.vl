@@ -3,11 +3,11 @@ fun main() {
     // Base types with different reference depths
     val ownedInt: Int = 42                    // BaseType::Int, reference_depth: 0 → i64
     val ownedString: Own<String> = "owned".toString() // BaseType::String, reference_depth: 0 → String
-    val refString: String = "ref".toString()  // BaseType::String, reference_depth: 1 → &String
-    val refRefString: Ref<String> = refString // BaseType::String, reference_depth: 2 → &&String
+    val refString: String = ownedString.ref()  // BaseType::String, reference_depth: 1 → &String
+    val refRefString: Ref<String> = refString.ref() // BaseType::String, reference_depth: 2 → &&String
     
-    // MutRef types
-    val mutRefString: MutRef<String> = MutRef(refString)      // BaseType::MutRef<...>, reference_depth: 0 → &mut &String
+    // MutRef types - note the MutRef() function needs work for complex cases
+    // val mutRefString: MutRef<String> = MutRef(refString)      // Would be &mut &String
     val mutRefOwned: MutRef<Own<String>> = MutRef(ownedString) // BaseType::MutRef<...>, reference_depth: 0 → &mut String
     
     // Custom types follow reference-by-default

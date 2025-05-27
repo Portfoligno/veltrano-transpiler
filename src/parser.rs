@@ -375,8 +375,14 @@ impl Parser {
 
             match type_name.as_str() {
                 "Int" => Ok(Type::owned(BaseType::Int)),
-                "Str" => Ok(Type { base: BaseType::Str, reference_depth: 1 }), // reference-by-default
-                "String" => Ok(Type { base: BaseType::String, reference_depth: 1 }), // reference-by-default
+                "Str" => Ok(Type {
+                    base: BaseType::Str,
+                    reference_depth: 1,
+                }), // reference-by-default
+                "String" => Ok(Type {
+                    base: BaseType::String,
+                    reference_depth: 1,
+                }), // reference-by-default
                 "Bool" => Ok(Type::owned(BaseType::Bool)),
                 "Unit" => Ok(Type::owned(BaseType::Unit)),
                 "Nothing" => Ok(Type::owned(BaseType::Nothing)),
@@ -384,7 +390,10 @@ impl Parser {
                 "Own" => self.parse_own_type(),
                 "MutRef" => self.parse_mutref_type(),
                 "Box" => self.parse_box_type(),
-                _ => Ok(Type { base: BaseType::Custom(type_name), reference_depth: 1 }), // reference-by-default
+                _ => Ok(Type {
+                    base: BaseType::Custom(type_name),
+                    reference_depth: 1,
+                }), // reference-by-default
             }
         } else {
             Err("Expected type name".to_string())
@@ -396,9 +405,9 @@ impl Parser {
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
         // Ref<T> adds one more reference level to T
-        Ok(Type { 
-            base: inner_type.base, 
-            reference_depth: inner_type.reference_depth + 1 
+        Ok(Type {
+            base: inner_type.base,
+            reference_depth: inner_type.reference_depth + 1,
         })
     }
 
@@ -406,7 +415,7 @@ impl Parser {
         self.consume(&TokenType::Less, "Expected '<' after Own")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
-        
+
         // Validate that Own<T> is not used with invalid types
         match &inner_type.base {
             BaseType::Int | BaseType::Bool | BaseType::Unit => {
@@ -416,29 +425,22 @@ impl Parser {
                 ));
             }
             BaseType::MutRef(_) => {
-                return Err(
-                    "Cannot use Own<MutRef<T>>. MutRef<T> is already owned.".to_string()
-                );
+                return Err("Cannot use Own<MutRef<T>>. MutRef<T> is already owned.".to_string());
             }
             BaseType::Box(_) => {
-                return Err(
-                    "Cannot use Own<Box<T>>. Box<T> is already owned.".to_string()
-                );
+                return Err("Cannot use Own<Box<T>>. Box<T> is already owned.".to_string());
             }
             _ => {}
         }
-        
-        // Check if this is Own<Own<T>> by checking if reference_depth is 0
+
+        // Own<T> subtracts 1 from reference_depth
         if inner_type.reference_depth == 0 {
-            return Err(
-                "Cannot use Own<Own<T>>. Own<T> is already owned.".to_string()
-            );
+            return Err("Cannot use Own<> on already owned type.".to_string());
         }
-        
-        // Own<T> sets reference_depth to 0 (owned)
-        Ok(Type { 
-            base: inner_type.base, 
-            reference_depth: 0 
+
+        Ok(Type {
+            base: inner_type.base,
+            reference_depth: inner_type.reference_depth - 1,
         })
     }
 
@@ -446,9 +448,9 @@ impl Parser {
         self.consume(&TokenType::Less, "Expected '<' after MutRef")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
-        Ok(Type { 
-            base: BaseType::MutRef(Box::new(inner_type)), 
-            reference_depth: 0  // MutRef<T> is always owned
+        Ok(Type {
+            base: BaseType::MutRef(Box::new(inner_type)),
+            reference_depth: 0, // MutRef<T> is always owned
         })
     }
 
@@ -456,9 +458,9 @@ impl Parser {
         self.consume(&TokenType::Less, "Expected '<' after Box")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
-        Ok(Type { 
-            base: BaseType::Box(Box::new(inner_type)), 
-            reference_depth: 0  // Box<T> is always owned
+        Ok(Type {
+            base: BaseType::Box(Box::new(inner_type)),
+            reference_depth: 0, // Box<T> is always owned
         })
     }
 

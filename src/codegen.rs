@@ -224,11 +224,11 @@ impl CodeGenerator {
         for _ in 0..type_annotation.reference_depth {
             self.output.push('&');
         }
-        
+
         // Generate the base type
         self.generate_base_type(&type_annotation.base);
     }
-    
+
     fn generate_base_type(&mut self, base_type: &BaseType) {
         match base_type {
             BaseType::Int => self.output.push_str("i64"),
