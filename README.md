@@ -104,7 +104,7 @@ In Veltrano, the type system is built around making references the default:
 | `T` | `&T` | Reference to T (default) | `val x: String = owned.ref()` |
 | `Own<T>` | `T` | Owned T | `val x: Own<String> = "hello".toString()` |
 | `Ref<T>` | `&&T` | Additional reference level | `val x: Ref<String> = s.ref()` |
-| `MutRef<T>` | `&mut T` | Mutable reference | `val x: MutRef<Int> = MutRef(42)` |
+| `MutRef<T>` | `&mut &T` | Mutable reference | `val x: MutRef<String> = MutRef(borrowed)` |
 
 ### Working with References
 
