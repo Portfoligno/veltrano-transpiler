@@ -132,6 +132,32 @@ val mutableRef: MutRef<Int> = MutRef(number)
 val mutableRef2: MutRef<Int> = number.ref().clone().mutRef()
 ```
 
+**Example with function:**
+```kotlin
+fun modify(value: MutRef<Int>) {
+    // Function accepting a mutable reference
+}
+
+fun main() {
+    val number: Int = 42
+    val mutableRef: MutRef<Int> = MutRef(number)
+    modify(mutableRef)
+}
+```
+
+**Transpiles to:**
+```rust
+fn modify(value: &mut i64) {
+    // Function accepting a mutable reference
+}
+
+fn main() {
+    let number: i64 = 42;
+    let mutable_ref: &mut i64 = &mut (&number).clone();
+    modify(mutable_ref);
+}
+```
+
 The `MutRef()` function automatically handles the borrow-and-clone pattern, making it the preferred approach for creating mutable references in Veltrano's immutability-first design.
 
 ## Language Guide
@@ -218,6 +244,22 @@ fun documented() {
 }
 ```
 
+### Never Type
+
+The `Nothing` type represents computations that never return:
+
+```kotlin
+fun abort(message: Str): Nothing {
+    panic("{}", message)  // Never returns
+}
+
+fun infiniteLoop(): Nothing {
+    while (true) {
+        // Never returns - transpiles to Rust's loop
+    }
+}
+```
+
 ### Naming Conventions
 
 Veltrano automatically converts Kotlin's camelCase to Rust's snake_case:
@@ -230,6 +272,22 @@ Veltrano automatically converts Kotlin's camelCase to Rust's snake_case:
 | `getValue` | `get_value` |
 
 This applies to all identifiers: functions, variables, and parameters.
+
+**Example:**
+```kotlin
+fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
+    val totalResult: Int = firstNumber + secondNumber
+    return totalResult
+}
+```
+
+**Transpiles to:**
+```rust
+fn calculate_sum(first_number: i64, second_number: i64) -> i64 {
+    let total_result: i64 = first_number + second_number;
+    return total_result;
+}
+```
 
 ## Command Line Reference
 

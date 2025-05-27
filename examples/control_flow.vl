@@ -1,0 +1,37 @@
+// Control flow examples
+fun countDown(n: Int) {
+    // val mut: Int = n  // TODO: Veltrano doesn't support mutable variables
+    
+    // While loop example
+    // while (mut > 0) {
+    //     println("Countdown: {}", mut)
+    //     mut = mut - 1  // TODO: Cannot reassign in Veltrano
+    // }
+    
+    // Simplified version without mutation
+    if (n > 0) {
+        println("Starting countdown from {}", n)
+    }
+    
+    println("Liftoff!")
+}
+
+fun checkNumber(n: Int) {
+    // If-else example
+    if (n > 0) {
+        println("{} is positive", n)
+    } else if (n < 0) {
+        println("{} is negative", n)
+    } else {
+        println("{} is zero", n)
+    }
+}
+
+fun main() {
+    countDown(5)
+    println("")
+    
+    checkNumber(42)
+    // checkNumber(-7)  // TODO: Negative literals not yet supported
+    checkNumber(0)
+}

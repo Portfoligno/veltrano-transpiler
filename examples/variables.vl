@@ -1,0 +1,18 @@
+// Variable declaration examples
+fun main() {
+    // Immutable variable with type annotation
+    val immutable_var: Str = "Hello"
+    println("{}", immutable_var)
+    
+    // Type inference
+    val inferred = "World"
+    println("{}", inferred)
+    
+    // Different types
+    val number: Int = 42
+    val flag: Bool = true
+    // val empty: Unit = ()  // TODO: Unit literal not yet supported
+    
+    println("Number: {}", number)
+    println("Flag: {}", flag)
+}
