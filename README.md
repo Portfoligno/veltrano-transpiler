@@ -128,8 +128,8 @@ val number: Int = 42
 val mutableRef: MutRef<Int> = MutRef(number)
 
 // Alternative: .mutRef() method - generates &mut value
-val cloned = number.ref().clone()
-val mutableRef2: MutRef<Int> = cloned.mutRef()
+// Chain directly without binding to avoid immutability issues
+val mutableRef2: MutRef<Int> = number.ref().clone().mutRef()
 ```
 
 The `MutRef()` function automatically handles the borrow-and-clone pattern, making it the preferred approach for creating mutable references in Veltrano's immutability-first design.
@@ -141,9 +141,10 @@ The `MutRef()` function automatically handles the borrow-and-clone pattern, maki
 Veltrano uses `val` for immutable variable bindings:
 
 ```kotlin
-val name: String = "Alice"          // Explicitly typed
+val name: Str = "Alice"             // String slice (explicitly typed)
 val age = 25                        // Type inference (Int)
-val message: Str = "Hello, World!"  // String slice
+val message = "Hello, World!"       // Type inference (Str)
+val owned: Own<String> = "Bob".toString()  // Owned string
 ```
 
 ### Functions
@@ -161,23 +162,23 @@ fun add(a: Int, b: Int): Int {
     return a + b
 }
 
-// Expression body (implicit return)
+// Expression body (explicit return needed)
 fun multiply(x: Int, y: Int): Int {
-    x * y
+    return x * y
 }
 ```
 
 ### Control Flow
 
-#### If Expressions
+#### If Statements
 
 ```kotlin
-val result = if (x > 0) {
-    "positive"
+if (x > 0) {
+    println("positive")
 } else if (x < 0) {
-    "negative"
+    println("negative")
 } else {
-    "zero"
+    println("zero")
 }
 ```
 

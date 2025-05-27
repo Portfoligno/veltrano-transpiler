@@ -186,9 +186,11 @@ fn test_readme_veltrano_snippets_transpile_and_compile() {
         let complete_rust_code = if rust_code.contains("fn main") {
             rust_code.clone()
         } else {
-            // Special case for control flow example that uses undefined 'condition'
-            if rust_code.contains("if condition") || rust_code.contains("while condition") {
-                format!("fn main() {{\nlet condition = true;\n{}\n}}", rust_code)
+            // Special case for control flow examples that use undefined variables
+            if rust_code.contains("if x") {
+                format!("fn main() {{\nlet x = 10;\n{}\n}}", rust_code)
+            } else if rust_code.contains("while counter") {
+                format!("fn main() {{\nlet counter = 0;\n{}\n}}", rust_code)
             } else {
                 format!("fn main() {{\n{}\n}}", rust_code)
             }
