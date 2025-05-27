@@ -63,6 +63,13 @@ fn test_readme_examples() {
     let readme_content = fs::read_to_string("README.md").expect("Failed to read README.md");
 
     let examples = extract_code_examples(&readme_content);
+    
+    // Check expected count of transpilation examples (Veltrano -> Rust pairs)
+    assert_eq!(
+        examples.len(), 3,
+        "Expected 3 transpilation examples in README, found {}. If you added/removed examples, update this count.",
+        examples.len()
+    );
 
     for (veltrano_code, expected_rust) in examples {
         let config = Config {
@@ -95,6 +102,13 @@ fn test_readme_examples() {
 fn test_readme_rust_outputs_compile() {
     let readme_content = fs::read_to_string("README.md").expect("Failed to read README.md");
     let rust_examples = extract_rust_code_examples(&readme_content);
+    
+    // Check expected count of Rust code blocks
+    assert_eq!(
+        rust_examples.len(), 4,
+        "Expected 4 Rust code examples in README, found {}. If you added/removed examples, update this count.",
+        rust_examples.len()
+    );
 
     for (index, rust_code) in rust_examples.iter().enumerate() {
         // Remove lines with intentional errors (marked with // ERROR comment)
@@ -147,6 +161,13 @@ fn test_readme_rust_outputs_compile() {
 fn test_readme_veltrano_snippets_transpile_and_compile() {
     let readme_content = fs::read_to_string("README.md").expect("Failed to read README.md");
     let veltrano_examples = extract_veltrano_code_examples(&readme_content);
+    
+    // Check expected count of standalone Veltrano code blocks
+    assert_eq!(
+        veltrano_examples.len(), 12,
+        "Expected 12 Veltrano code examples in README, found {}. If you added/removed examples, update this count.",
+        veltrano_examples.len()
+    );
 
     for (index, veltrano_code) in veltrano_examples.iter().enumerate() {
         // Skip examples that are marked as Kotlin (not Veltrano)
@@ -985,7 +1006,12 @@ fn test_readme_table_examples() {
     let readme_content = fs::read_to_string("README.md").expect("Failed to read README.md");
     let table_examples = extract_table_examples(&readme_content);
     
-    println!("Found {} table examples", table_examples.len());
+    // Check expected count of table examples
+    assert_eq!(
+        table_examples.len(), 4,
+        "Expected 4 table examples in README, found {}. If you added/removed examples, update this count.",
+        table_examples.len()
+    );
 
     for (index, example) in table_examples.iter().enumerate() {
         let config = Config {
