@@ -88,22 +88,23 @@ In Veltrano, the type system is built around making references the default:
 
 ### Type Mapping Reference
 
+### Base Types
 | Veltrano Type | Rust Type | Description | Example |
 |---------------|-----------|-------------|---------|
-| **Owned Types (Int, Bool, Unit, Nothing)** |
-| `Int` | `i64` | 64-bit integer | `val x: Int = 42` |
-| `Bool` | `bool` | Boolean | `val flag: Bool = true` |
+| `Int` | `i64` | 64-bit integer (always owned) | `val x: Int = 42` |
+| `Bool` | `bool` | Boolean (always owned) | `val flag: Bool = true` |
 | `Unit` | `()` | Unit type | `fun doSomething(): Unit` |
 | `Nothing` | `!` | Never type | `fun abort(): Nothing` |
-| `Ref<Int>` | `&i64` | Reference to integer | `val x: Ref<Int> = num.ref()` |
-| `MutRef<Int>` | `&mut i64` | Mutable reference to integer | `val x: MutRef<Int> = MutRef(42)` |
-| **Reference Types (String, Str, custom types)** |
 | `Str` | `&str` | String slice reference | `val s: Str = "hello"` |
-| `String` | `&String` | String reference | `val s: String = owned.ref()` |
-| `Own<String>` | `String` | Owned string | `val s: Own<String> = "hello".toString()` |
-| `Box<Str>` | `Box<str>` | Boxed string slice | `val s: Box<Str> = "hello".into()` |
-| `Ref<String>` | `&&String` | Additional reference level | `val x: Ref<String> = s.ref()` |
-| `MutRef<String>` | `&mut &String` | Mutable reference to string ref | `val x: MutRef<String> = MutRef(borrowed)` |
+| `String` | `&String` | String reference (default) | `val s: String = owned.ref()` |
+
+### Type Constructors
+| Pattern | Applied to Owned Base | Applied to Reference Base |
+|---------|----------------------|---------------------------|
+| `Own<T>` | Invalid (`Own<Int>`) | `Own<String>` → `String` |
+| `Ref<T>` | `Ref<Int>` → `&i64` | `Ref<String>` → `&&String` |
+| `MutRef<T>` | `MutRef<Int>` → `&mut i64` | `MutRef<String>` → `&mut &String` |
+| `Box<T>` | `Box<Int>` → `Box<i64>` | `Box<Str>` → `Box<str>` |
 
 ### Working with References
 
