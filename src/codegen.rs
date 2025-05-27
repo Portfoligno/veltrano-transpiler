@@ -280,16 +280,16 @@ impl CodeGenerator {
     fn generate_call_expression(&mut self, call: &CallExpr) {
         if let Expr::Identifier(name) = call.callee.as_ref() {
             if name == "MutRef" {
-                // Special case: MutRef(value) becomes &mut (value.clone())
+                // Special case: MutRef(value) becomes &mut (&value).clone()
                 if call.args.len() != 1 {
                     panic!(
                         "MutRef() requires exactly one argument, found {}",
                         call.args.len()
                     );
                 }
-                self.output.push_str("&mut (");
+                self.output.push_str("&mut (&");
                 self.generate_expression(&call.args[0]);
-                self.output.push_str(".clone())");
+                self.output.push_str(").clone()");
             } else if self.is_rust_macro(name) {
                 self.output.push_str(name);
                 self.output.push('!');
@@ -331,6 +331,17 @@ impl CodeGenerator {
             // This converts Own<T> to T (which is &T in Rust)
             self.output.push('&');
             self.generate_expression(&method_call.object);
+        } else if method_call.method == "mutRef" && method_call.args.is_empty() {
+            // Special case: obj.mutRef() becomes &mut obj
+            // No automatic cloning - users must explicitly call .clone() if needed
+            self.output.push_str("&mut ");
+            self.generate_expression(&method_call.object);
+        } else if method_call.method == "clone" && method_call.args.is_empty() {
+            // Special case: obj.clone() becomes Clone::clone(obj) using UFCS
+            // This avoids auto-ref and makes borrowing explicit
+            self.output.push_str("Clone::clone(");
+            self.generate_expression(&method_call.object);
+            self.output.push(')');
         } else {
             // Regular method call: obj.method(args)
             let snake_method = self.camel_to_snake_case(&method_call.method);

@@ -4,6 +4,7 @@ fun modify(value: MutRef<Int>) {
 }
 
 fun main() {
+    // MutRef() function simplifies creating mutable references
     val number: Int = 10
     val mutableRef: MutRef<Int> = MutRef(number)
     

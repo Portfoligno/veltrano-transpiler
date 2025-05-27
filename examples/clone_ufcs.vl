@@ -1,0 +1,35 @@
+// Demonstrates UFCS (Uniform Function Call Syntax) generation for .clone()
+// This avoids Rust's auto-ref behavior and makes borrowing explicit
+
+fun main() {
+    // Example 1: Cloning owned values - requires explicit reference
+    val owned: Own<String> = "Hello, UFCS!".toString()
+    // owned.clone() generates Clone::clone(owned) which won't compile
+    // since owned is String (not &String). We need to use ref() first:
+    val clonedOwned = owned.ref().clone()  // Generates: Clone::clone(&owned)
+    
+    // Example 2: Cloning references (this works)
+    val borrowed: String = owned.ref()
+    val clonedBorrowed = borrowed.clone()  // Generates: Clone::clone(borrowed)
+    
+    // Example 3: Proper pattern - clone from reference
+    val properClone = owned.ref().clone()  // Generates: Clone::clone(&owned)
+    
+    // Example 4: With integers (always owned in Veltrano)
+    val num: Int = 42
+    val numRef = num.ref()  // Creates &i64
+    val clonedNum = numRef.clone()  // Generates: Clone::clone(num_ref)
+    
+    // Example 5: Chained operations
+    val text: Own<String> = "Chain example".toString()
+    val result = text.ref().clone()  // Clone::clone(&text)
+    
+    // Example 6: MutRef function (simplified)
+    val mutable: Own<String> = "Mutable".toString()
+    val mutRef: MutRef<Own<String>> = MutRef(mutable)
+    // Generates: &mut (&mutable).clone()
+    
+    println("UFCS clone examples completed!")
+    println("Original: {}", owned)
+    println("Cloned: {}", properClone)
+}

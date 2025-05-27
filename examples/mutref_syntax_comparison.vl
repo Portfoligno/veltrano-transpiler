@@ -1,0 +1,36 @@
+// Demonstrates both MutRef syntaxes available in Veltrano
+// Both are supported, but MutRef() function is preferred for most cases
+
+fun main() {
+    val number: Int = 42
+    val text: Own<String> = "Hello".toString()
+    
+    // Method 1: MutRef() function (preferred)
+    // Generates: &mut (&value).clone()
+    // This is the recommended approach for creating mutable references
+    val mutRefFunc1: MutRef<Int> = MutRef(number)
+    val mutRefFunc2: MutRef<Own<String>> = MutRef(text)
+    
+    // Method 2: .mutRef() method (for symmetry with .ref())
+    // Generates: &mut value
+    // Useful for method chaining and when you already have a cloned value
+    // Note: Since Int is always owned, we need ref() before clone()
+    val mutRefMethod1: MutRef<Int> = number.ref().clone().mutRef()
+    
+    // For String references, clone() returns String (owned), so the type is MutRef<Own<String>>
+    val mutRefMethod2: MutRef<Own<String>> = text.ref().clone().mutRef()
+    
+    // Method chaining example where .mutRef() feels natural
+    val borrowed: String = text.ref()
+    // borrowed.clone() returns String (owned), so we need MutRef<Own<String>>
+    val complexRef: MutRef<Own<String>> = borrowed.clone().mutRef()
+    
+    // Both syntaxes produce valid mutable references
+    println("MutRef() function examples: {} and {}", mutRefFunc1, mutRefFunc2)
+    println(".mutRef() method examples: {} and {}", mutRefMethod1, mutRefMethod2)
+    println("Method chaining example: {}", complexRef)
+    
+    // Note the semantic difference:
+    // - MutRef(value) clones the value internally
+    // - value.mutRef() requires you to clone explicitly if needed
+}

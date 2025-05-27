@@ -25,9 +25,10 @@ fun main() {
     // takesExplicitRef requires &&String, so we'd need &borrowed
     // takesExplicitRef(&borrowed)
     
-    // MutRef<String> would be &mut &String (mutable ref to immutable ref)
-    // Note: Current MutRef() function implementation doesn't handle this case yet
-    // takesMutRef(mutRefToBorrowed)
+    // MutRef<String> is &mut &String (mutable ref to immutable ref)
+    // We can use MutRef() on the borrowed reference
+    val mutRefToBorrowed: MutRef<String> = MutRef(borrowed)
+    takesMutRef(mutRefToBorrowed)
     
     // MutRef<Own<String>> is &mut String (covers owned values)
     val mutRefToOwned: MutRef<Own<String>> = MutRef(owned)

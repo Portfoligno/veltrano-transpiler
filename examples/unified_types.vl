@@ -6,8 +6,8 @@ fun main() {
     val refString: String = ownedString.ref()  // BaseType::String, reference_depth: 1 → &String
     val refRefString: Ref<String> = refString.ref() // BaseType::String, reference_depth: 2 → &&String
     
-    // MutRef types - note the MutRef() function needs work for complex cases
-    // val mutRefString: MutRef<String> = MutRef(refString)      // Would be &mut &String
+    // MutRef types - MutRef() function simplifies creating mutable references
+    val mutRefString: MutRef<String> = MutRef(refString)  // Creates &mut &String
     val mutRefOwned: MutRef<Own<String>> = MutRef(ownedString) // BaseType::MutRef<...>, reference_depth: 0 → &mut String
     
     // Custom types follow reference-by-default

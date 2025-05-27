@@ -15,7 +15,7 @@ A transpiler from Veltrano (Kotlin-like syntax) to Rust.
 - Reference-by-default design: `String`, `Str` are references by default
 - Explicit ownership: `Own<T>` for owned values
 - Explicit references: `Ref<T>` for additional reference levels
-- Mutable references: `MutRef<T>` with `MutRef()` function
+- Mutable references: `MutRef<T>` with `MutRef()` function and `.mutRef()` method
 - Basic types: `Int`, `Bool`, `Unit`, `Nothing` (always owned)
 
 ## Usage
@@ -166,7 +166,7 @@ fun modify(value: MutRef<Int>) {
 
 fun main() {
     val number: Int = 42
-    val mutableRef: MutRef<Int> = MutRef(number)  // Creates mutable reference
+    val mutableRef: MutRef<Int> = MutRef(number)  // MutRef() creates a mutable reference to a clone
     modify(mutableRef)
 }
 ```
@@ -179,12 +179,12 @@ fn modify(value: &mut i64) {
 
 fn main() {
     let number: i64 = 42;
-    let mutable_ref: &mut i64 = &mut (number.clone());  // Creates mutable reference
+    let mutable_ref: &mut i64 = &mut (&number).clone();  // MutRef() creates a mutable reference to a clone
     modify(mutable_ref);
 }
 ```
 
-**Note:** Since Veltrano only supports `val` (immutable bindings), the `MutRef()` function creates a mutable reference to a cloned value. This maintains Rust's borrowing rules while working within Veltrano's immutability-first design.
+**Note:** The `MutRef()` function automatically handles borrowing and cloning, generating `&mut (&value).clone()` in Rust. This provides a clean syntax while making the cloning explicit and aligning with Rust's ownership principles. The `.mutRef()` method is also available (generating `&mut value`) for symmetry with `.ref()`, but `MutRef()` is the preferred approach.
 
 ### Naming Convention Conversion
 

@@ -592,11 +592,11 @@ fn test_inline_comments_with_and_without_preservation() {
 }
 
 #[test]
-fn test_mut_ref_type_and_function() {
+fn test_mut_ref_type_and_method() {
     // Test MutRef type annotation
     let veltrano_code = r#"fun testMutRef() {
-    val value: MutRef<Int> = MutRef(someVar)
-    val strRef: MutRef<Own<String>> = MutRef(text)
+    val value: MutRef<Int> = someVar.mutRef()
+    val strRef: MutRef<Own<String>> = text.mutRef()
 }"#;
 
     let config = Config {
@@ -610,42 +610,40 @@ fn test_mut_ref_type_and_function() {
     let mut codegen = CodeGenerator::with_config(config.clone());
     let rust_code = codegen.generate(&program);
 
-    // Check that MutRef<T> becomes &mut T
+    // Check that MutRef<T> becomes &mut T (no automatic .clone())
     assert!(
-        rust_code.contains("let value: &mut i64 = &mut (some_var.clone())"),
-        "Expected 'let value: &mut i64 = &mut (some_var.clone())' but got: {}",
+        rust_code.contains("let value: &mut i64 = &mut some_var"),
+        "Expected 'let value: &mut i64 = &mut some_var' but got: {}",
         rust_code
     );
     assert!(
-        rust_code.contains("let str_ref: &mut String = &mut (text.clone())"),
-        "Expected 'let str_ref: &mut String = &mut (text.clone())' but got: {}",
+        rust_code.contains("let str_ref: &mut String = &mut text"),
+        "Expected 'let str_ref: &mut String = &mut text' but got: {}",
         rust_code
     );
 
-    // Test MutRef() function call without type annotation
-    let veltrano_code2 = r#"fun testMutRefFunction() {
-    val mutableRef = MutRef(number)
-    val another = MutRef("test")
+    // Test .mutRef() method call without type annotation
+    let veltrano_code2 = r#"fun testMutRefMethod() {
+    val mutableRef = number.mutRef()
+    val another = "test".mutRef()
 }"#;
 
     let mut lexer2 = Lexer::with_config(veltrano_code2.to_string(), config.clone());
     let all_tokens2 = lexer2.tokenize();
     let mut parser2 = Parser::new(all_tokens2);
-    let program2 = parser2
-        .parse()
-        .expect("Failed to parse MutRef function test");
+    let program2 = parser2.parse().expect("Failed to parse mutRef method test");
     let mut codegen2 = CodeGenerator::with_config(config.clone());
     let rust_code2 = codegen2.generate(&program2);
 
-    // Check that MutRef() becomes &mut (x.clone())
+    // Check that .mutRef() becomes &mut x (no automatic .clone())
     assert!(
-        rust_code2.contains("let mutable_ref = &mut (number.clone())"),
-        "Expected 'let mutable_ref = &mut (number.clone())' but got: {}",
+        rust_code2.contains("let mutable_ref = &mut number"),
+        "Expected 'let mutable_ref = &mut number' but got: {}",
         rust_code2
     );
     assert!(
-        rust_code2.contains("let another = &mut (\"test\".clone())"),
-        "Expected 'let another = &mut (\"test\".clone())' but got: {}",
+        rust_code2.contains("let another = &mut \"test\""),
+        "Expected 'let another = &mut \"test\"' but got: {}",
         rust_code2
     );
 }
@@ -811,4 +809,140 @@ fn test_fail_examples() {
             );
         }
     }
+}
+
+#[test]
+fn test_clone_ufcs_generation() {
+    // Test that clone() generates UFCS syntax
+    let veltrano_code = r#"fun testClone() {
+    val owned: Own<String> = "hello".toString()
+    val borrowed: String = owned.ref()
+    
+    // Test various clone scenarios
+    val clonedOwned = owned.clone()
+    val clonedBorrowed = borrowed.clone()
+    
+    // Test with method chaining
+    val chained = owned.ref().clone()
+}"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
+    let all_tokens = lexer.tokenize();
+    let mut parser = Parser::new(all_tokens);
+
+    let program = parser.parse().expect("Failed to parse clone test");
+    let mut codegen = CodeGenerator::with_config(config.clone());
+    let rust_code = codegen.generate(&program);
+
+    // Check UFCS generation for clone
+    assert!(
+        rust_code.contains("let cloned_owned = Clone::clone(owned)"),
+        "Expected 'Clone::clone(owned)' but got: {}",
+        rust_code
+    );
+    assert!(
+        rust_code.contains("let cloned_borrowed = Clone::clone(borrowed)"),
+        "Expected 'Clone::clone(borrowed)' but got: {}",
+        rust_code
+    );
+    assert!(
+        rust_code.contains("let chained = Clone::clone(&owned)"),
+        "Expected 'Clone::clone(&owned)' for chained call but got: {}",
+        rust_code
+    );
+}
+
+#[test]
+fn test_mut_ref_function() {
+    // Test that MutRef() generates &mut (&value).clone()
+    let veltrano_code = r#"fun testMutRef() {
+    val owned: Own<String> = "hello".toString()
+    val borrowed: String = owned.ref()
+    
+    // Test MutRef() function
+    val mutRefOwned = MutRef(owned)
+    val mutRefBorrowed = MutRef(borrowed)
+    
+    // Test with literals
+    val mutRefLiteral = MutRef(42)
+}"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
+    let all_tokens = lexer.tokenize();
+    let mut parser = Parser::new(all_tokens);
+
+    let program = parser
+        .parse()
+        .expect("Failed to parse MutRef function test");
+    let mut codegen = CodeGenerator::with_config(config.clone());
+    let rust_code = codegen.generate(&program);
+
+    // Check &mut (&value).clone() generation
+    assert!(
+        rust_code.contains("let mut_ref_owned = &mut (&owned).clone()"),
+        "Expected '&mut (&owned).clone()' but got: {}",
+        rust_code
+    );
+    assert!(
+        rust_code.contains("let mut_ref_borrowed = &mut (&borrowed).clone()"),
+        "Expected '&mut (&borrowed).clone()' but got: {}",
+        rust_code
+    );
+    assert!(
+        rust_code.contains("let mut_ref_literal = &mut (&42).clone()"),
+        "Expected '&mut (&42).clone()' but got: {}",
+        rust_code
+    );
+}
+
+#[test]
+fn test_mutref_method_chaining() {
+    // Test that .mutRef() method works well with chaining
+    let veltrano_code = r#"fun testChaining() {
+    val owned: Own<String> = "hello".toString()
+    val borrowed: String = owned.ref()
+    
+    // Test method chaining patterns
+    val chained1 = owned.clone().mutRef()
+    val chained2 = borrowed.clone().ref().mutRef()
+    
+    // Direct .mutRef() usage
+    val directMut = owned.mutRef()
+}"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
+    let all_tokens = lexer.tokenize();
+    let mut parser = Parser::new(all_tokens);
+
+    let program = parser
+        .parse()
+        .expect("Failed to parse method chaining test");
+    let mut codegen = CodeGenerator::with_config(config.clone());
+    let rust_code = codegen.generate(&program);
+
+    // Check chaining patterns
+    assert!(
+        rust_code.contains("let chained1 = &mut Clone::clone(owned)"),
+        "Expected '&mut Clone::clone(owned)' but got: {}",
+        rust_code
+    );
+    assert!(
+        rust_code.contains("let chained2 = &mut &Clone::clone(borrowed)"),
+        "Expected '&mut &Clone::clone(borrowed)' but got: {}",
+        rust_code
+    );
+    assert!(
+        rust_code.contains("let direct_mut = &mut owned"),
+        "Expected '&mut owned' but got: {}",
+        rust_code
+    );
 }

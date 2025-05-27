@@ -22,10 +22,13 @@ fun main() {
     takesString(borrowed)
     takesRef(refToBorrowed)
     
-    // With MutRef - demonstrates full type coverage
-    // val mutable: MutRef<String> = MutRef(owned)  // Would be &mut &String
+    // With MutRef - we can use MutRef() function to create mutable references
+    val mutable: MutRef<String> = MutRef(borrowed)  // Creates &mut &String
+    
     // MutRef<Own<String>> covers the owned case:
     val ownedMutable: MutRef<Own<String>> = MutRef(owned)
-    // This would be MutRef<Ref<String>> → &mut &&String
-    // val mutRefToRef: MutRef<Ref<String>> = MutRef(borrowed)
+    
+    // For MutRef<Ref<String>> (would be &mut &&String):
+    val refRefString: Ref<String> = borrowed.ref()  // &&String
+    val mutRefToRef: MutRef<Ref<String>> = MutRef(refRefString)
 }

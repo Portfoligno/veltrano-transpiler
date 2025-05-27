@@ -1,0 +1,50 @@
+// Demonstrates practical MutRef usage patterns
+// Since Veltrano only has `val` (immutable bindings), we use MutRef() function 
+// to create mutable references when needed
+
+fun incrementCounter(counter: MutRef<Int>) {
+    // In real Rust, this would be: *counter += 1
+    // Future syntax sugar could make this more ergonomic
+}
+
+fun appendToList(list: MutRef<Own<String>>) {
+    // In real Rust, this would modify the string
+    // e.g., list.push_str(", World!")
+}
+
+fun swapValues(a: MutRef<Int>, b: MutRef<Int>) {
+    // Function that would swap two values via mutable references
+    // In Rust: std::mem::swap(a, b)
+}
+
+fun main() {
+    // Example 1: Counter pattern
+    val counter: Int = 0
+    val counterRef: MutRef<Int> = MutRef(counter)
+    incrementCounter(counterRef)
+    
+    // Example 2: String modification
+    val message: Own<String> = "Hello".toString()
+    val messageRef: MutRef<Own<String>> = MutRef(message)
+    appendToList(messageRef)
+    
+    // Example 3: Multiple mutable references (for swapping)
+    val x: Int = 10
+    val y: Int = 20
+    val xRef: MutRef<Int> = MutRef(x)
+    val yRef: MutRef<Int> = MutRef(y)
+    swapValues(xRef, yRef)
+    
+    // Example 4: Nested references - creating &mut &String
+    val text: Own<String> = "Example".toString()
+    val textRef: String = text.ref()  // &String
+    val mutTextRef: MutRef<String> = MutRef(textRef)  // &mut &String
+    
+    // Example 5: Collection-like patterns
+    // In a real implementation, we might have:
+    // val numbers: Own<Vec<Int>> = vec![1, 2, 3]
+    // val numbersRef: MutRef<Own<Vec<Int>>> = MutRef(numbers)
+    // Then pass numbersRef to functions that need to modify the vector
+    
+    println("MutRef patterns demonstrated!")
+}
