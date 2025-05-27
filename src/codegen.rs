@@ -169,10 +169,6 @@ impl CodeGenerator {
             }
             Expr::Unary(unary) => {
                 match &unary.operator {
-                    UnaryOp::Plus => {
-                        // Rust doesn't support leading +, so just emit the operand
-                        self.generate_expression(&unary.operand);
-                    }
                     UnaryOp::Minus => {
                         self.output.push('-');
                         // Wrap non-simple expressions in parentheses

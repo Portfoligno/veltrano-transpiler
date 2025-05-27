@@ -275,13 +275,12 @@ impl Parser {
 
     fn unary(&mut self) -> Result<Expr, String> {
         if self.match_token(&TokenType::Minus) {
-            let operator = UnaryOp::Minus;
-            let operand = Box::new(self.unary()?); // Right associative
-            return Ok(Expr::Unary(UnaryExpr { operator, operand }));
-        }
+            // Check for double minus without separation
+            if self.peek().token_type == TokenType::Minus {
+                return Err("Double minus (--) is not allowed. Use -(-x) instead.".to_string());
+            }
 
-        if self.match_token(&TokenType::Plus) {
-            let operator = UnaryOp::Plus;
+            let operator = UnaryOp::Minus;
             let operand = Box::new(self.unary()?); // Right associative
             return Ok(Expr::Unary(UnaryExpr { operator, operand }));
         }

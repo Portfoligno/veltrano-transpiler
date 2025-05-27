@@ -1136,18 +1136,16 @@ fn test_unary_expressions() {
     let source = r#"
 fun main() {
     val negative = -42
-    val positive = +10
-    val nested = --5
     val expr = -(2 + 3)
     val spaced = - 15
     val var_neg = -negative
+    val parens = -(-20)  // OK with parentheses
     
     println("{}", negative)
-    println("{}", positive)
-    println("{}", nested)
     println("{}", expr)
     println("{}", spaced)
     println("{}", var_neg)
+    println("{}", parens)
 }
 "#;
 
@@ -1164,9 +1162,30 @@ fun main() {
 
     // Check that unary expressions are correctly transpiled
     assert!(rust_code.contains("let negative = -42"));
-    assert!(rust_code.contains("let positive = 10")); // + is dropped in Rust
-    assert!(rust_code.contains("let nested = -(-5)")); // Double negation with parens
     assert!(rust_code.contains("let expr = -(2 + 3)"));
     assert!(rust_code.contains("let spaced = -15")); // Space allowed
     assert!(rust_code.contains("let var_neg = -negative"));
+    assert!(rust_code.contains("let parens = -(-20)")); // OK with parentheses
+}
+
+#[test]
+fn test_double_minus_forbidden() {
+    let source = r#"
+fun main() {
+    val bad = --5
+}
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+
+    let result = parser.parse();
+    assert!(result.is_err());
+    assert!(result
+        .unwrap_err()
+        .contains("Double minus (--) is not allowed"));
 }

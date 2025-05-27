@@ -54,7 +54,6 @@ pub struct UnaryExpr {
 #[derive(Debug, Clone)]
 pub enum UnaryOp {
     Minus,
-    Plus,
 }
 
 #[derive(Debug, Clone)]

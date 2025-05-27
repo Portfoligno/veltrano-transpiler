@@ -32,6 +32,6 @@ fun main() {
     println("")
     
     checkNumber(42)
-    // checkNumber(-7)  // TODO: Negative literals not yet supported
+    checkNumber(-7)
     checkNumber(0)
 }
