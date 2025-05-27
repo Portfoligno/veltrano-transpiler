@@ -5,13 +5,13 @@ fun modify(value: MutRef<Int>) {
 
 fun main() {
     val number: Int = 10
-    val mutableRef: MutRef<Int> = number.mutRef()
+    val mutableRef: MutRef<Int> = MutRef(number)
     
     modify(mutableRef)
     
     // Demonstrate with String
     val text: String = "Hello".toString()
-    val mutableTextRef: MutRef<String> = text.mutRef()
+    val mutableTextRef: MutRef<String> = MutRef(text)
     
     println("Original: {}", text)
 }

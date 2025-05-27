@@ -273,23 +273,50 @@ impl CodeGenerator {
 
     fn generate_call_expression(&mut self, call: &CallExpr) {
         if let Expr::Identifier(name) = call.callee.as_ref() {
-            if self.is_rust_macro(name) {
+            if name == "MutRef" {
+                // Special case: MutRef(value) becomes &mut (value.clone())
+                if call.args.len() != 1 {
+                    panic!(
+                        "MutRef() requires exactly one argument, found {}",
+                        call.args.len()
+                    );
+                }
+                self.output.push_str("&mut (");
+                self.generate_expression(&call.args[0]);
+                self.output.push_str(".clone())");
+            } else if self.is_rust_macro(name) {
                 self.output.push_str(name);
                 self.output.push('!');
+                self.output.push('(');
+                for (i, arg) in call.args.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    self.generate_expression(arg);
+                }
+                self.output.push(')');
             } else {
                 self.generate_expression(&call.callee);
+                self.output.push('(');
+                for (i, arg) in call.args.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    self.generate_expression(arg);
+                }
+                self.output.push(')');
             }
         } else {
             self.generate_expression(&call.callee);
-        }
-        self.output.push('(');
-        for (i, arg) in call.args.iter().enumerate() {
-            if i > 0 {
-                self.output.push_str(", ");
+            self.output.push('(');
+            for (i, arg) in call.args.iter().enumerate() {
+                if i > 0 {
+                    self.output.push_str(", ");
+                }
+                self.generate_expression(arg);
             }
-            self.generate_expression(arg);
+            self.output.push(')');
         }
-        self.output.push(')');
     }
 
     fn generate_method_call_expression(&mut self, method_call: &MethodCallExpr) {
@@ -297,12 +324,6 @@ impl CodeGenerator {
             // Special case: obj.ref() becomes &obj
             self.output.push('&');
             self.generate_expression(&method_call.object);
-        } else if method_call.method == "mutRef" && method_call.args.is_empty() {
-            // Special case: obj.mutRef() becomes &mut (obj.clone())
-            // We need to create a mutable copy first since val creates immutable bindings
-            self.output.push_str("&mut (");
-            self.generate_expression(&method_call.object);
-            self.output.push_str(".clone())");
         } else {
             // Regular method call: obj.method(args)
             let snake_method = self.camel_to_snake_case(&method_call.method);

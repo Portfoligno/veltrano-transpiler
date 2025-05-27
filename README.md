@@ -145,9 +145,9 @@ val borrowed: Ref<String> = owned.ref()  // Becomes &owned in Rust
 - String literals are already references: `"hello"` is already `Ref<Str>` (`&str`)
 - Values that are already reference types
 
-### Mutable References with `MutRef<T>` and `.mutRef()`
+### Mutable References with `MutRef<T>` and `MutRef()` function
 
-Veltrano supports mutable references through the `MutRef<T>` type and `.mutRef()` method:
+Veltrano supports mutable references through the `MutRef<T>` type and `MutRef()` function:
 
 | Veltrano Type | Rust Type | Description |
 |---------------|-----------|-------------|
@@ -160,7 +160,7 @@ fun modify(value: MutRef<Int>) {
 
 fun main() {
     val number: Int = 42
-    val mutableRef: MutRef<Int> = number.mutRef()  // Creates mutable reference
+    val mutableRef: MutRef<Int> = MutRef(number)  // Creates mutable reference
     modify(mutableRef)
 }
 ```
@@ -178,7 +178,7 @@ fn main() {
 }
 ```
 
-**Note:** Since Veltrano only supports `val` (immutable bindings), the `.mutRef()` method creates a mutable reference to a cloned value. This maintains Rust's borrowing rules while working within Veltrano's immutability-first design.
+**Note:** Since Veltrano only supports `val` (immutable bindings), the `MutRef()` function creates a mutable reference to a cloned value. This maintains Rust's borrowing rules while working within Veltrano's immutability-first design.
 
 ### Naming Convention Conversion
 

@@ -586,11 +586,11 @@ fn test_inline_comments_with_and_without_preservation() {
 }
 
 #[test]
-fn test_mut_ref_type_and_method() {
+fn test_mut_ref_type_and_function() {
     // Test MutRef type annotation
     let veltrano_code = r#"fun testMutRef() {
-    val value: MutRef<Int> = someVar.mutRef()
-    val strRef: MutRef<String> = text.mutRef()
+    val value: MutRef<Int> = MutRef(someVar)
+    val strRef: MutRef<String> = MutRef(text)
 }"#;
 
     let config = Config {
@@ -616,20 +616,22 @@ fn test_mut_ref_type_and_method() {
         rust_code
     );
 
-    // Test mutRef() method call without type annotation
-    let veltrano_code2 = r#"fun testMutRefMethod() {
-    val mutableRef = number.mutRef()
-    val another = "test".mutRef()
+    // Test MutRef() function call without type annotation
+    let veltrano_code2 = r#"fun testMutRefFunction() {
+    val mutableRef = MutRef(number)
+    val another = MutRef("test")
 }"#;
 
     let mut lexer2 = Lexer::with_config(veltrano_code2.to_string(), config.clone());
     let all_tokens2 = lexer2.tokenize();
     let mut parser2 = Parser::new(all_tokens2);
-    let program2 = parser2.parse().expect("Failed to parse mutRef method test");
+    let program2 = parser2
+        .parse()
+        .expect("Failed to parse MutRef function test");
     let mut codegen2 = CodeGenerator::with_config(config.clone());
     let rust_code2 = codegen2.generate(&program2);
 
-    // Check that .mutRef() becomes &mut (x.clone())
+    // Check that MutRef() becomes &mut (x.clone())
     assert!(
         rust_code2.contains("let mutable_ref = &mut (number.clone())"),
         "Expected 'let mutable_ref = &mut (number.clone())' but got: {}",
