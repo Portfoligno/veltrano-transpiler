@@ -17,7 +17,7 @@ A transpiler from Veltrano (Kotlin-like syntax) to Rust with a reference-by-defa
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/veltrano-transpiler.git
+git clone https://github.com/Portfoligno/veltrano-transpiler.git
 cd veltrano-transpiler
 
 # Build the project
@@ -392,7 +392,7 @@ Contributions are welcome! Please feel free to submit issues and pull requests.
 
 ```bash
 # Clone and build
-git clone https://github.com/yourusername/veltrano-transpiler.git
+git clone https://github.com/Portfoligno/veltrano-transpiler.git
 cd veltrano-transpiler
 cargo build
 
@@ -403,6 +403,12 @@ cargo test
 cargo run examples/hello.vl
 ```
 
+## Acknowledgments
+
+Developed with Claude Code. If you're interested in trying it:
+- Direct link: https://claude.ai/code
+- My referral link (I may receive rewards): https://claude.ai/referral/hiwjK__vDg
+
 ## License
 
-[Specify your license here]
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.

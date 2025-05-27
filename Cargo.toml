@@ -2,6 +2,9 @@
 name = "veltrano"
 version = "0.1.9-dev"
 edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/Portfoligno/veltrano-transpiler"
+description = "Linguistic exploration of Rust code generation paradigms, written in Rust"
 autoexamples = false
 
 [[bin]]
