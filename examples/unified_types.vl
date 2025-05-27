@@ -1,0 +1,18 @@
+// Demonstrates the unified type system with reference_depth
+fun main() {
+    // Base types with different reference depths
+    val ownedInt: Int = 42                    // BaseType::Int, reference_depth: 0 → i64
+    val ownedString: Own<String> = "owned".toString() // BaseType::String, reference_depth: 0 → String
+    val refString: String = "ref".toString()  // BaseType::String, reference_depth: 1 → &String
+    val refRefString: Ref<String> = refString // BaseType::String, reference_depth: 2 → &&String
+    
+    // MutRef types
+    val mutRefString: MutRef<String> = MutRef(refString)      // BaseType::MutRef<...>, reference_depth: 0 → &mut &String
+    val mutRefOwned: MutRef<Own<String>> = MutRef(ownedString) // BaseType::MutRef<...>, reference_depth: 0 → &mut String
+    
+    // Custom types follow reference-by-default
+    // val customRef: CustomType = someValue   // BaseType::Custom("CustomType"), reference_depth: 1 → &CustomType
+    // val ownedCustom: Own<CustomType> = someValue // BaseType::Custom("CustomType"), reference_depth: 0 → CustomType
+    
+    println("Unified type system with reference depth!")
+}

@@ -374,62 +374,92 @@ impl Parser {
             self.advance();
 
             match type_name.as_str() {
-                "Int" => Ok(Type::Int),
-                "Str" => Ok(Type::Str),
-                "String" => Ok(Type::String),
-                "Bool" => Ok(Type::Bool),
-                "Unit" => Ok(Type::Unit),
-                "Nothing" => Ok(Type::Nothing),
-                "Ref" => self.parse_generic_type(Type::Ref),
-                "Own" => {
-                    let own_type = self.parse_generic_type(Type::Own)?;
-                    // Validate that Own<T> is not used with invalid types
-                    if let Type::Own(inner) = &own_type {
-                        match inner.as_ref() {
-                            Type::Int | Type::Bool | Type::Unit => {
-                                return Err(format!(
-                                    "Cannot use Own<{:?}>. {:?} is already owned.",
-                                    inner, inner
-                                ));
-                            }
-                            Type::MutRef(_) => {
-                                return Err(
-                                    "Cannot use Own<MutRef<T>>. MutRef<T> is already owned."
-                                        .to_string(),
-                                );
-                            }
-                            Type::Box(_) => {
-                                return Err(
-                                    "Cannot use Own<Box<T>>. Box<T> is already owned.".to_string()
-                                );
-                            }
-                            Type::Own(_) => {
-                                return Err(
-                                    "Cannot use Own<Own<T>>. Own<T> is already owned.".to_string()
-                                );
-                            }
-                            _ => {}
-                        }
-                    }
-                    Ok(own_type)
-                }
-                "MutRef" => self.parse_generic_type(Type::MutRef),
-                "Box" => self.parse_generic_type(Type::Box),
-                _ => Ok(Type::Custom(type_name)),
+                "Int" => Ok(Type::owned(BaseType::Int)),
+                "Str" => Ok(Type { base: BaseType::Str, reference_depth: 1 }), // reference-by-default
+                "String" => Ok(Type { base: BaseType::String, reference_depth: 1 }), // reference-by-default
+                "Bool" => Ok(Type::owned(BaseType::Bool)),
+                "Unit" => Ok(Type::owned(BaseType::Unit)),
+                "Nothing" => Ok(Type::owned(BaseType::Nothing)),
+                "Ref" => self.parse_ref_type(),
+                "Own" => self.parse_own_type(),
+                "MutRef" => self.parse_mutref_type(),
+                "Box" => self.parse_box_type(),
+                _ => Ok(Type { base: BaseType::Custom(type_name), reference_depth: 1 }), // reference-by-default
             }
         } else {
             Err("Expected type name".to_string())
         }
     }
 
-    fn parse_generic_type<F>(&mut self, constructor: F) -> Result<Type, String>
-    where
-        F: FnOnce(Box<Type>) -> Type,
-    {
-        self.consume(&TokenType::Less, "Expected '<' after generic type")?;
+    fn parse_ref_type(&mut self) -> Result<Type, String> {
+        self.consume(&TokenType::Less, "Expected '<' after Ref")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
-        Ok(constructor(Box::new(inner_type)))
+        // Ref<T> adds one more reference level to T
+        Ok(Type { 
+            base: inner_type.base, 
+            reference_depth: inner_type.reference_depth + 1 
+        })
+    }
+
+    fn parse_own_type(&mut self) -> Result<Type, String> {
+        self.consume(&TokenType::Less, "Expected '<' after Own")?;
+        let inner_type = self.parse_type()?;
+        self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
+        
+        // Validate that Own<T> is not used with invalid types
+        match &inner_type.base {
+            BaseType::Int | BaseType::Bool | BaseType::Unit => {
+                return Err(format!(
+                    "Cannot use Own<{:?}>. {:?} is already owned.",
+                    inner_type.base, inner_type.base
+                ));
+            }
+            BaseType::MutRef(_) => {
+                return Err(
+                    "Cannot use Own<MutRef<T>>. MutRef<T> is already owned.".to_string()
+                );
+            }
+            BaseType::Box(_) => {
+                return Err(
+                    "Cannot use Own<Box<T>>. Box<T> is already owned.".to_string()
+                );
+            }
+            _ => {}
+        }
+        
+        // Check if this is Own<Own<T>> by checking if reference_depth is 0
+        if inner_type.reference_depth == 0 {
+            return Err(
+                "Cannot use Own<Own<T>>. Own<T> is already owned.".to_string()
+            );
+        }
+        
+        // Own<T> sets reference_depth to 0 (owned)
+        Ok(Type { 
+            base: inner_type.base, 
+            reference_depth: 0 
+        })
+    }
+
+    fn parse_mutref_type(&mut self) -> Result<Type, String> {
+        self.consume(&TokenType::Less, "Expected '<' after MutRef")?;
+        let inner_type = self.parse_type()?;
+        self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
+        Ok(Type { 
+            base: BaseType::MutRef(Box::new(inner_type)), 
+            reference_depth: 0  // MutRef<T> is always owned
+        })
+    }
+
+    fn parse_box_type(&mut self) -> Result<Type, String> {
+        self.consume(&TokenType::Less, "Expected '<' after Box")?;
+        let inner_type = self.parse_type()?;
+        self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
+        Ok(Type { 
+            base: BaseType::Box(Box::new(inner_type)), 
+            reference_depth: 0  // Box<T> is always owned
+        })
     }
 
     fn consume_identifier(&mut self, message: &str) -> Result<String, String> {

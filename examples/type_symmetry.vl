@@ -20,9 +20,10 @@ fun main() {
     val borrowed: String = owned.ref()
     
     // Symmetric behavior:
-    // String and Ref<String> are equivalent (both &String)
+    // String is &String, Ref<String> is &&String
     takesRef(borrowed)
-    takesExplicitRef(borrowed)  // Ref<String> same as String
+    // takesExplicitRef requires &&String, so we'd need &borrowed
+    // takesExplicitRef(&borrowed)
     
     // MutRef<String> would be &mut &String (mutable ref to immutable ref)
     // Note: Current MutRef() function implementation doesn't handle this case yet

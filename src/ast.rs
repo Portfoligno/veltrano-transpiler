@@ -1,13 +1,23 @@
 #[derive(Debug, Clone)]
-pub enum Type {
+pub struct Type {
+    pub base: BaseType,
+    pub reference_depth: u32,
+}
+
+impl Type {
+    pub fn owned(base: BaseType) -> Self {
+        Type { base, reference_depth: 0 }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum BaseType {
     Int,
-    Str,
-    String,
     Bool,
     Unit,
     Nothing,
-    Ref(Box<Type>),
-    Own(Box<Type>),
+    Str,
+    String,
     MutRef(Box<Type>),
     Box(Box<Type>),
     Custom(String),
