@@ -262,7 +262,7 @@ impl Parser {
 
     fn factor(&mut self) -> Result<Expr, String> {
         self.parse_binary_expression(
-            Self::call,
+            Self::unary,
             &[TokenType::Slash, TokenType::Star, TokenType::Percent],
             |token_type| match token_type {
                 TokenType::Slash => BinaryOp::Divide,
@@ -271,6 +271,22 @@ impl Parser {
                 _ => unreachable!(),
             },
         )
+    }
+
+    fn unary(&mut self) -> Result<Expr, String> {
+        if self.match_token(&TokenType::Minus) {
+            let operator = UnaryOp::Minus;
+            let operand = Box::new(self.unary()?); // Right associative
+            return Ok(Expr::Unary(UnaryExpr { operator, operand }));
+        }
+
+        if self.match_token(&TokenType::Plus) {
+            let operator = UnaryOp::Plus;
+            let operand = Box::new(self.unary()?); // Right associative
+            return Ok(Expr::Unary(UnaryExpr { operator, operand }));
+        }
+
+        self.call()
     }
 
     fn call(&mut self) -> Result<Expr, String> {

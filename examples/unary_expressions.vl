@@ -1,0 +1,36 @@
+// Unary expressions example
+fun main() {
+    // Negative numbers
+    val temperature = -15
+    val _depth = -100
+    
+    // Positive unary (rarely used, but supported)
+    val _altitude = +500
+    
+    // Unary expressions with variables
+    val oppositeTemp = -temperature  // Results in 15
+    
+    // Unary expressions with complex expressions
+    val result = -(10 + 5)  // Results in -15
+    val complex = -(2 * 3 + 4)  // Results in -10
+    
+    // Nested unary operators
+    val doubleNeg = --7  // Results in 7 (negative of negative)
+    
+    // Unary with parentheses
+    val parens = -(-20)  // Results in 20
+    
+    // Spaces are allowed between operator and operand
+    val spaced = - 42
+    val verySpaced = -    99
+    
+    // Print results
+    println("Temperature: {}", temperature)
+    println("Opposite temp: {}", oppositeTemp)
+    println("Result: {}", result)
+    println("Complex: {}", complex)
+    println("Double negative: {}", doubleNeg)
+    println("Parentheses: {}", parens)
+    println("Spaced: {}", spaced)
+    println("Very spaced: {}", verySpaced)
+}

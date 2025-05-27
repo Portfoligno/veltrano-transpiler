@@ -30,6 +30,7 @@ pub enum BaseType {
 pub enum Expr {
     Literal(LiteralExpr),
     Identifier(String),
+    Unary(UnaryExpr),
     Binary(BinaryExpr),
     Call(CallExpr),
     MethodCall(MethodCallExpr),
@@ -42,6 +43,18 @@ pub enum LiteralExpr {
     Bool(bool),
     Unit,
     Null,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnaryExpr {
+    pub operator: UnaryOp,
+    pub operand: Box<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub enum UnaryOp {
+    Minus,
+    Plus,
 }
 
 #[derive(Debug, Clone)]

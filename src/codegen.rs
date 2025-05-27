@@ -167,6 +167,34 @@ impl CodeGenerator {
                 let snake_name = self.camel_to_snake_case(name);
                 self.output.push_str(&snake_name);
             }
+            Expr::Unary(unary) => {
+                match &unary.operator {
+                    UnaryOp::Plus => {
+                        // Rust doesn't support leading +, so just emit the operand
+                        self.generate_expression(&unary.operand);
+                    }
+                    UnaryOp::Minus => {
+                        self.output.push('-');
+                        // Wrap non-simple expressions in parentheses
+                        match unary.operand.as_ref() {
+                            Expr::Literal(_) | Expr::Identifier(_) => {
+                                self.generate_expression(&unary.operand);
+                            }
+                            Expr::Unary(_) => {
+                                // Wrap nested unary to avoid -- (double negation)
+                                self.output.push('(');
+                                self.generate_expression(&unary.operand);
+                                self.output.push(')');
+                            }
+                            _ => {
+                                self.output.push('(');
+                                self.generate_expression(&unary.operand);
+                                self.output.push(')');
+                            }
+                        }
+                    }
+                }
+            }
             Expr::Binary(binary) => {
                 self.generate_expression(&binary.left);
                 self.output.push(' ');
