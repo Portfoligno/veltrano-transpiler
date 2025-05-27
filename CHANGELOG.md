@@ -5,6 +5,26 @@ All notable changes to the Veltrano Transpiler will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-01-28
+
+### Added
+- Unit literal support - `Unit` can now be used as a literal expression, not just a type
+- Unary expression support with negation (`-`) operator
+  - Double minus (`--`) requires parentheses: `-(-x)` instead of `--x`
+- `MutRef<T>` type that transpiles to `&mut T` or `&mut &T` depending on context
+- `MutRef(value)` function that generates `&mut (&value).clone()` - always clones the value
+- `.mutRef()` method that generates `&mut value` - requires explicit `.clone()` if needed
+- `Own<T>` type constructor for explicit ownership control
+- UFCS (Uniform Function Call Syntax) for `.clone()` - generates `Clone::clone()` to avoid auto-ref issues
+
+### Changed
+- **BREAKING**: Complete type system redesign from enum-based to struct with reference depth tracking
+  - Types now composed of `BaseType` + `reference_depth` for better composability
+  - `Ref<T>` adds to reference depth, `Own<T>` subtracts from it (symmetric operations)
+- **BREAKING**: Reference-by-default semantics - String/Str/Custom types now transpile to references
+  - `String` → `&String`, `Str` → `&str`, `Custom` → `&Custom`
+  - Use `Own<String>` to get owned `String` type
+
 ## [0.1.8] - 2025-01-26
 
 ### Added
@@ -74,4 +94,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Known Issues
 - Some test cases may need adjustment for comment preservation
+
 
