@@ -1,11 +1,12 @@
 use crate::ast::*;
 use crate::config::Config;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub struct CodeGenerator {
     output: String,
     indent_level: usize,
     imports: HashMap<String, (String, String)>, // alias/method_name -> (type_name, method_name)
+    local_functions: HashSet<String>,           // Set of locally defined function names
     config: Config,
 }
 
@@ -15,11 +16,20 @@ impl CodeGenerator {
             output: String::new(),
             indent_level: 0,
             imports: HashMap::new(),
+            local_functions: HashSet::new(),
             config,
         }
     }
 
     pub fn generate(&mut self, program: &Program) -> String {
+        // First pass: collect all locally defined function names
+        for stmt in &program.statements {
+            if let Stmt::FunDecl(fun_decl) = stmt {
+                self.local_functions.insert(fun_decl.name.clone());
+            }
+        }
+
+        // Second pass: generate code
         for stmt in &program.statements {
             self.generate_statement(stmt);
         }
@@ -330,6 +340,18 @@ impl CodeGenerator {
                 self.output.push_str("&mut (&");
                 self.generate_expression(&call.args[0]);
                 self.output.push_str(").clone()");
+            } else if self.local_functions.contains(name) {
+                // Locally defined function: regular call with snake_case conversion
+                let snake_name = self.camel_to_snake_case(name);
+                self.output.push_str(&snake_name);
+                self.output.push('(');
+                for (i, arg) in call.args.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    self.generate_expression(arg);
+                }
+                self.output.push(')');
             } else if let Some((type_name, original_method)) = self.imports.get(name) {
                 // Imported function/constructor: use UFCS
                 let snake_method = self.camel_to_snake_case(original_method);

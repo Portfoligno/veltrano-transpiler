@@ -1311,3 +1311,33 @@ fun main() {
     // Check that alias works and maps to correct UFCS call
     assert!(rust_code.contains("ToString::to_string(num)"));
 }
+
+#[test]
+fn test_local_function_priority_over_import() {
+    let source = r#"
+import Vec.new
+
+fun main() {
+    val result = new()
+}
+
+fun new(): Int {
+    return 42
+}
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut codegen = CodeGenerator::with_config(config);
+    let rust_code = codegen.generate(&program);
+
+    // Check that local function is called, not Vec::new
+    assert!(rust_code.contains("let result = new()"));
+    assert!(!rust_code.contains("Vec::new"));
+}
