@@ -1,0 +1,33 @@
+// Demonstrates import statements and UFCS transformation
+// Note: This example shows syntax only - won't compile as a standalone Rust program
+
+// Import with alias
+import Vec.new as createVec
+import Option.isSome
+import Result.ok
+
+// Imports can override pre-imported methods
+import MyTrait.clone  // Would override default Clone::clone
+
+fun main() {
+    // Pre-imported methods work by default
+    val text = "Hello"
+    val owned = text.toString()  // Generates: ToString::to_string(text)
+    
+    // Method calls without imports stay as regular method calls
+    val data = processData(42)  // Generates: process_data(42)
+    
+    // With imports, method calls transform to UFCS:
+    // If we called: result.ok()
+    // It would generate: Result::ok(result)
+    
+    // Aliased imports work too:
+    // If we called: createVec()  
+    // It would generate: Vec::new()
+    
+    println("Result: {}", data)
+}
+
+fun processData(n: Int): Int {
+    return n + 1
+}

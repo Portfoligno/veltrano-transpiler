@@ -40,6 +40,8 @@ impl Parser {
             Ok(vec![self.function_declaration()?])
         } else if self.match_token(&TokenType::Val) {
             self.var_declaration()
+        } else if self.match_token(&TokenType::Import) {
+            Ok(vec![self.import_declaration()?])
         } else {
             self.statement()
         }
@@ -112,6 +114,27 @@ impl Parser {
             },
             inline_comment,
         )])
+    }
+
+    fn import_declaration(&mut self) -> Result<Stmt, String> {
+        // import Type.method [as alias]
+        let type_name = self.consume_identifier("Expected type name after 'import'")?;
+        self.consume(&TokenType::Dot, "Expected '.' after type name")?;
+        let method_name = self.consume_identifier("Expected method name after '.'")?;
+
+        let alias = if self.match_token(&TokenType::As) {
+            Some(self.consume_identifier("Expected alias name after 'as'")?)
+        } else {
+            None
+        };
+
+        self.consume_newline_or_semicolon()?;
+
+        Ok(Stmt::Import(ImportStmt {
+            type_name,
+            method_name,
+            alias,
+        }))
     }
 
     fn statement(&mut self) -> Result<Vec<Stmt>, String> {

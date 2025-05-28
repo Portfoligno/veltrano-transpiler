@@ -1,9 +1,11 @@
 use crate::ast::*;
 use crate::config::Config;
+use std::collections::HashMap;
 
 pub struct CodeGenerator {
     output: String,
     indent_level: usize,
+    imports: HashMap<String, (String, String)>, // alias/method_name -> (type_name, method_name)
     config: Config,
 }
 
@@ -12,6 +14,7 @@ impl CodeGenerator {
         Self {
             output: String::new(),
             indent_level: 0,
+            imports: HashMap::new(),
             config,
         }
     }
@@ -69,6 +72,16 @@ impl CodeGenerator {
                 if self.config.preserve_comments {
                     self.generate_comment(comment);
                 }
+            }
+            Stmt::Import(import) => {
+                // Track the import for later use
+                let key = import
+                    .alias
+                    .clone()
+                    .unwrap_or_else(|| import.method_name.clone());
+                self.imports
+                    .insert(key, (import.type_name.clone(), import.method_name.clone()));
+                // Don't generate any Rust code for imports
             }
         }
     }
@@ -317,6 +330,20 @@ impl CodeGenerator {
                 self.output.push_str("&mut (&");
                 self.generate_expression(&call.args[0]);
                 self.output.push_str(").clone()");
+            } else if let Some((type_name, original_method)) = self.imports.get(name) {
+                // Imported function/constructor: use UFCS
+                let snake_method = self.camel_to_snake_case(original_method);
+                self.output.push_str(type_name);
+                self.output.push_str("::");
+                self.output.push_str(&snake_method);
+                self.output.push('(');
+                for (i, arg) in call.args.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    self.generate_expression(arg);
+                }
+                self.output.push(')');
             } else if self.is_rust_macro(name) {
                 self.output.push_str(name);
                 self.output.push('!');
@@ -353,7 +380,24 @@ impl CodeGenerator {
     }
 
     fn generate_method_call_expression(&mut self, method_call: &MethodCallExpr) {
-        if method_call.method == "ref" && method_call.args.is_empty() {
+        if let Some((type_name, original_method)) = self.imports.get(&method_call.method) {
+            // Imported method: use UFCS (explicit imports have highest priority)
+            let snake_method = self.camel_to_snake_case(original_method);
+            self.output.push_str(type_name);
+            self.output.push_str("::");
+            self.output.push_str(&snake_method);
+            self.output.push('(');
+
+            // First argument is the object
+            self.generate_expression(&method_call.object);
+
+            // Then the rest of the arguments
+            for arg in &method_call.args {
+                self.output.push_str(", ");
+                self.generate_expression(arg);
+            }
+            self.output.push(')');
+        } else if method_call.method == "ref" && method_call.args.is_empty() {
             // Special case: ownedValue.ref() becomes &ownedValue
             // This converts Own<T> to T (which is &T in Rust)
             self.output.push('&');
@@ -367,6 +411,12 @@ impl CodeGenerator {
             // Special case: obj.clone() becomes Clone::clone(obj) using UFCS
             // This avoids auto-ref and makes borrowing explicit
             self.output.push_str("Clone::clone(");
+            self.generate_expression(&method_call.object);
+            self.output.push(')');
+        } else if method_call.method == "toString" && method_call.args.is_empty() {
+            // Special case: obj.toString() becomes ToString::to_string(obj) using UFCS
+            // This is pre-imported like clone
+            self.output.push_str("ToString::to_string(");
             self.generate_expression(&method_call.object);
             self.output.push(')');
         } else {

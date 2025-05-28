@@ -1189,3 +1189,125 @@ fun main() {
         .unwrap_err()
         .contains("Double minus (--) is not allowed"));
 }
+
+#[test]
+fn test_import_statement() {
+    let source = r#"
+import Vec.new as newVec
+import Vec.push
+import String.len
+
+fun main() {
+    val items = newVec()
+    items.push(42)
+    val text: String = "hello"
+    val length = text.len()
+}
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut codegen = CodeGenerator::with_config(config);
+    let rust_code = codegen.generate(&program);
+
+    // Check that imports don't generate any Rust code
+    assert!(!rust_code.contains("import"));
+
+    // Check that method calls use UFCS
+    assert!(rust_code.contains("Vec::new()")); // newVec() -> Vec::new()
+    assert!(rust_code.contains("Vec::push(items, 42)"));
+    assert!(rust_code.contains("String::len(text)"));
+}
+
+#[test]
+fn test_preimported_methods() {
+    let source = r#"
+fun main() {
+    val text: Own<String> = "Hello"
+    val cloned = text.clone()
+    val string = text.toString()
+    val reference = text.ref()
+    val mutable = text.mutRef()
+}
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut codegen = CodeGenerator::with_config(config);
+    let rust_code = codegen.generate(&program);
+
+    // Check pre-imported methods
+    assert!(rust_code.contains("Clone::clone(text)"));
+    assert!(rust_code.contains("ToString::to_string(text)"));
+    assert!(rust_code.contains("&text")); // .ref()
+    assert!(rust_code.contains("&mut text")); // .mutRef()
+}
+
+#[test]
+fn test_import_priority_over_preimported() {
+    let source = r#"
+import MyClone.clone
+
+fun main() {
+    val value = 42
+    val cloned = value.clone()
+}
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut codegen = CodeGenerator::with_config(config);
+    let rust_code = codegen.generate(&program);
+
+    // Debug: print the generated code
+    if rust_code.contains("Clone::clone") {
+        println!("Found Clone::clone in generated code:\n{}", rust_code);
+    }
+
+    // Check that explicit import overrides pre-imported clone
+    assert!(rust_code.contains("MyClone::clone(value)"));
+}
+
+#[test]
+fn test_import_with_alias() {
+    let source = r#"
+import ToString.toString as stringify
+
+fun main() {
+    val num = 42
+    val str = num.stringify()
+}
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut codegen = CodeGenerator::with_config(config);
+    let rust_code = codegen.generate(&program);
+
+    // Check that alias works and maps to correct UFCS call
+    assert!(rust_code.contains("ToString::to_string(num)"));
+}
