@@ -129,17 +129,7 @@ impl CodeGenerator {
         let snake_name = self.camel_to_snake_case(&fun_decl.name);
         self.output.push_str(&snake_name);
         self.output.push('(');
-
-        for (i, param) in fun_decl.params.iter().enumerate() {
-            if i > 0 {
-                self.output.push_str(", ");
-            }
-            let snake_name = self.camel_to_snake_case(&param.name);
-            self.output.push_str(&snake_name);
-            self.output.push_str(": ");
-            self.generate_type(&param.param_type);
-        }
-
+        self.generate_comma_separated_params(&fun_decl.params);
         self.output.push(')');
 
         if let Some(return_type) = &fun_decl.return_type {
@@ -327,6 +317,38 @@ impl CodeGenerator {
         result
     }
 
+    fn generate_comma_separated_params(&mut self, params: &[Parameter]) {
+        let mut first = true;
+        for param in params {
+            if !first {
+                self.output.push_str(", ");
+            }
+            first = false;
+            let snake_name = self.camel_to_snake_case(&param.name);
+            self.output.push_str(&snake_name);
+            self.output.push_str(": ");
+            self.generate_type(&param.param_type);
+        }
+    }
+
+    fn generate_comma_separated_args(&mut self, args: &[Expr]) {
+        let mut first = true;
+        for arg in args {
+            if !first {
+                self.output.push_str(", ");
+            }
+            first = false;
+            self.generate_expression(arg);
+        }
+    }
+
+    fn generate_generic_call(&mut self, call: &CallExpr) {
+        self.generate_expression(&call.callee);
+        self.output.push('(');
+        self.generate_comma_separated_args(&call.args);
+        self.output.push(')');
+    }
+
     fn generate_call_expression(&mut self, call: &CallExpr) {
         if let Expr::Identifier(name) = call.callee.as_ref() {
             if name == "MutRef" {
@@ -345,12 +367,7 @@ impl CodeGenerator {
                 let snake_name = self.camel_to_snake_case(name);
                 self.output.push_str(&snake_name);
                 self.output.push('(');
-                for (i, arg) in call.args.iter().enumerate() {
-                    if i > 0 {
-                        self.output.push_str(", ");
-                    }
-                    self.generate_expression(arg);
-                }
+                self.generate_comma_separated_args(&call.args);
                 self.output.push(')');
             } else if let Some((type_name, original_method)) = self.imports.get(name) {
                 // Imported function/constructor: use UFCS
@@ -359,45 +376,20 @@ impl CodeGenerator {
                 self.output.push_str("::");
                 self.output.push_str(&snake_method);
                 self.output.push('(');
-                for (i, arg) in call.args.iter().enumerate() {
-                    if i > 0 {
-                        self.output.push_str(", ");
-                    }
-                    self.generate_expression(arg);
-                }
+                self.generate_comma_separated_args(&call.args);
                 self.output.push(')');
             } else if self.is_rust_macro(name) {
                 self.output.push_str(name);
                 self.output.push('!');
                 self.output.push('(');
-                for (i, arg) in call.args.iter().enumerate() {
-                    if i > 0 {
-                        self.output.push_str(", ");
-                    }
-                    self.generate_expression(arg);
-                }
+                self.generate_comma_separated_args(&call.args);
                 self.output.push(')');
             } else {
-                self.generate_expression(&call.callee);
-                self.output.push('(');
-                for (i, arg) in call.args.iter().enumerate() {
-                    if i > 0 {
-                        self.output.push_str(", ");
-                    }
-                    self.generate_expression(arg);
-                }
-                self.output.push(')');
+                // Default case for identifiers that aren't special
+                self.generate_generic_call(call);
             }
         } else {
-            self.generate_expression(&call.callee);
-            self.output.push('(');
-            for (i, arg) in call.args.iter().enumerate() {
-                if i > 0 {
-                    self.output.push_str(", ");
-                }
-                self.generate_expression(arg);
-            }
-            self.output.push(')');
+            self.generate_generic_call(call);
         }
     }
 
@@ -448,14 +440,7 @@ impl CodeGenerator {
             self.output.push('.');
             self.output.push_str(&snake_method);
             self.output.push('(');
-
-            for (i, arg) in method_call.args.iter().enumerate() {
-                if i > 0 {
-                    self.output.push_str(", ");
-                }
-                self.generate_expression(arg);
-            }
-
+            self.generate_comma_separated_args(&method_call.args);
             self.output.push(')');
         }
     }
