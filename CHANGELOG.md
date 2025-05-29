@@ -5,6 +5,19 @@ All notable changes to the Veltrano Transpiler will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-05-29
+
+### Added
+- Import statement support for UFCS transformation
+  - Syntax: `import Type.method [as alias]`
+  - Method calls transform to UFCS when imported: `obj.method()` → `Type::method(obj)`
+  - Function calls also transform when imported: `func()` → `Type::func()`
+  - Supports aliasing: `import Vec.new as newVec` allows `newVec()` → `Vec::new()`
+  - Explicit imports override pre-imported methods (e.g., `import MyClone.clone`)
+  - Local functions have priority over imports
+  - Import statements don't generate Rust code, they control transpilation behavior
+- `.toString()` now uses UFCS: generates `ToString::to_string(obj)` for consistency with `.clone()`
+
 ## [0.2.0] - 2025-01-28
 
 ### Added
