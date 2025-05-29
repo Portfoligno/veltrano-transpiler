@@ -38,19 +38,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    echo "" >> filename
    ```
 3. **Visual indicators in `Read` tool:**
-   - Missing newline: Content ends immediately (e.g., "line 5    some text")
-   - Has newline: Shows empty line after content (e.g., "line 5    some text\nline 6")
-   - Double newlines: Shows two empty lines (avoid this!)
+   - **IMPORTANT:** The Read tool output can be misleading for trailing newlines
+   - Missing newline: Last line shows content with no subsequent line number
+   - Has newline: May not be visually obvious in Read tool output
+   - **BEST PRACTICE:** Use git diff after edits to verify - if git shows no `\ No newline at end of file`, the file is correct
 4. **Before committing:** Always verify with `Read` tool and fix if needed
 5. **Verification command:** Use this to check Git-tracked files only:
    ```bash
    git ls-files '*.rs' '*.vl' '*.md' '*.toml' | xargs -I {} sh -c 'if [ ! -s "{}" ] || [ "$(tail -c1 "{}" | wc -l)" -eq 0 ]; then echo "Missing trailing newline: {}"; fi'
    ```
 
-**WARNING about `tail -n`:**
+**WARNING about newline detection:**
 - **NEVER use `tail -n X`** to check for trailing newlines - it only shows non-empty lines
-- `tail -n 5 file` will NOT show trailing empty lines, leading to false conclusions
-- **ALWAYS use:** `tail -c1 file | wc -l` or the Read tool to properly detect newlines
+- The Read tool output can be ambiguous - absence of a line after content doesn't always mean missing newline
+- **MOST RELIABLE:** Check git diff after changes - Git will show `\ No newline at end of file` if truly missing
+- **Alternative check:** `tail -c1 file | wc -l` returns 1 if newline exists, 0 if missing
 
 **WARNING about cargo fmt output:**
 - When cargo fmt shows "No newline at end of file" in system reminders, this can be misleading
@@ -59,9 +61,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Adding a newline when one already exists creates unwanted double newlines
 
 **MANDATORY STEPS:**
-- After creating/editing ANY file with `Write`/`Edit`: Use `Read` tool to check, then add newline only if missing
-- **NEVER** blindly run `echo "" >> filename` without checking first - this creates duplicate newlines
-- Before any commit: Run verification command and fix all missing newlines
+- After creating/editing ANY file with `Write`/`Edit`: Check git diff to see if newline is missing
+- **NEVER** blindly run `echo "" >> filename` without verifying it's actually missing
+- **CAUTION:** The Read tool alone is not sufficient to determine newline presence
+- Before any commit: Use git diff to check - Git will warn about missing newlines
 
 ## Git Workflow - CRITICAL RULES
 
@@ -294,5 +297,10 @@ When the user requests a release:
 **Problem:** Losing track of ongoing work across sessions
 **Solution:** Actively maintain TODO section, marking items as IN PROGRESS or completed
 **Self-Check:** "Is my current task in the TODO list? Are completed items marked?"
+
+### 4. Misinterpreting Trailing Newline Status
+**Problem:** Adding unnecessary newlines based on misleading Read tool output
+**Solution:** Use git diff to check - Git explicitly shows `\ No newline at end of file` when missing
+**Self-Check:** "Does git diff show a newline warning? If not, the file is fine"
 
 
