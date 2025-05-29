@@ -10,3 +10,7 @@
 
 # Session memory (not tracked in git)
 /WORKSPACE.md
+
+# Claude Code artifacts
+/.claude
+
