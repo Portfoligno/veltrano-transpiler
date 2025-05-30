@@ -116,38 +116,44 @@ The pattern repeats: develop on `X-dev`, release as `X`, then move to `(X+1)-dev
 
 ### CHANGELOG.md Guidelines
 
-**CRITICAL: Verify Against Previous Release**
-Before writing any CHANGELOG entry:
-1. **Check what existed in the previous release** - Use `git show <prev-tag>:src/ast.rs` etc.
-2. **Only document actual changes** - Features that didn't exist before go in "Added", not "Changed"
-3. **Verify breaking changes** - Only mark as BREAKING if it changes existing behavior
+**CRITICAL: Timing and Scope**
+1. **Only include changes between the previous release tag and the current release commit**
+   - Changes made AFTER starting the release process belong in the NEXT release
+   - Example: If preparing 0.2.2, only include commits since 0.2.1 tag up to the release commit
+2. **Verify what existed in the previous release**
+   - Use `git show <prev-tag>:src/ast.rs` to check if a feature existed before
+   - Use `git log <prev-tag>..HEAD` to see all changes since last release
 
 **What to include in CHANGELOG entries:**
 - User-facing changes to the transpiler functionality
-- Bug fixes that affect transpiler behavior
-- Performance improvements
-- New language features or syntax support
-- Changes to CLI behavior or options
+- New language features or syntax support (e.g., data classes, new operators)
+- Changes to existing language behavior
+- Bug fixes that affect transpiler output
 - Breaking changes or deprecations
+- New reserved keywords
 
 **What NOT to include in CHANGELOG entries:**
-- Changes to `CLAUDE.md` or development guidelines
-- Internal documentation updates (unless they affect users)
-- Development workflow improvements
+- Internal refactoring that doesn't change user-visible behavior
+- Changes to `CLAUDE.md` or development documentation
+- Test additions/changes (unless they reveal fixed bugs)
+- Code style/formatting changes
 - Build process changes (unless they affect users)
-- Code formatting or style changes (unless they fix bugs)
-- Evolution of features added in the same release cycle
+- Internal implementation details (e.g., AST node renames, internal enum changes)
 
-**Accuracy Guidelines:**
-- **Added**: Only for features that didn't exist in the previous release
-- **Changed**: Only for modifications to existing features (must exist in previous release)
-- **Removed**: Only for features that existed in previous release but are now gone
-- **Breaking**: Only when existing code would stop working after the update
+**Category Guidelines:**
+- **Added**: Features that didn't exist in any form in the previous release
+- **Changed**: Modifications to existing user-visible features
+- **Fixed**: Bug fixes for issues that existed in the previous release
+- **Deprecated**: Features marked for future removal
+- **Removed**: Features that existed in previous release but are now gone
+- **Security**: Security-related fixes
 
-**Examples of Common Mistakes:**
-- ❌ Listing `.mutRef()` changes as "Changed" when it was added after last release
-- ❌ Marking removal of unary `+` as "Removed" when it never existed before
-- ❌ Documenting iterative development of new features as separate changes
+**Common Mistakes to Avoid:**
+- ❌ Including changes made after the release tag is created
+- ❌ Documenting internal refactoring as user-facing changes
+- ❌ Listing a feature as "Changed" when it was newly added since last release
+- ❌ Including iterative development steps instead of the final feature
+- ❌ Documenting removed features that were never in a release
 
 **Format:**
 - Follow [Keep a Changelog](https://keepachangelog.com/) format
