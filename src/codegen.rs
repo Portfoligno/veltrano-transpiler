@@ -451,13 +451,8 @@ impl CodeGenerator {
     fn generate_call_expression(&mut self, call: &CallExpr) {
         if let Expr::Identifier(name) = call.callee.as_ref() {
             // Check if this is a data class constructor
-            if self.data_classes.contains(name)
-                && call
-                    .args
-                    .iter()
-                    .any(|arg| matches!(arg, Argument::Named(_, _)))
-            {
-                // This is struct initialization with named arguments
+            if self.data_classes.contains(name) {
+                // This is struct initialization (works with positional, named, or mixed arguments)
                 self.output.push_str(name);
                 self.output.push_str(" { ");
                 self.generate_comma_separated_args(&call.args);

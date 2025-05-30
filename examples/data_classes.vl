@@ -19,5 +19,14 @@ fun main() {
     val alice = Person(name = "Alice", age = 30)
     val book = Book(title = "The Rust Book", author = alice.ref(), pages = 500)
     
+    // Field shorthand syntax - when variable name matches field name
+    val x = 100
+    val y = 200
+    val p2 = Point(x, y)  // Generates: Point { x, y }
+    
+    // Mixed shorthand and named parameters
+    val name = "Bob"
+    val bob = Person(name, age = 25)  // Generates: Person { name, age: 25 }
+    
     println("Data classes compiled successfully!")
 }

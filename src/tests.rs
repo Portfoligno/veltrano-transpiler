@@ -1435,3 +1435,42 @@ fun main() {
     assert!(rust_code.contains("let p1 = Point { x: 10, y: 20 };"));
     assert!(rust_code.contains("let p2 = Person { name: \"Alice\", age: 30 };"));
 }
+
+#[test]
+fn test_data_class_field_shorthand() {
+    // Test Rust field shorthand syntax in struct initialization
+    let source = r#"
+data class Point(val x: Int, val y: Int)
+data class Person(val name: Str, val age: Int)
+
+fun main() {
+    // All positional - uses field shorthand
+    val x = 10
+    val y = 20
+    val p1 = Point(x, y)
+    
+    // Mixed positional and named
+    val name = "Alice"
+    val p2 = Person(name, age = 30)
+    
+    // All named
+    val p3 = Person(name = "Bob", age = 25)
+}
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut codegen = CodeGenerator::with_config(config);
+    let rust_code = codegen.generate(&program);
+
+    // Check field shorthand syntax
+    assert!(rust_code.contains("let p1 = Point { x, y };"));
+    assert!(rust_code.contains("let p2 = Person { name, age: 30 };"));
+    assert!(rust_code.contains("let p3 = Person { name: \"Bob\", age: 25 };"));
+}
