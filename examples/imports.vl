@@ -15,7 +15,7 @@ fun main() {
     val owned = text.toString()  // Generates: ToString::to_string(text)
     
     // Method calls without imports stay as regular method calls
-    val data = processData(42)  // Generates: process_data(42)
+    val result = processData(42)  // Generates: process_data(42)
     
     // With imports, method calls transform to UFCS:
     // If we called: result.ok()
@@ -25,7 +25,7 @@ fun main() {
     // If we called: createVec()  
     // It would generate: Vec::new()
     
-    println("Result: {}", data)
+    println("Result: {}", result)
 }
 
 fun processData(n: Int): Int {

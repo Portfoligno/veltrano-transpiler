@@ -7,6 +7,7 @@ pub struct CodeGenerator {
     indent_level: usize,
     imports: HashMap<String, (String, String)>, // alias/method_name -> (type_name, method_name)
     local_functions: HashSet<String>,           // Set of locally defined function names
+    data_classes_with_lifetime: HashSet<String>, // Track data classes that need lifetime parameters
     config: Config,
 }
 
@@ -17,15 +18,32 @@ impl CodeGenerator {
             indent_level: 0,
             imports: HashMap::new(),
             local_functions: HashSet::new(),
+            data_classes_with_lifetime: HashSet::new(),
             config,
         }
     }
 
     pub fn generate(&mut self, program: &Program) -> String {
-        // First pass: collect all locally defined function names
+        // First pass: collect all locally defined function names and data classes with lifetimes
         for stmt in &program.statements {
-            if let Stmt::FunDecl(fun_decl) = stmt {
-                self.local_functions.insert(fun_decl.name.clone());
+            match stmt {
+                Stmt::FunDecl(fun_decl) => {
+                    self.local_functions.insert(fun_decl.name.clone());
+                }
+                Stmt::DataClass(data_class) => {
+                    // Check if this data class needs lifetime parameters
+                    let needs_lifetime = data_class.fields.iter().any(|field| {
+                        matches!(
+                            field.field_type.base,
+                            BaseType::Str | BaseType::String | BaseType::Custom(_)
+                        ) || field.field_type.reference_depth > 0
+                    });
+                    if needs_lifetime {
+                        self.data_classes_with_lifetime
+                            .insert(data_class.name.clone());
+                    }
+                }
+                _ => {}
             }
         }
 
@@ -209,7 +227,15 @@ impl CodeGenerator {
                 for _ in 0..field.field_type.reference_depth {
                     self.output.push_str("&'a ");
                 }
-                self.generate_base_type(&field.field_type.base);
+                // Check if the base type is a custom type that needs lifetime
+                if let BaseType::Custom(name) = &field.field_type.base {
+                    self.output.push_str(name);
+                    if self.data_classes_with_lifetime.contains(name) {
+                        self.output.push_str("<'a>");
+                    }
+                } else {
+                    self.generate_base_type(&field.field_type.base);
+                }
             } else {
                 self.generate_type(&field.field_type);
             }
