@@ -149,7 +149,7 @@ The pattern repeats: develop on `X-dev`, release as `X`, then move to `(X+1)-dev
 - **Security**: Security-related fixes
 
 **Common Mistakes to Avoid:**
-- ❌ Including changes made after the release tag is created
+- ❌ Including uncommitted or future changes in the CHANGELOG
 - ❌ Documenting internal refactoring as user-facing changes
 - ❌ Listing a feature as "Changed" when it was newly added since last release
 - ❌ Including iterative development steps instead of the final feature
