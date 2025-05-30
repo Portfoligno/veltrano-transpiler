@@ -943,8 +943,8 @@ fn test_clone_ufcs_generation() {
         rust_code
     );
     assert!(
-        rust_code.contains("let chained = Clone::clone(bump.alloc(owned))"),
-        "Expected 'Clone::clone(bump.alloc(owned))' for chained call but got: {}",
+        rust_code.contains("let chained = Clone::clone(&owned)"),
+        "Expected 'Clone::clone(&owned)' for chained call but got: {}",
         rust_code
     );
 }
@@ -1030,8 +1030,8 @@ fn test_mutref_method_chaining() {
         rust_code
     );
     assert!(
-        rust_code.contains("let chained2 = &mut bump.alloc(Clone::clone(borrowed))"),
-        "Expected '&mut bump.alloc(Clone::clone(borrowed))' but got: {}",
+        rust_code.contains("let chained2 = &mut &Clone::clone(borrowed)"),
+        "Expected '&mut &Clone::clone(borrowed)' but got: {}",
         rust_code
     );
     assert!(
@@ -1278,7 +1278,7 @@ fun main() {
     // Check pre-imported methods
     assert!(rust_code.contains("Clone::clone(text)"));
     assert!(rust_code.contains("ToString::to_string(text)"));
-    assert!(rust_code.contains("bump.alloc(text)")); // .ref() with bump allocation
+    assert!(rust_code.contains("&text")); // .ref() is now just borrowing
     assert!(rust_code.contains("&mut text")); // .mutRef()
 }
 

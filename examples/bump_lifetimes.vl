@@ -7,7 +7,7 @@ fun processPerson(person: Person): Str {
 }
 
 fun createPerson(name: Str, age: Int): Person {
-    return Person(name = name, age = age)
+    return Person(name = name, age = age).bumpRef()
 }
 
 fun main() {

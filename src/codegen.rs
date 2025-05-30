@@ -11,8 +11,6 @@ pub struct CodeGenerator {
     data_classes_with_lifetime: HashSet<String>, // Track data classes that need lifetime parameters
     data_classes: HashSet<String>,              // Track all data classes
     generating_bump_function: bool, // Track when generating function with bump parameter
-    bump_allocated_refs: HashMap<String, String>, // Track bump-allocated references: original_var -> bump_ref_var
-    ref_counter: usize, // Counter for generating unique reference variable names
     config: Config,
 }
 
@@ -27,8 +25,6 @@ impl CodeGenerator {
             data_classes_with_lifetime: HashSet::new(),
             data_classes: HashSet::new(),
             generating_bump_function: false,
-            bump_allocated_refs: HashMap::new(),
-            ref_counter: 0,
             config,
         }
     }
@@ -41,11 +37,6 @@ impl CodeGenerator {
                     self.local_functions.insert(fun_decl.name.clone());
                     if fun_decl.has_hidden_bump {
                         self.local_functions_with_bump.insert(fun_decl.name.clone());
-                    }
-
-                    // Analyze main function for variables that need bump allocation
-                    if fun_decl.name == "main" {
-                        self.analyze_ref_usage(&fun_decl.body);
                     }
                 }
                 Stmt::DataClass(data_class) => {
@@ -200,7 +191,9 @@ impl CodeGenerator {
 
             // Generate the body content but skip the outer braces since we're handling them
             if let Stmt::Block(statements) = fun_decl.body.as_ref() {
-                self.generate_main_statements(statements);
+                for stmt in statements {
+                    self.generate_statement(stmt);
+                }
             } else {
                 self.generate_statement(&fun_decl.body);
             }
@@ -602,23 +595,16 @@ impl CodeGenerator {
             }
             self.output.push(')');
         } else if method_call.method == "ref" && method_call.args.is_empty() {
-            // Special case: variable.ref() - use pre-allocated bump reference if available
-            if let Expr::Identifier(var_name) = method_call.object.as_ref() {
-                if let Some(bump_ref_var) = self.bump_allocated_refs.get(var_name) {
-                    // Use the pre-allocated bump reference
-                    self.output.push_str(bump_ref_var);
-                } else {
-                    // No pre-allocation needed (single use) - generate inline
-                    self.output.push_str("bump.alloc(");
-                    self.generate_expression(&method_call.object);
-                    self.output.push(')');
-                }
-            } else {
-                // For non-identifier expressions, generate bump allocation directly
-                self.output.push_str("bump.alloc(");
-                self.generate_expression(&method_call.object);
-                self.output.push(')');
-            }
+            // Special case: ownedValue.ref() becomes &ownedValue
+            // This converts Own<T> to T (which is &T in Rust)
+            self.output.push('&');
+            self.generate_expression(&method_call.object);
+        } else if method_call.method == "bumpRef" && method_call.args.is_empty() {
+            // Special case: value.bumpRef() becomes bump.alloc(value)
+            // This moves the value to bump allocation
+            self.output.push_str("bump.alloc(");
+            self.generate_expression(&method_call.object);
+            self.output.push(')');
         } else if method_call.method == "mutRef" && method_call.args.is_empty() {
             // Special case: obj.mutRef() becomes &mut obj
             // No automatic cloning - users must explicitly call .clone() if needed
@@ -675,135 +661,9 @@ impl CodeGenerator {
     }
 
     fn generate_field_access(&mut self, field_access: &FieldAccessExpr) {
-        // Check if the object is an identifier that has a bump-allocated reference
-        if let Expr::Identifier(var_name) = field_access.object.as_ref() {
-            if let Some(bump_ref_var) = self.bump_allocated_refs.get(var_name) {
-                // Use the bump-allocated reference instead of the original variable
-                self.output.push_str(bump_ref_var);
-                self.output.push('.');
-                self.output
-                    .push_str(&self.camel_to_snake_case(&field_access.field));
-                return;
-            }
-        }
-
-        // Default case: generate field access normally
         self.generate_expression(&field_access.object);
         self.output.push('.');
         self.output
             .push_str(&self.camel_to_snake_case(&field_access.field));
-    }
-
-    // Generate main function statements, inserting bump allocations after variable declarations
-    fn generate_main_statements(&mut self, statements: &[Stmt]) {
-        let mut declared_vars: HashSet<String> = HashSet::new();
-
-        for stmt in statements {
-            // Generate the statement first
-            self.generate_statement(stmt);
-
-            // If this was a variable declaration, check if we need to generate a bump allocation
-            if let Stmt::VarDecl(var_decl, _) = stmt {
-                declared_vars.insert(var_decl.name.clone());
-
-                // Check if this variable needs a bump allocation
-                if let Some(bump_ref_var) = self.bump_allocated_refs.get(&var_decl.name).cloned() {
-                    self.indent();
-                    self.output.push_str(&format!(
-                        "let {} = bump.alloc({});\n",
-                        bump_ref_var,
-                        self.camel_to_snake_case(&var_decl.name)
-                    ));
-                }
-            }
-        }
-    }
-
-    // Analyze a statement/block to identify variables that are used with .ref() multiple times
-    fn analyze_ref_usage(&mut self, stmt: &Stmt) {
-        let mut ref_usage_counter: HashMap<String, usize> = HashMap::new();
-        self.count_ref_usage(stmt, &mut ref_usage_counter);
-
-        // For variables used with .ref() multiple times, create bump allocation mappings
-        for (var_name, count) in ref_usage_counter {
-            if count > 1 {
-                let bump_ref_var = format!("{}_bump_ref", self.camel_to_snake_case(&var_name));
-                self.bump_allocated_refs.insert(var_name, bump_ref_var);
-            }
-        }
-    }
-
-    // Recursively count how many times each variable is used with .ref()
-    fn count_ref_usage(&self, stmt: &Stmt, counter: &mut HashMap<String, usize>) {
-        match stmt {
-            Stmt::Expression(expr, _) => self.count_ref_usage_expr(expr, counter),
-            Stmt::VarDecl(var_decl, _) => {
-                if let Some(initializer) = &var_decl.initializer {
-                    self.count_ref_usage_expr(initializer, counter);
-                }
-            }
-            Stmt::FunDecl(fun_decl) => self.count_ref_usage(fun_decl.body.as_ref(), counter),
-            Stmt::If(if_stmt) => {
-                self.count_ref_usage_expr(&if_stmt.condition, counter);
-                self.count_ref_usage(if_stmt.then_branch.as_ref(), counter);
-                if let Some(else_branch) = &if_stmt.else_branch {
-                    self.count_ref_usage(else_branch.as_ref(), counter);
-                }
-            }
-            Stmt::While(while_stmt) => {
-                self.count_ref_usage_expr(&while_stmt.condition, counter);
-                self.count_ref_usage(while_stmt.body.as_ref(), counter);
-            }
-            Stmt::Return(expr, _) => {
-                if let Some(expr) = expr {
-                    self.count_ref_usage_expr(expr, counter);
-                }
-            }
-            Stmt::Block(statements) => {
-                for stmt in statements {
-                    self.count_ref_usage(stmt, counter);
-                }
-            }
-            _ => {} // Comments, imports, data classes don't contain .ref() calls
-        }
-    }
-
-    // Count .ref() usage in expressions
-    fn count_ref_usage_expr(&self, expr: &Expr, counter: &mut HashMap<String, usize>) {
-        match expr {
-            Expr::MethodCall(method_call) => {
-                // Check if this is a .ref() call on an identifier
-                if method_call.method == "ref" && method_call.args.is_empty() {
-                    if let Expr::Identifier(var_name) = method_call.object.as_ref() {
-                        *counter.entry(var_name.clone()).or_insert(0) += 1;
-                    }
-                }
-                // Also check the object and arguments
-                self.count_ref_usage_expr(&method_call.object, counter);
-                for arg in &method_call.args {
-                    self.count_ref_usage_expr(arg, counter);
-                }
-            }
-            Expr::Call(call) => {
-                self.count_ref_usage_expr(&call.callee, counter);
-                for arg in &call.args {
-                    match arg {
-                        Argument::Bare(expr) => self.count_ref_usage_expr(expr, counter),
-                        Argument::Named(_, expr) => self.count_ref_usage_expr(expr, counter),
-                    }
-                }
-            }
-            Expr::Binary(binary) => {
-                self.count_ref_usage_expr(&binary.left, counter);
-                self.count_ref_usage_expr(&binary.right, counter);
-            }
-            Expr::Unary(unary) => {
-                self.count_ref_usage_expr(&unary.operand, counter);
-            }
-            Expr::FieldAccess(field_access) => {
-                self.count_ref_usage_expr(&field_access.object, counter);
-            }
-            _ => {} // Literals and identifiers don't contain nested expressions
-        }
     }
 }

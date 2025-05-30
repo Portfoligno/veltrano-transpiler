@@ -11,9 +11,9 @@ fun main() {
     val person1 = Person(name = "Alice", age = 30)
     val person2 = Person(name = "Bob", age = 25)
     
-    // Explicit bump allocation using .ref()
-    val person_ref = Person(name = "Charlie", age = 35).ref()
-    val value_ref = 42.ref()
+    // Explicit bump allocation using .bumpRef()
+    val person_ref = Person(name = "Charlie", age = 35).bumpRef()
+    val value_ref = 42.bumpRef()
     
     // Function calls with values
     val result1 = processValue(42)
