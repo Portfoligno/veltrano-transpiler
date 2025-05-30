@@ -8,6 +8,7 @@ pub struct CodeGenerator {
     imports: HashMap<String, (String, String)>, // alias/method_name -> (type_name, method_name)
     local_functions: HashSet<String>,           // Set of locally defined function names
     data_classes_with_lifetime: HashSet<String>, // Track data classes that need lifetime parameters
+    data_classes: HashSet<String>,              // Track all data classes
     config: Config,
 }
 
@@ -19,6 +20,7 @@ impl CodeGenerator {
             imports: HashMap::new(),
             local_functions: HashSet::new(),
             data_classes_with_lifetime: HashSet::new(),
+            data_classes: HashSet::new(),
             config,
         }
     }
@@ -31,6 +33,9 @@ impl CodeGenerator {
                     self.local_functions.insert(fun_decl.name.clone());
                 }
                 Stmt::DataClass(data_class) => {
+                    // Track all data classes
+                    self.data_classes.insert(data_class.name.clone());
+
                     // Check if this data class needs lifetime parameters
                     let needs_lifetime = data_class.fields.iter().any(|field| {
                         matches!(
@@ -407,14 +412,32 @@ impl CodeGenerator {
         }
     }
 
-    fn generate_comma_separated_args(&mut self, args: &[Expr]) {
+    fn generate_comma_separated_args(&mut self, args: &[Argument]) {
         let mut first = true;
         for arg in args {
             if !first {
                 self.output.push_str(", ");
             }
             first = false;
-            self.generate_expression(arg);
+            match arg {
+                Argument::Positional(expr) => self.generate_expression(expr),
+                Argument::Named(name, expr) => {
+                    self.output.push_str(&self.camel_to_snake_case(name));
+                    self.output.push_str(": ");
+                    self.generate_expression(expr);
+                }
+            }
+        }
+    }
+
+    fn generate_comma_separated_exprs(&mut self, exprs: &[Expr]) {
+        let mut first = true;
+        for expr in exprs {
+            if !first {
+                self.output.push_str(", ");
+            }
+            first = false;
+            self.generate_expression(expr);
         }
     }
 
@@ -427,6 +450,21 @@ impl CodeGenerator {
 
     fn generate_call_expression(&mut self, call: &CallExpr) {
         if let Expr::Identifier(name) = call.callee.as_ref() {
+            // Check if this is a data class constructor
+            if self.data_classes.contains(name)
+                && call
+                    .args
+                    .iter()
+                    .any(|arg| matches!(arg, Argument::Named(_, _)))
+            {
+                // This is struct initialization with named arguments
+                self.output.push_str(name);
+                self.output.push_str(" { ");
+                self.generate_comma_separated_args(&call.args);
+                self.output.push_str(" }");
+                return;
+            }
+
             if name == "MutRef" {
                 // Special case: MutRef(value) becomes &mut (&value).clone()
                 if call.args.len() != 1 {
@@ -436,7 +474,11 @@ impl CodeGenerator {
                     );
                 }
                 self.output.push_str("&mut (&");
-                self.generate_expression(&call.args[0]);
+                if let Argument::Positional(expr) = &call.args[0] {
+                    self.generate_expression(expr);
+                } else {
+                    panic!("MutRef() does not support named arguments");
+                }
                 self.output.push_str(").clone()");
             } else if self.local_functions.contains(name) {
                 // Locally defined function: regular call with snake_case conversion
@@ -516,7 +558,7 @@ impl CodeGenerator {
             self.output.push('.');
             self.output.push_str(&snake_method);
             self.output.push('(');
-            self.generate_comma_separated_args(&method_call.args);
+            self.generate_comma_separated_exprs(&method_call.args);
             self.output.push(')');
         }
     }

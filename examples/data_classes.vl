@@ -4,18 +4,20 @@
 data class Point(val x: Int, val y: Int)
 
 // Data class with reference types (lifetime parameter automatically added)
-data class Person(val name: String, val age: Int)
+data class Person(val name: Str, val age: Int)
 
 // Data class with custom types
-data class Book(val title: String, val author: Person, val pages: Int)
+data class Book(val title: Str, val author: Person, val pages: Int)
 
 // Nested data classes
-data class Address(val street: String, val city: String, val zipCode: Int)
-data class Company(val name: String, val address: Address, val employees: Int)
+data class Address(val street: Str, val city: Str, val zipCode: Int)
+data class Company(val name: Str, val address: Address, val employees: Int)
 
 fun main() {
-    // TODO: Struct initialization will be implemented next
-    // val p = Point(x = 10, y = 20)
-    // val person = Person(name = "Alice", age = 30)
+    // Kotlin-style struct initialization with named parameters
+    val p = Point(x = 10, y = 20)
+    val alice = Person(name = "Alice", age = 30)
+    val book = Book(title = "The Rust Book", author = alice.ref(), pages = 500)
+    
     println("Data classes compiled successfully!")
 }

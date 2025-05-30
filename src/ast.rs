@@ -79,9 +79,15 @@ pub enum BinaryOp {
 }
 
 #[derive(Debug, Clone)]
+pub enum Argument {
+    Positional(Expr),
+    Named(String, Expr),
+}
+
+#[derive(Debug, Clone)]
 pub struct CallExpr {
     pub callee: Box<Expr>,
-    pub args: Vec<Expr>,
+    pub args: Vec<Argument>,
 }
 
 #[derive(Debug, Clone)]

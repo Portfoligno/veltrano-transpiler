@@ -358,7 +358,29 @@ impl Parser {
 
                 if !self.check(&TokenType::RightParen) {
                     loop {
-                        args.push(self.expression()?);
+                        // Try to parse named argument (name = expr)
+                        if let TokenType::Identifier(name) = &self.peek().token_type {
+                            let name = name.clone();
+                            let next_pos = self.current + 1;
+                            if next_pos < self.tokens.len()
+                                && self.tokens[next_pos].token_type == TokenType::Equal
+                            {
+                                // This is a named argument
+                                self.advance(); // consume identifier
+                                self.advance(); // consume =
+                                let value = self.expression()?;
+                                args.push(Argument::Named(name, value));
+                            } else {
+                                // This is a positional argument starting with an identifier
+                                let expr = self.expression()?;
+                                args.push(Argument::Positional(expr));
+                            }
+                        } else {
+                            // This is a positional argument
+                            let expr = self.expression()?;
+                            args.push(Argument::Positional(expr));
+                        }
+
                         if !self.match_token(&TokenType::Comma) {
                             break;
                         }

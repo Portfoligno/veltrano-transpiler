@@ -1406,3 +1406,32 @@ data class Container(val item: MyType, val count: Int)
     assert!(rust_code3.contains("pub struct Container<'a> {"));
     assert!(rust_code3.contains("pub item: &'a MyType,"));
 }
+
+#[test]
+fn test_data_class_initialization() {
+    // Test Kotlin-style struct initialization
+    let source = r#"
+data class Point(val x: Int, val y: Int)
+data class Person(val name: String, val age: Int)
+
+fun main() {
+    val p1 = Point(x = 10, y = 20)
+    val p2 = Person(name = "Alice", age = 30)
+}
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut codegen = CodeGenerator::with_config(config);
+    let rust_code = codegen.generate(&program);
+
+    // Check struct initialization syntax
+    assert!(rust_code.contains("let p1 = Point { x: 10, y: 20 };"));
+    assert!(rust_code.contains("let p2 = Person { name: \"Alice\", age: 30 };"));
+}
