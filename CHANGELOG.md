@@ -5,6 +5,26 @@ All notable changes to the Veltrano Transpiler will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-05-30
+
+### Added
+- Data class support with Kotlin-like syntax
+  - Syntax: `data class Name(val field: Type, ...)`
+  - Generates Rust structs with `#[derive(Debug, Clone)]`
+  - Automatic lifetime parameter generation for structs with reference types
+  - Field names automatically converted to snake_case in generated code
+- Kotlin-style struct initialization for data classes
+  - Named arguments: `Person(name = "Alice", age = 30)` → `Person { name: "Alice", age: 30 }`
+  - Bare arguments support field shorthand: `Point(x, y)` → `Point { x, y }`
+  - Named arguments can appear in any order
+  - Bare and named arguments can be mixed in any position
+- Field access syntax for structs
+  - Distinguish between method calls (`obj.method()`) and field access (`obj.field`)
+  - Field names converted to snake_case: `person.firstName` → `person.first_name`
+
+### Changed
+- `data` is now a reserved keyword and cannot be used as a variable name
+
 ## [0.2.1] - 2025-05-29
 
 ### Added
