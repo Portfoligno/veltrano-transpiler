@@ -420,7 +420,7 @@ impl CodeGenerator {
             }
             first = false;
             match arg {
-                Argument::Positional(expr) => self.generate_expression(expr),
+                Argument::Bare(expr) => self.generate_expression(expr),
                 Argument::Named(name, expr) => {
                     self.output.push_str(&self.camel_to_snake_case(name));
                     self.output.push_str(": ");
@@ -469,7 +469,7 @@ impl CodeGenerator {
                     );
                 }
                 self.output.push_str("&mut (&");
-                if let Argument::Positional(expr) = &call.args[0] {
+                if let Argument::Bare(expr) = &call.args[0] {
                     self.generate_expression(expr);
                 } else {
                     panic!("MutRef() does not support named arguments");

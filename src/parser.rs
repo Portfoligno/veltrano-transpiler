@@ -371,14 +371,14 @@ impl Parser {
                                 let value = self.expression()?;
                                 args.push(Argument::Named(name, value));
                             } else {
-                                // This is a positional argument starting with an identifier
+                                // This is a bare argument starting with an identifier
                                 let expr = self.expression()?;
-                                args.push(Argument::Positional(expr));
+                                args.push(Argument::Bare(expr));
                             }
                         } else {
-                            // This is a positional argument
+                            // This is a bare argument
                             let expr = self.expression()?;
-                            args.push(Argument::Positional(expr));
+                            args.push(Argument::Bare(expr));
                         }
 
                         if !self.match_token(&TokenType::Comma) {

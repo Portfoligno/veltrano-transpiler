@@ -80,8 +80,8 @@ pub enum BinaryOp {
 
 #[derive(Debug, Clone)]
 pub enum Argument {
-    Positional(Expr),
-    Named(String, Expr),
+    Bare(Expr), // Just the expression: positional in function calls, field shorthand in struct init
+    Named(String, Expr), // Explicit name: `name = value` → named parameter or struct field
 }
 
 #[derive(Debug, Clone)]
