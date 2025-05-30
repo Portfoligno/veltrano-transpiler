@@ -28,6 +28,20 @@ fun main() {
     val name = "Bob"
     val bob = Person(name, age = 25)  // Generates: Person { name, age: 25 }
     
+    // Named arguments can be in any order
+    val charlie = Person(age = 40, name = "Charlie")  // Order doesn't matter!
+    val book2 = Book(pages = 300, author = alice.ref(), title = "Rust in Action")
+    
+    // Bare arguments can be mixed with named arguments in any position
+    val david = Person(name, age = 45)  // bare first, named second
+    val emma = Person(age = 35, name)   // named first, bare second
+    
+    // More complex mixing with 3 fields
+    val title = "Learning Rust"
+    val pages = 250
+    val book3 = Book(title, author = alice.ref(), pages = 400)  // bare, named, named
+    val book4 = Book(title = "Rust Guide", author = alice.ref(), pages)   // named, named, bare
+    
     // Field access
     val aliceName = alice.name
     val aliceAge = alice.age

@@ -1476,6 +1476,92 @@ fun main() {
 }
 
 #[test]
+fn test_data_class_argument_order() {
+    // Test that named arguments can be provided in any order
+    let source = r#"
+data class Person(val name: Str, val age: Int)
+data class Book(val title: Str, val author: Str, val pages: Int)
+
+fun main() {
+    // Arguments in declaration order
+    val p1 = Person(name = "Alice", age = 30)
+    
+    // Arguments in reversed order
+    val p2 = Person(age = 25, name = "Bob")
+    
+    // Mixed order for 3+ fields
+    val b1 = Book(title = "Title", author = "Author", pages = 100)
+    val b2 = Book(pages = 200, title = "Another", author = "Someone")
+    val b3 = Book(author = "Writer", pages = 300, title = "Book")
+}
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut codegen = CodeGenerator::with_config(config);
+    let rust_code = codegen.generate(&program);
+
+    // All should generate correct struct initialization regardless of order
+    assert!(rust_code.contains("let p1 = Person { name: \"Alice\", age: 30 };"));
+    assert!(rust_code.contains("let p2 = Person { age: 25, name: \"Bob\" };"));
+    assert!(rust_code.contains("let b1 = Book { title: \"Title\", author: \"Author\", pages: 100 };"));
+    assert!(rust_code.contains("let b2 = Book { pages: 200, title: \"Another\", author: \"Someone\" };"));
+    assert!(rust_code.contains("let b3 = Book { author: \"Writer\", pages: 300, title: \"Book\" };"));
+}
+
+#[test]
+fn test_data_class_mixed_bare_named_args() {
+    // Test that bare and named arguments can be mixed in any order
+    let source = r#"
+data class Person(val name: Str, val age: Int)
+data class Book(val title: Str, val author: Str, val pages: Int)
+
+fun main() {
+    val name = "Alice"
+    val age = 30
+    val title = "Rust Book"
+    val author = "Steve"
+    val pages = 500
+    
+    // Bare first, named second
+    val p1 = Person(name, age = 25)
+    
+    // Named first, bare second
+    val p2 = Person(age = 35, name)
+    
+    // Multiple combinations with 3 fields
+    val b1 = Book(title, author = "Carol", pages = 300)     // bare, named, named
+    val b2 = Book(title = "Guide", author, pages = 400)     // named, bare, named  
+    val b3 = Book(title = "Manual", author = "Bob", pages)  // named, named, bare
+}
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut codegen = CodeGenerator::with_config(config);
+    let rust_code = codegen.generate(&program);
+
+    // Verify correct struct initialization with mixed bare/named args
+    assert!(rust_code.contains("let p1 = Person { name, age: 25 };"));
+    assert!(rust_code.contains("let p2 = Person { age: 35, name };"));
+    assert!(rust_code.contains("let b1 = Book { title, author: \"Carol\", pages: 300 };"));
+    assert!(rust_code.contains("let b2 = Book { title: \"Guide\", author, pages: 400 };"));
+    assert!(rust_code.contains("let b3 = Book { title: \"Manual\", author: \"Bob\", pages };"));
+}
+
+#[test]
 fn test_data_class_field_access() {
     // Test field access for data classes
     let source = r#"
