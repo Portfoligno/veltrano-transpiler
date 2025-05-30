@@ -1,0 +1,26 @@
+// Bump allocation examples - demonstrating explicit memory management
+
+data class Person(val name: Str, val age: Int)
+
+fun processValue(val_param: Int): Int {
+    return val_param * 2
+}
+
+fun main() {
+    // Regular allocation - uses standard heap
+    val person1 = Person(name = "Alice", age = 30)
+    val person2 = Person(name = "Bob", age = 25)
+    
+    // Explicit bump allocation using .ref()
+    val person_ref = Person(name = "Charlie", age = 35).ref()
+    val value_ref = 42.ref()
+    
+    // Function calls with values
+    val result1 = processValue(42)
+    val result2 = processValue(person1.age)
+    
+    println("Regular person: {} is {} years old", person1.name, person1.age)
+    println("Bump allocated person: {} is {} years old", person_ref.name, person_ref.age)
+    println("Value processing: {} -> {}", 42, result1)
+    println("Age processing: {} -> {}", person1.age, result2)
+}

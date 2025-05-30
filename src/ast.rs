@@ -138,6 +138,7 @@ pub struct FunDeclStmt {
     pub params: Vec<Parameter>,
     pub return_type: Option<Type>,
     pub body: Box<Stmt>,
+    pub has_hidden_bump: bool, // Whether this function should receive a hidden bump parameter
 }
 
 #[derive(Debug, Clone)]

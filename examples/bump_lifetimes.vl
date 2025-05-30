@@ -1,0 +1,23 @@
+// Testing bump allocation with proper lifetime parameters
+
+data class Person(val name: Str, val age: Int)
+
+fun processPerson(person: Person): Str {
+    return person.name
+}
+
+fun createPerson(name: Str, age: Int): Person {
+    return Person(name = name, age = age)
+}
+
+fun main() {
+    val alice = Person(name = "Alice", age = 30)
+    val alice_ref = alice.ref()
+    
+    val name = processPerson(alice_ref)
+    val bob = createPerson("Bob", 25)
+    val bob_ref = bob.ref()
+    
+    println("Person name: {}", name)
+    println("Bob: {} is {} years old", bob.name, bob.age)
+}

@@ -4,11 +4,16 @@ use crate::lexer::{Token, TokenType};
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
+    in_function_body: bool, // Track if we're parsing inside a function body
 }
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens, current: 0 }
+        Self {
+            tokens,
+            current: 0,
+            in_function_body: false,
+        }
     }
 
     pub fn parse(&mut self) -> Result<Program, String> {
@@ -81,13 +86,19 @@ impl Parser {
         };
 
         self.consume(&TokenType::LeftBrace, "Expected '{' before function body")?;
+
+        // Set context flag before parsing function body
+        let was_in_function_body = self.in_function_body;
+        self.in_function_body = true;
         let body = Box::new(self.block_statement()?);
+        self.in_function_body = was_in_function_body;
 
         Ok(Stmt::FunDecl(FunDeclStmt {
-            name,
+            name: name.clone(),
             params,
             return_type,
             body,
+            has_hidden_bump: name != "main" && !was_in_function_body, // Only top-level functions (except main) get hidden bump
         }))
     }
 

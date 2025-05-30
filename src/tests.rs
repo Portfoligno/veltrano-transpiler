@@ -5,6 +5,72 @@ use crate::parser::Parser;
 use std::fs;
 use std::process::Command;
 
+// Helper function to separate imports from code
+fn separate_imports_and_code(rust_code: &str) -> (String, String) {
+    let lines: Vec<&str> = rust_code.lines().collect();
+    let mut imports = Vec::new();
+    let mut code_lines = Vec::new();
+    let mut in_imports = true;
+
+    for line in lines {
+        if in_imports && (line.starts_with("use ") || line.trim().is_empty()) {
+            imports.push(line);
+        } else {
+            in_imports = false;
+            code_lines.push(line);
+        }
+    }
+
+    (imports.join("\n"), code_lines.join("\n"))
+}
+
+// Helper function to compile Rust code with bumpalo dependency
+fn compile_with_bumpalo(rust_code: &str, name: &str) -> Result<(), String> {
+    // Create temporary directory for Cargo project
+    let temp_dir = format!("/tmp/veltrano_test_{}", name);
+    let src_dir = format!("{}/src", temp_dir);
+
+    // Create directory structure
+    fs::create_dir_all(&src_dir).map_err(|e| format!("Failed to create temp dir: {}", e))?;
+
+    // Create Cargo.toml with bumpalo dependency
+    let cargo_toml = format!(
+        r#"[package]
+name = "veltrano_test_{}"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bumpalo = "3.0"
+"#,
+        name
+    );
+
+    fs::write(format!("{}/Cargo.toml", temp_dir), cargo_toml)
+        .map_err(|e| format!("Failed to write Cargo.toml: {}", e))?;
+
+    // Create main.rs with the generated code
+    fs::write(format!("{}/src/main.rs", temp_dir), rust_code)
+        .map_err(|e| format!("Failed to write main.rs: {}", e))?;
+
+    // Run cargo check to verify compilation
+    let output = Command::new("cargo")
+        .arg("check")
+        .current_dir(&temp_dir)
+        .output()
+        .map_err(|e| format!("Failed to execute cargo: {}", e))?;
+
+    // Clean up
+    let _ = fs::remove_dir_all(&temp_dir);
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Compilation failed:\n{}", stderr))
+    } else {
+        Ok(())
+    }
+}
+
 #[test]
 fn test_camel_to_snake_case() {
     let codegen = CodeGenerator::with_config(Config::default());
@@ -118,42 +184,23 @@ fn test_readme_rust_outputs_compile() {
             .collect::<Vec<_>>()
             .join("\n");
 
-        // Create a temporary Rust file for each example
-        let temp_file = format!("/tmp/readme_example_{}.rs", index);
-
         // Wrap the code in a main function if it's not already a complete program
         let complete_rust_code = if cleaned_rust_code.contains("fn main") {
             cleaned_rust_code.clone()
         } else {
-            format!("fn main() {{\n{}\n}}", cleaned_rust_code)
+            // Separate imports from code
+            let (imports, code) = separate_imports_and_code(&cleaned_rust_code);
+            format!("{}\n\nfn main() {{\n{}\n}}", imports, code)
         };
 
-        fs::write(&temp_file, &complete_rust_code)
-            .expect(&format!("Failed to write temp file {}", temp_file));
-
-        // Try to compile the Rust code
-        let output = Command::new("rustc")
-            .arg("--crate-type")
-            .arg("bin")
-            .arg("--edition")
-            .arg("2021")
-            .arg("-o")
-            .arg(&format!("/tmp/readme_example_{}", index))
-            .arg(&temp_file)
-            .output()
-            .expect("Failed to execute rustc");
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
+        // Try to compile the Rust code with bumpalo support
+        if let Err(error) = compile_with_bumpalo(&complete_rust_code, &format!("readme_{}", index))
+        {
             panic!(
                 "README Rust example {} failed to compile:\n{}\n\nCode:\n{}",
-                index, stderr, complete_rust_code
+                index, error, complete_rust_code
             );
         }
-
-        // Clean up temporary files
-        let _ = fs::remove_file(&temp_file);
-        let _ = fs::remove_file(&format!("/tmp/readme_example_{}", index));
     }
 }
 
@@ -207,42 +254,42 @@ fn test_readme_veltrano_snippets_transpile_and_compile() {
         let complete_rust_code = if rust_code.contains("fn main") {
             rust_code.clone()
         } else {
+            // Separate imports from code
+            let (imports, code) = separate_imports_and_code(&rust_code);
+
             // Special case for control flow examples that use undefined variables
-            if rust_code.contains("if x") {
-                format!("fn main() {{\nlet x = 10;\n{}\n}}", rust_code)
-            } else if rust_code.contains("while counter") {
-                format!("fn main() {{\nlet counter = 0;\n{}\n}}", rust_code)
+            let main_body = if code.contains("if x") {
+                format!(
+                    "    let bump = &bumpalo::Bump::new();\n    let x = 10;\n{}",
+                    code
+                )
+            } else if code.contains("while counter") {
+                format!(
+                    "    let bump = &bumpalo::Bump::new();\n    let counter = 0;\n{}",
+                    code
+                )
             } else {
-                format!("fn main() {{\n{}\n}}", rust_code)
-            }
+                format!("    let bump = &bumpalo::Bump::new();\n{}", code)
+            };
+
+            format!("{}\n\nfn main() {{\n{}\n}}", imports, main_body)
         };
 
         fs::write(&temp_file, &complete_rust_code)
             .expect(&format!("Failed to write temp file {}", temp_file));
 
-        // Try to compile the generated Rust code
-        let output = Command::new("rustc")
-            .arg("--crate-type")
-            .arg("bin")
-            .arg("--edition")
-            .arg("2021")
-            .arg("-o")
-            .arg(&format!("/tmp/readme_veltrano_example_{}", index))
-            .arg(&temp_file)
-            .output()
-            .expect("Failed to execute rustc");
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
+        // Try to compile the generated Rust code with bumpalo support
+        if let Err(error) =
+            compile_with_bumpalo(&complete_rust_code, &format!("readme_veltrano_{}", index))
+        {
             panic!(
                 "README Veltrano example {} transpiled but failed to compile:\n{}\n\nVeltrano code:\n{}\n\nGenerated Rust code:\n{}",
-                index, stderr, veltrano_code, complete_rust_code
+                index, error, veltrano_code, complete_rust_code
             );
         }
 
         // Clean up temporary files
         let _ = fs::remove_file(&temp_file);
-        let _ = fs::remove_file(&format!("/tmp/readme_veltrano_example_{}", index));
     }
 }
 
@@ -305,45 +352,32 @@ fn test_examples_with_config(preserve_comments: bool) {
         let complete_rust_code = if rust_code.contains("fn main") {
             rust_code.clone()
         } else {
-            format!("fn main() {{\n{}\n}}", rust_code)
+            // Separate imports from code
+            let (imports, code) = separate_imports_and_code(&rust_code);
+            format!(
+                "{}\n\nfn main() {{\n    let bump = &bumpalo::Bump::new();\n{}\n}}",
+                imports, code
+            )
         };
 
         fs::write(&temp_file, &complete_rust_code)
             .expect(&format!("Failed to write temp file {}", temp_file));
 
-        // Try to compile the generated Rust code
-        let output = Command::new("rustc")
-            .arg("--crate-type")
-            .arg("bin")
-            .arg("--edition")
-            .arg("2021")
-            .arg("-A")
-            .arg("unused_must_use")
-            .arg("-o")
-            .arg(&format!(
-                "/tmp/example_{}{}",
-                example_file.replace(".vl", ""),
-                comments_suffix
-            ))
-            .arg(&temp_file)
-            .output()
-            .expect("Failed to execute rustc");
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
+        // Try to compile the generated Rust code with bumpalo support
+        let test_name = format!(
+            "example_{}{}",
+            example_file.replace(".vl", ""),
+            comments_suffix
+        );
+        if let Err(error) = compile_with_bumpalo(&complete_rust_code, &test_name) {
             panic!(
                 "Example {} (preserve_comments={}) transpiled but failed to compile:\n{}\n\nVeltrano code:\n{}\n\nGenerated Rust code:\n{}",
-                example_file, preserve_comments, stderr, veltrano_code, complete_rust_code
+                example_file, preserve_comments, error, veltrano_code, complete_rust_code
             );
         }
 
         // Clean up temporary files
         let _ = fs::remove_file(&temp_file);
-        let _ = fs::remove_file(&format!(
-            "/tmp/example_{}{}",
-            example_file.replace(".vl", ""),
-            comments_suffix
-        ));
     }
 }
 
@@ -909,8 +943,8 @@ fn test_clone_ufcs_generation() {
         rust_code
     );
     assert!(
-        rust_code.contains("let chained = Clone::clone(&owned)"),
-        "Expected 'Clone::clone(&owned)' for chained call but got: {}",
+        rust_code.contains("let chained = Clone::clone(bump.alloc(owned))"),
+        "Expected 'Clone::clone(bump.alloc(owned))' for chained call but got: {}",
         rust_code
     );
 }
@@ -996,8 +1030,8 @@ fn test_mutref_method_chaining() {
         rust_code
     );
     assert!(
-        rust_code.contains("let chained2 = &mut &Clone::clone(borrowed)"),
-        "Expected '&mut &Clone::clone(borrowed)' but got: {}",
+        rust_code.contains("let chained2 = &mut bump.alloc(Clone::clone(borrowed))"),
+        "Expected '&mut bump.alloc(Clone::clone(borrowed))' but got: {}",
         rust_code
     );
     assert!(
@@ -1057,50 +1091,43 @@ fn test_readme_table_examples() {
         let complete_rust_code = if rust_code.contains("fn main") {
             rust_code.clone()
         } else {
+            // Separate imports from code
+            let (imports, code) = separate_imports_and_code(&rust_code);
+
             // Add common variable declarations for table examples
             let mut vars = String::new();
-            if rust_code.contains("owned") {
-                vars.push_str("let owned = String::from(\"example\");\n");
+            if code.contains("owned") {
+                vars.push_str("    let owned = String::from(\"example\");\n");
             }
-            if rust_code.contains("borrowed") {
-                vars.push_str("let borrowed = &String::from(\"example\");\n");
+            if code.contains("borrowed") {
+                vars.push_str("    let borrowed = &String::from(\"example\");\n");
             }
-            if rust_code.contains("num") {
-                vars.push_str("let num = 42i64;\n");
+            if code.contains("num") {
+                vars.push_str("    let num = 42i64;\n");
             }
-            if rust_code.contains("&s") && !rust_code.contains("let s") {
-                vars.push_str("let s = &String::from(\"example\");\n");
+            if code.contains("&s") && !code.contains("let s") {
+                vars.push_str("    let s = &String::from(\"example\");\n");
             }
 
-            format!("fn main() {{\n{}{}\n}}", vars, rust_code)
+            format!(
+                "{}\n\nfn main() {{\n{}    let bump = &bumpalo::Bump::new();\n{}}}",
+                imports, vars, code
+            )
         };
 
         fs::write(&temp_file, &complete_rust_code)
             .expect(&format!("Failed to write temp file {}", temp_file));
 
-        // Try to compile the generated Rust code
-        let output = Command::new("rustc")
-            .arg("--crate-type")
-            .arg("bin")
-            .arg("--edition")
-            .arg("2021")
-            .arg("-o")
-            .arg(&format!("/tmp/table_example_{}", index))
-            .arg(&temp_file)
-            .output()
-            .expect("Failed to execute rustc");
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
+        // Try to compile the generated Rust code with bumpalo support
+        if let Err(error) = compile_with_bumpalo(&complete_rust_code, &format!("table_{}", index)) {
             panic!(
                 "Table example {} failed to compile:\n{}\n\nVeltrano code:\n{}\n\nGenerated Rust code:\n{}",
-                index, stderr, example, complete_rust_code
+                index, error, example, complete_rust_code
             );
         }
 
         // Clean up temporary files
         let _ = fs::remove_file(&temp_file);
-        let _ = fs::remove_file(&format!("/tmp/table_example_{}", index));
     }
 }
 
@@ -1251,7 +1278,7 @@ fun main() {
     // Check pre-imported methods
     assert!(rust_code.contains("Clone::clone(text)"));
     assert!(rust_code.contains("ToString::to_string(text)"));
-    assert!(rust_code.contains("&text")); // .ref()
+    assert!(rust_code.contains("bump.alloc(text)")); // .ref() with bump allocation
     assert!(rust_code.contains("&mut text")); // .mutRef()
 }
 
@@ -1337,8 +1364,11 @@ fun new(): Int {
     let mut codegen = CodeGenerator::with_config(config);
     let rust_code = codegen.generate(&program);
 
+    // Debug: print the generated code
+    println!("Generated Rust code:\n{}", rust_code);
+
     // Check that local function is called, not Vec::new
-    assert!(rust_code.contains("let result = new()"));
+    assert!(rust_code.contains("let result = new("));
     assert!(!rust_code.contains("Vec::new"));
 }
 
@@ -1510,9 +1540,14 @@ fun main() {
     // All should generate correct struct initialization regardless of order
     assert!(rust_code.contains("let p1 = Person { name: \"Alice\", age: 30 };"));
     assert!(rust_code.contains("let p2 = Person { age: 25, name: \"Bob\" };"));
-    assert!(rust_code.contains("let b1 = Book { title: \"Title\", author: \"Author\", pages: 100 };"));
-    assert!(rust_code.contains("let b2 = Book { pages: 200, title: \"Another\", author: \"Someone\" };"));
-    assert!(rust_code.contains("let b3 = Book { author: \"Writer\", pages: 300, title: \"Book\" };"));
+    assert!(
+        rust_code.contains("let b1 = Book { title: \"Title\", author: \"Author\", pages: 100 };")
+    );
+    assert!(rust_code
+        .contains("let b2 = Book { pages: 200, title: \"Another\", author: \"Someone\" };"));
+    assert!(
+        rust_code.contains("let b3 = Book { author: \"Writer\", pages: 300, title: \"Book\" };")
+    );
 }
 
 #[test]
