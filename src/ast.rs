@@ -34,6 +34,7 @@ pub enum Expr {
     Binary(BinaryExpr),
     Call(CallExpr),
     MethodCall(MethodCallExpr),
+    FieldAccess(FieldAccessExpr),
 }
 
 #[derive(Debug, Clone)]
@@ -95,6 +96,12 @@ pub struct MethodCallExpr {
     pub object: Box<Expr>,
     pub method: String,
     pub args: Vec<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct FieldAccessExpr {
+    pub object: Box<Expr>,
+    pub field: String,
 }
 
 #[derive(Debug, Clone)]

@@ -1474,3 +1474,44 @@ fun main() {
     assert!(rust_code.contains("let p2 = Person { name, age: 30 };"));
     assert!(rust_code.contains("let p3 = Person { name: \"Bob\", age: 25 };"));
 }
+
+#[test]
+fn test_data_class_field_access() {
+    // Test field access for data classes
+    let source = r#"
+data class Point(val x: Int, val y: Int)
+data class Person(val name: Str, val age: Int)
+
+fun main() {
+    val p = Point(x = 10, y = 20)
+    val person = Person(name = "Alice", age = 30)
+    
+    // Field access
+    val x = p.x
+    val y = p.y
+    val name = person.name
+    val age = person.age
+    
+    // Chained field access
+    val someX = p.x
+}
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut codegen = CodeGenerator::with_config(config);
+    let rust_code = codegen.generate(&program);
+
+    // Check field access generation
+    assert!(rust_code.contains("let x = p.x;"));
+    assert!(rust_code.contains("let y = p.y;"));
+    assert!(rust_code.contains("let name = person.name;"));
+    assert!(rust_code.contains("let age = person.age;"));
+    assert!(rust_code.contains("let some_x = p.x;"));
+}

@@ -28,5 +28,12 @@ fun main() {
     val name = "Bob"
     val bob = Person(name, age = 25)  // Generates: Person { name, age: 25 }
     
+    // Field access
+    val aliceName = alice.name
+    val aliceAge = alice.age
+    val bookTitle = book.title
+    
     println("Data classes compiled successfully!")
+    println("Alice: {} is {} years old", aliceName, aliceAge)
+    println("Book: {}", bookTitle)
 }

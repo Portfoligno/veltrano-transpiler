@@ -298,6 +298,9 @@ impl CodeGenerator {
             Expr::MethodCall(method_call) => {
                 self.generate_method_call_expression(method_call);
             }
+            Expr::FieldAccess(field_access) => {
+                self.generate_field_access(field_access);
+            }
         }
     }
 
@@ -582,5 +585,12 @@ impl CodeGenerator {
                 self.output.push_str(content);
             }
         }
+    }
+
+    fn generate_field_access(&mut self, field_access: &FieldAccessExpr) {
+        self.generate_expression(&field_access.object);
+        self.output.push('.');
+        self.output
+            .push_str(&self.camel_to_snake_case(&field_access.field));
     }
 }

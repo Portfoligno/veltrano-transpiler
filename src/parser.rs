@@ -394,30 +394,41 @@ impl Parser {
                     args,
                 });
             } else if self.match_token(&TokenType::Dot) {
-                let method_name = self.consume_identifier("Expected method name after '.'")?;
+                let field_or_method =
+                    self.consume_identifier("Expected field or method name after '.'")?;
 
-                self.consume(&TokenType::LeftParen, "Expected '(' after method name")?;
+                // Check if this is a method call (has parentheses) or field access
+                if self.check(&TokenType::LeftParen) {
+                    // Method call
+                    self.advance(); // consume '('
 
-                let mut args = Vec::new();
-                if !self.check(&TokenType::RightParen) {
-                    loop {
-                        args.push(self.expression()?);
-                        if !self.match_token(&TokenType::Comma) {
-                            break;
+                    let mut args = Vec::new();
+                    if !self.check(&TokenType::RightParen) {
+                        loop {
+                            args.push(self.expression()?);
+                            if !self.match_token(&TokenType::Comma) {
+                                break;
+                            }
                         }
                     }
+
+                    self.consume(
+                        &TokenType::RightParen,
+                        "Expected ')' after method arguments",
+                    )?;
+
+                    expr = Expr::MethodCall(MethodCallExpr {
+                        object: Box::new(expr),
+                        method: field_or_method,
+                        args,
+                    });
+                } else {
+                    // Field access
+                    expr = Expr::FieldAccess(FieldAccessExpr {
+                        object: Box::new(expr),
+                        field: field_or_method,
+                    });
                 }
-
-                self.consume(
-                    &TokenType::RightParen,
-                    "Expected ')' after method arguments",
-                )?;
-
-                expr = Expr::MethodCall(MethodCallExpr {
-                    object: Box::new(expr),
-                    method: method_name,
-                    args,
-                });
             } else {
                 break;
             }
