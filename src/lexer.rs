@@ -16,6 +16,7 @@ pub enum TokenType {
     Class,
     Import,
     As,
+    Data,
 
     // Identifiers and literals
     Identifier(String),
@@ -240,6 +241,7 @@ impl Lexer {
             "class" => TokenType::Class,
             "import" => TokenType::Import,
             "as" => TokenType::As,
+            "data" => TokenType::Data,
             _ => TokenType::Identifier(text),
         }
     }

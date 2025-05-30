@@ -93,6 +93,9 @@ impl CodeGenerator {
                     .insert(key, (import.type_name.clone(), import.method_name.clone()));
                 // Don't generate any Rust code for imports
             }
+            Stmt::DataClass(data_class) => {
+                self.generate_data_class(data_class);
+            }
         }
     }
 
@@ -169,6 +172,53 @@ impl CodeGenerator {
         }
 
         self.generate_statement(&while_stmt.body);
+    }
+
+    fn generate_data_class(&mut self, data_class: &DataClassStmt) {
+        // Check if any fields are reference types
+        let needs_lifetime = data_class.fields.iter().any(|field| {
+            matches!(
+                field.field_type.base,
+                BaseType::Str | BaseType::String | BaseType::Custom(_)
+            ) || field.field_type.reference_depth > 0
+        });
+
+        self.indent();
+        self.output.push_str("#[derive(Debug, Clone)]\n");
+        self.indent();
+        self.output.push_str("pub struct ");
+        self.output.push_str(&data_class.name);
+
+        if needs_lifetime {
+            self.output.push_str("<'a>");
+        }
+
+        self.output.push_str(" {\n");
+        self.indent_level += 1;
+
+        // Generate fields
+        for field in &data_class.fields {
+            self.indent();
+            self.output.push_str("pub ");
+            self.output.push_str(&self.camel_to_snake_case(&field.name));
+            self.output.push_str(": ");
+
+            // Generate the field type with lifetime if needed
+            if needs_lifetime && field.field_type.reference_depth > 0 {
+                // For reference types that need lifetime annotations
+                for _ in 0..field.field_type.reference_depth {
+                    self.output.push_str("&'a ");
+                }
+                self.generate_base_type(&field.field_type.base);
+            } else {
+                self.generate_type(&field.field_type);
+            }
+            self.output.push_str(",\n");
+        }
+
+        self.indent_level -= 1;
+        self.indent();
+        self.output.push_str("}\n\n");
     }
 
     fn generate_expression(&mut self, expr: &Expr) {

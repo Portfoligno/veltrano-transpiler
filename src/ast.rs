@@ -100,8 +100,9 @@ pub enum Stmt {
     While(WhileStmt),
     Return(Option<Expr>, Option<(String, String)>), // Return statement with optional inline comment (content, whitespace)
     Block(Vec<Stmt>),
-    Comment(CommentStmt), // Standalone comments
-    Import(ImportStmt),   // Import statement
+    Comment(CommentStmt),     // Standalone comments
+    Import(ImportStmt),       // Import statement
+    DataClass(DataClassStmt), // Data class declaration
 }
 
 #[derive(Debug, Clone)]
@@ -150,6 +151,18 @@ pub struct ImportStmt {
     pub type_name: String,
     pub method_name: String,
     pub alias: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DataClassStmt {
+    pub name: String,
+    pub fields: Vec<DataClassField>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DataClassField {
+    pub name: String,
+    pub field_type: Type,
 }
 
 #[derive(Debug, Clone)]

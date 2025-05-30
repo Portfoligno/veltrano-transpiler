@@ -42,6 +42,8 @@ impl Parser {
             self.var_declaration()
         } else if self.match_token(&TokenType::Import) {
             Ok(vec![self.import_declaration()?])
+        } else if self.match_token(&TokenType::Data) {
+            Ok(vec![self.data_class_declaration()?])
         } else {
             self.statement()
         }
@@ -135,6 +137,42 @@ impl Parser {
             method_name,
             alias,
         }))
+    }
+
+    fn data_class_declaration(&mut self) -> Result<Stmt, String> {
+        // data class ClassName(val field1: Type1, val field2: Type2, ...)
+        self.consume(&TokenType::Class, "Expected 'class' after 'data'")?;
+        let name = self.consume_identifier("Expected data class name after 'data class'")?;
+
+        self.consume(&TokenType::LeftParen, "Expected '(' after data class name")?;
+
+        let mut fields = Vec::new();
+        if !self.check(&TokenType::RightParen) {
+            loop {
+                // Each field starts with 'val'
+                self.consume(&TokenType::Val, "Expected 'val' before field name")?;
+                let field_name = self.consume_identifier("Expected field name after 'val'")?;
+                self.consume(&TokenType::Colon, "Expected ':' after field name")?;
+                let field_type = self.parse_type()?;
+
+                fields.push(DataClassField {
+                    name: field_name,
+                    field_type,
+                });
+
+                if !self.match_token(&TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(
+            &TokenType::RightParen,
+            "Expected ')' after data class fields",
+        )?;
+        self.consume_newline_or_semicolon()?;
+
+        Ok(Stmt::DataClass(DataClassStmt { name, fields }))
     }
 
     fn statement(&mut self) -> Result<Vec<Stmt>, String> {

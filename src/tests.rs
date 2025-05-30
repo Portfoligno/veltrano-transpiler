@@ -1341,3 +1341,68 @@ fun new(): Int {
     assert!(rust_code.contains("let result = new()"));
     assert!(!rust_code.contains("Vec::new"));
 }
+
+#[test]
+fn test_data_class_generation() {
+    // Test data class with value types only (no lifetime needed)
+    let source1 = r#"
+data class Point(val x: Int, val y: Int)
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(source1.to_string(), config.clone());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut codegen = CodeGenerator::with_config(config.clone());
+    let rust_code = codegen.generate(&program);
+
+    // Check struct generation without lifetime
+    assert!(rust_code.contains("#[derive(Debug, Clone)]"));
+    assert!(rust_code.contains("pub struct Point {"));
+    assert!(rust_code.contains("pub x: i64,"));
+    assert!(rust_code.contains("pub y: i64,"));
+    assert!(
+        !rust_code.contains("<'a>"),
+        "Point should not have lifetime parameter"
+    );
+
+    // Test data class with reference types (lifetime needed)
+    let source2 = r#"
+data class Person(val name: String, val age: Int)
+"#;
+
+    let mut lexer2 = Lexer::with_config(source2.to_string(), config.clone());
+    let tokens2 = lexer2.tokenize();
+    let mut parser2 = Parser::new(tokens2);
+    let program2 = parser2.parse().expect("Parse should succeed");
+
+    let mut codegen2 = CodeGenerator::with_config(config.clone());
+    let rust_code2 = codegen2.generate(&program2);
+
+    // Check struct generation with lifetime
+    assert!(rust_code2.contains("#[derive(Debug, Clone)]"));
+    assert!(rust_code2.contains("pub struct Person<'a> {"));
+    assert!(rust_code2.contains("pub name: &'a String,"));
+    assert!(rust_code2.contains("pub age: i64,"));
+
+    // Test data class with custom types
+    let source3 = r#"
+data class Container(val item: MyType, val count: Int)
+"#;
+
+    let mut lexer3 = Lexer::with_config(source3.to_string(), config.clone());
+    let tokens3 = lexer3.tokenize();
+    let mut parser3 = Parser::new(tokens3);
+    let program3 = parser3.parse().expect("Parse should succeed");
+
+    let mut codegen3 = CodeGenerator::with_config(config);
+    let rust_code3 = codegen3.generate(&program3);
+
+    // Check struct generation with custom type (needs lifetime)
+    assert!(rust_code3.contains("pub struct Container<'a> {"));
+    assert!(rust_code3.contains("pub item: &'a MyType,"));
+}
