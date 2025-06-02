@@ -133,6 +133,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 3. If Rust code changed: Verify tests pass with `cargo test`
 4. Only then proceed with commit
 
+#### Avoid Redundant Builds
+- **NEVER run `cargo build` unnecessarily** - other commands build automatically
+- **`cargo test`** builds the project before running tests
+- **`cargo run`** builds the project before running
+- **`cargo fmt`** doesn't require a build
+- **Only run explicit build** if you specifically need to check compilation without running anything
+
 #### Trailing Newline Enforcement - STRICT PROTOCOL
 
 **🚨 CRITICAL FACT:** The `Write` and `Edit` tools CANNOT add trailing newlines. Files created/edited with these tools will almost always lack trailing newlines.
