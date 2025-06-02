@@ -37,7 +37,44 @@ impl Parser {
             }
         }
 
+        // Second pass: analyze bump usage and update has_hidden_bump flags
+        Self::analyze_bump_usage(&mut statements);
+
         Ok(Program { statements })
+    }
+
+    /// Analyzes bump usage across all functions and updates has_hidden_bump flags
+    fn analyze_bump_usage(statements: &mut Vec<Stmt>) {
+        use std::collections::HashSet;
+
+        // Keep iterating until no changes are made (to handle transitive dependencies)
+        let mut changed = true;
+        let mut functions_with_bump = HashSet::new();
+
+        while changed {
+            changed = false;
+
+            for stmt in statements.iter_mut() {
+                if let Stmt::FunDecl(fun_decl) = stmt {
+                    let old_value = fun_decl.has_hidden_bump;
+                    let should_have_bump = fun_decl.needs_lifetime_params(&functions_with_bump);
+
+                    if should_have_bump != old_value {
+                        fun_decl.has_hidden_bump = should_have_bump;
+                        changed = true;
+                    }
+
+                    // Add to functions_with_bump if it has bump parameter (for transitive dependencies)
+                    if should_have_bump && !functions_with_bump.contains(&fun_decl.name) {
+                        functions_with_bump.insert(fun_decl.name.clone());
+                        changed = true;
+                    } else if !should_have_bump && functions_with_bump.contains(&fun_decl.name) {
+                        functions_with_bump.remove(&fun_decl.name);
+                        changed = true;
+                    }
+                }
+            }
+        }
     }
 
     fn declaration(&mut self) -> Result<Vec<Stmt>, String> {
@@ -98,7 +135,7 @@ impl Parser {
             params,
             return_type,
             body,
-            has_hidden_bump: name != "main" && !was_in_function_body, // Only top-level functions (except main) get hidden bump
+            has_hidden_bump: false, // Will be set by analyze_bump_usage
         }))
     }
 
