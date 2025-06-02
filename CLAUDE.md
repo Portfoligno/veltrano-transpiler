@@ -184,23 +184,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Git Workflow - CRITICAL RULES
 
-#### Staging and Committing
+#### Staging, Committing, and Pushing
 ❌ **NEVER** run `git add` as a separate command  
-✅ **ALWAYS** combine staging and committing in ONE tool call
+✅ **ALWAYS** combine staging, committing, and pushing in ONE tool call
 
 **Required Pattern:**
 ```bash
-git add file1 file2 && git commit -m "message"
+git add file1 file2 && git commit -m "message" && git push --no-progress
 ```
 
 **OR use automatic staging (for modified files only):**
 ```bash
-git commit -a -m "message"
+git commit -a -m "message" && git push --no-progress
 ```
 
 **Special Cases:**
-- **File renames:** `git add old_name new_name && git commit -m "message"`
-- **File deletions:** `git add deleted_file && git commit -m "message"`
+- **File renames:** `git add old_name new_name && git commit -m "message" && git push --no-progress`
+- **File deletions:** `git add deleted_file && git commit -m "message" && git push --no-progress`
 - **Multiple operations:** Stage all affected files together to preserve Git's rename detection
 
 #### Commit Process
@@ -211,10 +211,10 @@ git commit -a -m "message"
    - If only non-Rust files changed (e.g., `.md`, `.toml`): Skip cargo fmt
    - If formatter makes changes, include those in the commit
 3. **Verify formatting:** Check that new/edited files end with trailing newlines
-4. **Stage + Commit:** Single tool call combining `git add` and `git commit`
-5. **Push:** Run `git push` (no summary output required)
+4. **Stage + Commit + Push:** Single tool call combining all three: `git add files && git commit -m "message" && git push --no-progress`
 
 #### Push Behavior
+- **Always push immediately after committing** - treat push as part of the normal commit flow
 - Use `git push --no-progress` to suppress progress indicators while keeping push summary
 - Alternative: `git push --quiet` for minimal output (errors only)
 
@@ -377,4 +377,5 @@ Codebase and user instructions are shown below. Be sure to adhere to these instr
 
 ### File Footer Requirements
 **EVERY Git-tracked file MUST end with a trailing newline (empty line)**
+
 
