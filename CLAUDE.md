@@ -21,6 +21,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - **ENFORCEMENT:** Start every response by checking if you've read WORKSPACE.md
   - **VIOLATION CONSEQUENCE:** Session restart required if WORKSPACE.md not read first
 
+### Critical Tool Limitation - Write/Edit Cannot Add Trailing Newlines
+- **FACT:** The Write and Edit tools have a fundamental limitation - they CANNOT add trailing newlines
+- **IMPACT:** Every file created or edited will lack the required trailing newline
+- **MANDATORY:** After EVERY Write/Edit operation, you MUST manually add the trailing newline
+- **See:** "Trailing Newline Enforcement - STRICT PROTOCOL" section for exact steps
+
 ### File Formatting Requirements
 - **EVERY Git-tracked file MUST end with a trailing newline (empty line)**
   - Gitignored files do not require trailing newline checks
@@ -127,45 +133,54 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 3. If Rust code changed: Verify tests pass with `cargo test`
 4. Only then proceed with commit
 
-#### Trailing Newline Enforcement
-**TOOL LIMITATION:** The `Write` and `Edit` tools cannot add trailing newlines directly.
+#### Trailing Newline Enforcement - STRICT PROTOCOL
 
-**SCOPE:** This applies only to Git-tracked files. Gitignored files do not require trailing newline checks.
+**🚨 CRITICAL FACT:** The `Write` and `Edit` tools CANNOT add trailing newlines. Files created/edited with these tools will almost always lack trailing newlines.
 
-**WORKAROUND PROCESS:**
-1. **After using `Write` or `Edit` tools:** Always check with `Read` tool first to see current newline status
-2. **Add newline only if missing:** If content ends immediately without empty line, then add:
+**SCOPE:** Only Git-tracked files require trailing newlines. Gitignored files are exempt.
+
+**MANDATORY WORKFLOW - NO EXCEPTIONS:**
+
+1. **After EVERY Write/Edit operation:**
    ```bash
+   # Step 1: Check if file truly lacks newline (returns 0 if missing, 1 if present)
+   tail -c1 filename | wc -l
+   
+   # Step 2: If and ONLY if the above returns 0, add newline:
    echo "" >> filename
    ```
-3. **Visual indicators in `Read` tool:**
-   - **IMPORTANT:** The Read tool output can be misleading for trailing newlines
-   - Missing newline: Last line shows content with no subsequent line number
-   - Has newline: May not be visually obvious in Read tool output
-   - **BEST PRACTICE:** Use git diff after edits to verify - if git shows no `\ No newline at end of file`, the file is correct
-4. **Before committing:** Always verify with `Read` tool and fix if needed
-5. **Verification command:** Use this to check Git-tracked files only:
+
+2. **The ONLY reliable verification method:**
    ```bash
-   git ls-files '*.rs' '*.vl' '*.md' '*.toml' | xargs -I {} sh -c 'if [ ! -s "{}" ] || [ "$(tail -c1 "{}" | wc -l)" -eq 0 ]; then echo "Missing trailing newline: {}"; fi'
+   git diff --check
+   ```
+   If Git shows `\ No newline at end of file`, the file needs a newline. If Git shows nothing, the file is correct.
+
+3. **DO NOT TRUST these misleading sources:**
+   - ❌ **Read tool visual output** - Cannot reliably show trailing newlines
+   - ❌ **cargo fmt warnings** - Often wrong about newline status
+   - ❌ **`tail -n X` commands** - Only show non-empty lines
+   - ❌ **Visual inspection** - Humans cannot see trailing newlines
+
+4. **STRICT RULES:**
+   - **ALWAYS** assume Write/Edit left the file without a trailing newline
+   - **ALWAYS** use `tail -c1 file | wc -l` to verify before adding
+   - **NEVER** add a newline without verification (creates double newlines)
+   - **NEVER** trust any source except `git diff --check`
+
+5. **Pre-commit verification for ALL Git-tracked files:**
+   ```bash
+   # Find all files missing trailing newlines
+   git ls-files | xargs -I {} sh -c 'if [ -f "{}" ] && [ "$(tail -c1 "{}" | wc -l)" -eq 0 ]; then echo "{}"; fi' | while read f; do echo "" >> "$f"; done
    ```
 
-**WARNING about newline detection:**
-- **NEVER use `tail -n X`** to check for trailing newlines - it only shows non-empty lines
-- The Read tool output can be ambiguous - absence of a line after content doesn't always mean missing newline
-- **MOST RELIABLE:** Check git diff after changes - Git will show `\ No newline at end of file` if truly missing
-- **Alternative check:** `tail -c1 file | wc -l` returns 1 if newline exists, 0 if missing
+**COMMON MISTAKES TO AVOID:**
+- ❌ Adding newlines to files that already have them
+- ❌ Trusting cargo fmt or Read tool output
+- ❌ Using wrong verification commands
+- ❌ Forgetting to check after Write/Edit operations
 
-**WARNING about cargo fmt output:**
-- When cargo fmt shows "No newline at end of file" in system reminders, this can be misleading
-- This message might appear even when the file HAS a trailing newline
-- **ALWAYS verify with Read tool** before adding a newline - never trust the message alone
-- Adding a newline when one already exists creates unwanted double newlines
-
-**MANDATORY STEPS:**
-- After creating/editing ANY file with `Write`/`Edit`: Check git diff to see if newline is missing
-- **NEVER** blindly run `echo "" >> filename` without verifying it's actually missing
-- **CAUTION:** The Read tool alone is not sufficient to determine newline presence
-- Before any commit: Use git diff to check - Git will warn about missing newlines
+**REMEMBER:** Git diff is the ultimate authority. When in doubt, check `git diff --check`.
 
 ### Git Workflow - CRITICAL RULES
 
@@ -338,9 +353,14 @@ When the user requests a release:
 **Self-Check:** "Is my current task in the TODO list? Are completed items marked?"
 
 ### 4. Misinterpreting Trailing Newline Status
-**Problem:** Adding unnecessary newlines based on misleading Read tool output  
-**Solution:** Use git diff to check - Git explicitly shows `\ No newline at end of file` when missing  
-**Self-Check:** "Does git diff show a newline warning? If not, the file is fine"
+**Problem:** Adding unnecessary newlines or missing required newlines due to trusting misleading sources  
+**Solution:** Follow the STRICT PROTOCOL in the Trailing Newline Enforcement section  
+**Self-Check:** "Did I use `tail -c1 file | wc -l` to verify? Did I check `git diff --check`?"  
+**Key Facts:**
+- Write/Edit tools CANNOT add trailing newlines
+- Only `git diff --check` is 100% reliable
+- cargo fmt warnings are often wrong
+- Read tool output is ambiguous
 
 ### 5. Failing to Update WORKSPACE.md During Extended Sessions
 **Problem:** Completing significant work without documenting discoveries, syntax limitations, or new examples  
