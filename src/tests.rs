@@ -1773,12 +1773,8 @@ fun main() {
 
 #[test]
 fn test_expected_outputs() {
-    use std::collections::HashMap;
-    
-    // Define config mappings
-    let mut configs = HashMap::new();
-    configs.insert("default", Config { preserve_comments: false });
-    configs.insert("comments", Config { preserve_comments: true });
+    // Get predefined config mappings
+    let configs = Config::test_configs();
     
     // Find all expected output files
     let examples_dir = std::path::Path::new("examples");
