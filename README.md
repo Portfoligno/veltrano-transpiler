@@ -50,7 +50,6 @@ fun main() {
 **Generated Output (hello.rs):**
 ```rust
 fn main() {
-    let bump = &bumpalo::Bump::new();
     let message: &str = "Hello, Veltrano!";
     println!("{}", message);
 }
@@ -152,7 +151,6 @@ fn modify(value: &mut i64) {
     // Function accepting a mutable reference
 }
 fn main() {
-    let bump = &bumpalo::Bump::new();
     let number: i64 = 42;
     let mutable_ref: &mut i64 = &mut (&number).clone();
     modify(mutable_ref);

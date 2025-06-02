@@ -181,12 +181,17 @@ impl CodeGenerator {
 
         self.output.push(' ');
 
-        // Special handling for main function: initialize bump allocator
+        // Special handling for main function: only initialize bump allocator if needed
         if fun_decl.name == "main" {
             self.output.push_str("{\n");
             self.indent_level += 1;
-            self.indent();
-            self.output.push_str("let bump = &bumpalo::Bump::new();\n");
+
+            // Check if bump allocation is actually used in the main function body
+            let needs_bump = self.uses_bump_allocation(&fun_decl.body);
+            if needs_bump {
+                self.indent();
+                self.output.push_str("let bump = &bumpalo::Bump::new();\n");
+            }
 
             // Generate the body content but skip the outer braces since we're handling them
             if let Stmt::Block(statements) = fun_decl.body.as_ref() {
@@ -664,5 +669,76 @@ impl CodeGenerator {
         self.output.push('.');
         self.output
             .push_str(&self.camel_to_snake_case(&field_access.field));
+    }
+
+    fn uses_bump_allocation(&self, stmt: &Stmt) -> bool {
+        match stmt {
+            Stmt::Expression(expr, _) => self.expr_uses_bump_allocation(expr),
+            Stmt::VarDecl(var_decl, _) => {
+                if let Some(initializer) = &var_decl.initializer {
+                    self.expr_uses_bump_allocation(initializer)
+                } else {
+                    false
+                }
+            }
+            Stmt::FunDecl(_) => false, // Function declarations don't use bump directly
+            Stmt::If(if_stmt) => {
+                self.expr_uses_bump_allocation(&if_stmt.condition)
+                    || self.uses_bump_allocation(&if_stmt.then_branch)
+                    || if_stmt
+                        .else_branch
+                        .as_ref()
+                        .map_or(false, |stmt| self.uses_bump_allocation(stmt))
+            }
+            Stmt::While(while_stmt) => {
+                self.expr_uses_bump_allocation(&while_stmt.condition)
+                    || self.uses_bump_allocation(&while_stmt.body)
+            }
+            Stmt::Return(expr, _) => expr
+                .as_ref()
+                .map_or(false, |e| self.expr_uses_bump_allocation(e)),
+            Stmt::Block(statements) => statements
+                .iter()
+                .any(|stmt| self.uses_bump_allocation(stmt)),
+            Stmt::Comment(_) | Stmt::Import(_) | Stmt::DataClass(_) => false,
+        }
+    }
+
+    fn expr_uses_bump_allocation(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Literal(_) | Expr::Identifier(_) => false,
+            Expr::Unary(unary) => self.expr_uses_bump_allocation(&unary.operand),
+            Expr::Binary(binary) => {
+                self.expr_uses_bump_allocation(&binary.left)
+                    || self.expr_uses_bump_allocation(&binary.right)
+            }
+            Expr::Call(call) => {
+                // Check if this is a call to a function that requires bump
+                if let Expr::Identifier(name) = call.callee.as_ref() {
+                    if self.local_functions_with_bump.contains(name) {
+                        return true;
+                    }
+                }
+                
+                self.expr_uses_bump_allocation(&call.callee)
+                    || call.args.iter().any(|arg| match arg {
+                        Argument::Bare(expr) => self.expr_uses_bump_allocation(expr),
+                        Argument::Named(_, expr) => self.expr_uses_bump_allocation(expr),
+                    })
+            }
+            Expr::MethodCall(method_call) => {
+                // Check if this is a .bumpRef() method call
+                if method_call.method == "bumpRef" && method_call.args.is_empty() {
+                    return true;
+                }
+                // Also check the object and arguments
+                self.expr_uses_bump_allocation(&method_call.object)
+                    || method_call
+                        .args
+                        .iter()
+                        .any(|arg| self.expr_uses_bump_allocation(arg))
+            }
+            Expr::FieldAccess(field_access) => self.expr_uses_bump_allocation(&field_access.object),
+        }
     }
 }
