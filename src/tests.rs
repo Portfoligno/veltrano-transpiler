@@ -24,51 +24,65 @@ fn separate_imports_and_code(rust_code: &str) -> (String, String) {
     (imports.join("\n"), code_lines.join("\n"))
 }
 
-// Helper function to compile Rust code with bumpalo dependency
-fn compile_with_bumpalo(rust_code: &str, name: &str) -> Result<(), String> {
-    // Create temporary directory for Cargo project
-    let temp_dir = format!("/tmp/veltrano_test_{}", name);
+// Helper function to compile Rust code with bumpalo dependency (optimized)
+fn compile_with_bumpalo(rust_code: &str, _name: &str) -> Result<(), String> {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    // Create a hash of the code for caching
+    let mut hasher = DefaultHasher::new();
+    rust_code.hash(&mut hasher);
+    let code_hash = hasher.finish();
+
+    // Use a simpler temp file approach with caching
+    let temp_dir = format!("/tmp/veltrano_cache_{:x}", code_hash);
     let src_dir = format!("{}/src", temp_dir);
 
-    // Create directory structure
-    fs::create_dir_all(&src_dir).map_err(|e| format!("Failed to create temp dir: {}", e))?;
+    // Check if this exact code has already been compiled successfully
+    if std::path::Path::new(&format!("{}/.compiled_ok", temp_dir)).exists() {
+        return Ok(());
+    }
 
-    // Create Cargo.toml with bumpalo dependency
-    let cargo_toml = format!(
-        r#"[package]
-name = "veltrano_test_{}"
+    // Create directory structure only if it doesn't exist
+    if !std::path::Path::new(&temp_dir).exists() {
+        fs::create_dir_all(&src_dir).map_err(|e| format!("Failed to create temp dir: {}", e))?;
+
+        // Create Cargo.toml with bumpalo dependency
+        let cargo_toml = r#"[package]
+name = "veltrano_test"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 bumpalo = "3.0"
-"#,
-        name
-    );
+"#;
 
-    fs::write(format!("{}/Cargo.toml", temp_dir), cargo_toml)
-        .map_err(|e| format!("Failed to write Cargo.toml: {}", e))?;
+        fs::write(format!("{}/Cargo.toml", temp_dir), cargo_toml)
+            .map_err(|e| format!("Failed to write Cargo.toml: {}", e))?;
 
-    // Create main.rs with the generated code
-    fs::write(format!("{}/src/main.rs", temp_dir), rust_code)
-        .map_err(|e| format!("Failed to write main.rs: {}", e))?;
+        // Create main.rs with the generated code
+        fs::write(format!("{}/src/main.rs", temp_dir), rust_code)
+            .map_err(|e| format!("Failed to write main.rs: {}", e))?;
 
-    // Run cargo check to verify compilation
-    let output = Command::new("cargo")
-        .arg("check")
-        .current_dir(&temp_dir)
-        .output()
-        .map_err(|e| format!("Failed to execute cargo: {}", e))?;
+        // Run cargo check to verify compilation
+        let output = Command::new("cargo")
+            .arg("check")
+            .current_dir(&temp_dir)
+            .output()
+            .map_err(|e| format!("Failed to execute cargo: {}", e))?;
 
-    // Clean up
-    let _ = fs::remove_dir_all(&temp_dir);
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(format!("Compilation failed:\n{}", stderr))
-    } else {
-        Ok(())
+        if !output.status.success() {
+            // Clean up on failure
+            let _ = fs::remove_dir_all(&temp_dir);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("Compilation failed:\n{}", stderr));
+        } else {
+            // Mark as successfully compiled
+            let _ = fs::write(format!("{}/.compiled_ok", temp_dir), "");
+        }
     }
+
+    Ok(())
 }
 
 #[test]
