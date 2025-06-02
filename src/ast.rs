@@ -81,14 +81,15 @@ pub enum BinaryOp {
 
 #[derive(Debug, Clone)]
 pub enum Argument {
-    Bare(Expr), // Just the expression: positional in function calls, field shorthand in struct init
-    Named(String, Expr), // Explicit name: `name = value` → named parameter or struct field
+    Bare(Expr, Option<(String, String)>), // Expression with optional inline comment
+    Named(String, Expr, Option<(String, String)>), // Named argument with optional inline comment
 }
 
 #[derive(Debug, Clone)]
 pub struct CallExpr {
     pub callee: Box<Expr>,
     pub args: Vec<Argument>,
+    pub is_multiline: bool, // Whether this call was originally formatted across multiple lines
 }
 
 #[derive(Debug, Clone)]
@@ -96,6 +97,7 @@ pub struct MethodCallExpr {
     pub object: Box<Expr>,
     pub method: String,
     pub args: Vec<Expr>,
+    pub inline_comment: Option<(String, String)>, // Optional inline comment after method call
 }
 
 #[derive(Debug, Clone)]
@@ -257,8 +259,8 @@ mod bump_usage_analyzer {
                 // Check arguments
                 expr_uses_bump(&call.callee, functions_with_bump)
                     || call.args.iter().any(|arg| match arg {
-                        Argument::Bare(expr) => expr_uses_bump(expr, functions_with_bump),
-                        Argument::Named(_, expr) => expr_uses_bump(expr, functions_with_bump),
+                        Argument::Bare(expr, _) => expr_uses_bump(expr, functions_with_bump),
+                        Argument::Named(_, expr, _) => expr_uses_bump(expr, functions_with_bump),
                     })
             }
             Expr::MethodCall(method_call) => {
@@ -284,6 +286,7 @@ mod bump_usage_analyzer {
 pub struct Parameter {
     pub name: String,
     pub param_type: Type,
+    pub inline_comment: Option<(String, String)>, // Optional inline comment after parameter
 }
 
 #[derive(Debug, Clone)]
