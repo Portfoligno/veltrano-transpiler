@@ -495,6 +495,21 @@ impl CodeGenerator {
         }
     }
 
+    fn generate_comma_separated_args_for_function_call(&mut self, args: &[Argument]) {
+        let mut first = true;
+        for arg in args {
+            if !first {
+                self.output.push_str(", ");
+            }
+            first = false;
+            match arg {
+                Argument::Bare(expr) => self.generate_expression(expr),
+                // For function calls, named arguments are just treated as positional
+                Argument::Named(_, expr) => self.generate_expression(expr),
+            }
+        }
+    }
+
     fn generate_comma_separated_exprs(&mut self, exprs: &[Expr]) {
         let mut first = true;
         for expr in exprs {
@@ -509,7 +524,7 @@ impl CodeGenerator {
     fn generate_generic_call(&mut self, call: &CallExpr) {
         self.generate_expression(&call.callee);
         self.output.push('(');
-        self.generate_comma_separated_args(&call.args);
+        self.generate_comma_separated_args_for_function_call(&call.args);
         self.output.push(')');
     }
 
@@ -554,7 +569,7 @@ impl CodeGenerator {
                     }
                 }
 
-                self.generate_comma_separated_args(&call.args);
+                self.generate_comma_separated_args_for_function_call(&call.args);
                 self.output.push(')');
             } else if let Some((type_name, original_method)) = self.imports.get(name) {
                 // Imported function/constructor: use UFCS
@@ -563,13 +578,13 @@ impl CodeGenerator {
                 self.output.push_str("::");
                 self.output.push_str(&snake_method);
                 self.output.push('(');
-                self.generate_comma_separated_args(&call.args);
+                self.generate_comma_separated_args_for_function_call(&call.args);
                 self.output.push(')');
             } else if self.is_rust_macro(name) {
                 self.output.push_str(name);
                 self.output.push('!');
                 self.output.push('(');
-                self.generate_comma_separated_args(&call.args);
+                self.generate_comma_separated_args_for_function_call(&call.args);
                 self.output.push(')');
             } else {
                 // Default case for identifiers that aren't special

@@ -1,0 +1,68 @@
+// Demonstrates multiline function call syntax support in Veltrano
+
+fun simpleAdd(
+    a: Int,
+    b: Int
+): Int {
+    return a + b;
+}
+
+fun complexCalculation(
+    x: Int,
+    y: Int,
+    z: Int,
+    multiplier: Int
+): Int {
+    return (x + y + z) * multiplier;
+}
+
+fun main() {
+    // Multiline function call with positional arguments
+    val result1 = simpleAdd(
+        10,
+        20
+    );
+    
+    // Multiline function call with more arguments
+    val result2 = complexCalculation(
+        5,
+        10,
+        15,
+        2
+    );
+    
+    // Multiline function call with named arguments
+    val result3 = complexCalculation(
+        x = 1,
+        y = 2,
+        z = 3,
+        multiplier = 4
+    );
+    
+    // Multiline function call with mixed bare and named arguments
+    val result4 = complexCalculation(
+        100,
+        200,
+        z = 300,
+        multiplier = 1
+    );
+    
+    // Nested multiline function calls
+    val nested = complexCalculation(
+        simpleAdd(
+            1,
+            2
+        ),
+        simpleAdd(
+            3,
+            4
+        ),
+        5,
+        6
+    );
+    
+    // Multiline method calls on integers
+    val processed = result1
+        .ref()
+        .clone();
+}

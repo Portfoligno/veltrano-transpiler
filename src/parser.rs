@@ -99,6 +99,11 @@ impl Parser {
         let mut params = Vec::new();
         if !self.check(&TokenType::RightParen) {
             loop {
+                // Skip any newlines before parsing the parameter
+                while self.match_token(&TokenType::Newline) {
+                    // Consume newlines
+                }
+
                 let param_name = self.consume_identifier("Expected parameter name")?;
                 self.consume(&TokenType::Colon, "Expected ':' after parameter name")?;
                 let param_type = self.parse_type()?;
@@ -108,10 +113,25 @@ impl Parser {
                     param_type,
                 });
 
+                // Skip any newlines after the parameter
+                while self.match_token(&TokenType::Newline) {
+                    // Consume newlines
+                }
+
                 if !self.match_token(&TokenType::Comma) {
                     break;
                 }
+
+                // Skip any newlines after the comma
+                while self.match_token(&TokenType::Newline) {
+                    // Consume newlines
+                }
             }
+        }
+
+        // Skip any newlines before the closing parenthesis
+        while self.match_token(&TokenType::Newline) {
+            // Consume newlines
         }
 
         self.consume(&TokenType::RightParen, "Expected ')' after parameters")?;
@@ -122,6 +142,11 @@ impl Parser {
             None
         };
 
+        // Skip any newlines before the opening brace
+        while self.match_token(&TokenType::Newline) {
+            // Consume newlines
+        }
+
         self.consume(&TokenType::LeftBrace, "Expected '{' before function body")?;
 
         // Set context flag before parsing function body
@@ -129,6 +154,11 @@ impl Parser {
         self.in_function_body = true;
         let body = Box::new(self.block_statement()?);
         self.in_function_body = was_in_function_body;
+
+        // Skip any trailing newlines after the function body
+        while self.match_token(&TokenType::Newline) {
+            // Consume newlines
+        }
 
         Ok(Stmt::FunDecl(FunDeclStmt {
             name: name.clone(),
@@ -197,6 +227,11 @@ impl Parser {
         let mut fields = Vec::new();
         if !self.check(&TokenType::RightParen) {
             loop {
+                // Skip any newlines before parsing the field
+                while self.match_token(&TokenType::Newline) {
+                    // Consume newlines
+                }
+
                 // Each field starts with 'val'
                 self.consume(&TokenType::Val, "Expected 'val' before field name")?;
                 let field_name = self.consume_identifier("Expected field name after 'val'")?;
@@ -208,10 +243,25 @@ impl Parser {
                     field_type,
                 });
 
+                // Skip any newlines after the field
+                while self.match_token(&TokenType::Newline) {
+                    // Consume newlines
+                }
+
                 if !self.match_token(&TokenType::Comma) {
                     break;
                 }
+
+                // Skip any newlines after the comma
+                while self.match_token(&TokenType::Newline) {
+                    // Consume newlines
+                }
             }
+        }
+
+        // Skip any newlines before the closing parenthesis
+        while self.match_token(&TokenType::Newline) {
+            // Consume newlines
         }
 
         self.consume(
@@ -428,6 +478,11 @@ impl Parser {
 
                 if !self.check(&TokenType::RightParen) {
                     loop {
+                        // Skip any newlines before parsing the argument
+                        while self.match_token(&TokenType::Newline) {
+                            // Consume newlines
+                        }
+
                         // Try to parse named argument (name = expr)
                         if let TokenType::Identifier(name) = &self.peek().token_type {
                             let name = name.clone();
@@ -451,10 +506,25 @@ impl Parser {
                             args.push(Argument::Bare(expr));
                         }
 
+                        // Skip any newlines after the argument
+                        while self.match_token(&TokenType::Newline) {
+                            // Consume newlines
+                        }
+
                         if !self.match_token(&TokenType::Comma) {
                             break;
                         }
+
+                        // Skip any newlines after the comma
+                        while self.match_token(&TokenType::Newline) {
+                            // Consume newlines
+                        }
                     }
+                }
+
+                // Skip any newlines before the closing parenthesis
+                while self.match_token(&TokenType::Newline) {
+                    // Consume newlines
                 }
 
                 self.consume(&TokenType::RightParen, "Expected ')' after arguments")?;
@@ -475,11 +545,32 @@ impl Parser {
                     let mut args = Vec::new();
                     if !self.check(&TokenType::RightParen) {
                         loop {
+                            // Skip any newlines before parsing the argument
+                            while self.match_token(&TokenType::Newline) {
+                                // Consume newlines
+                            }
+
                             args.push(self.expression()?);
+
+                            // Skip any newlines after the argument
+                            while self.match_token(&TokenType::Newline) {
+                                // Consume newlines
+                            }
+
                             if !self.match_token(&TokenType::Comma) {
                                 break;
                             }
+
+                            // Skip any newlines after the comma
+                            while self.match_token(&TokenType::Newline) {
+                                // Consume newlines
+                            }
                         }
+                    }
+
+                    // Skip any newlines before the closing parenthesis
+                    while self.match_token(&TokenType::Newline) {
+                        // Consume newlines
                     }
 
                     self.consume(
