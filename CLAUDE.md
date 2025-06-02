@@ -184,23 +184,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Git Workflow - CRITICAL RULES
 
-#### Staging, Committing, and Pushing
+#### Staging and Committing
 ❌ **NEVER** run `git add` as a separate command  
-✅ **ALWAYS** combine staging, committing, and pushing in ONE tool call
+✅ **ALWAYS** combine staging and committing in ONE tool call
 
-**Required Pattern:**
+**Standard Pattern:**
 ```bash
-git add file1 file2 && git commit -m "message" && git push --no-progress
+git add file1 file2 && git commit -m "message"
 ```
 
 **OR use automatic staging (for modified files only):**
 ```bash
-git commit -a -m "message" && git push --no-progress
+git commit -a -m "message"
+```
+
+**When user explicitly requests "push":**
+```bash
+git add file1 file2 && git commit -m "message" && git push --no-progress
 ```
 
 **Special Cases:**
-- **File renames:** `git add old_name new_name && git commit -m "message" && git push --no-progress`
-- **File deletions:** `git add deleted_file && git commit -m "message" && git push --no-progress`
+- **File renames:** `git add old_name new_name && git commit -m "message"`
+- **File deletions:** `git add deleted_file && git commit -m "message"`
 - **Multiple operations:** Stage all affected files together to preserve Git's rename detection
 
 #### Commit Process
@@ -211,10 +216,13 @@ git commit -a -m "message" && git push --no-progress
    - If only non-Rust files changed (e.g., `.md`, `.toml`): Skip cargo fmt
    - If formatter makes changes, include those in the commit
 3. **Verify formatting:** Check that new/edited files end with trailing newlines
-4. **Stage + Commit + Push:** Single tool call combining all three: `git add files && git commit -m "message" && git push --no-progress`
+4. **Stage + Commit (+ Push if requested):** 
+   - Standard: `git add files && git commit -m "message"`
+   - If user explicitly requested "push": `git add files && git commit -m "message" && git push --no-progress`
 
 #### Push Behavior
-- **Always push immediately after committing** - treat push as part of the normal commit flow
+- **Only push when explicitly requested** by user (e.g., "push", "commit and push")
+- **When pushing:** Always integrate with commit command chain for efficiency
 - Use `git push --no-progress` to suppress progress indicators while keeping push summary
 - Alternative: `git push --quiet` for minimal output (errors only)
 
