@@ -1770,3 +1770,132 @@ fun main() {
     assert!(rust_code.contains("let mixed: &str = bump.alloc(&hello);"));
     assert!(rust_code.contains("let long: &str = bump.alloc(&&&hello);"));
 }
+
+#[test]
+fn test_expected_outputs() {
+    use std::collections::HashMap;
+    
+    // Define config mappings
+    let mut configs = HashMap::new();
+    configs.insert("default", Config { preserve_comments: false });
+    configs.insert("comments", Config { preserve_comments: true });
+    
+    // Find all expected output files
+    let examples_dir = std::path::Path::new("examples");
+    let expected_files: Vec<_> = fs::read_dir(examples_dir)
+        .expect("Failed to read examples directory")
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let path = entry.path();
+            let filename = path.file_name()?.to_str()?;
+            
+            // Match pattern: example.[config-key].expected.rs
+            if filename.ends_with(".expected.rs") {
+                // Extract base name and config key
+                let without_expected = filename.strip_suffix(".expected.rs")?;
+                let parts: Vec<&str> = without_expected.rsplitn(2, '.').collect();
+                if parts.len() == 2 {
+                    let config_key = parts[0];
+                    let base_name = parts[1];
+                    Some((base_name.to_string(), config_key.to_string(), filename.to_string()))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect();
+    
+    let expected_files_count = expected_files.len();
+    
+    for (base_name, config_key, expected_filename) in expected_files {
+        // Check if the config key is valid
+        let config = match configs.get(config_key.as_str()) {
+            Some(cfg) => cfg.clone(),
+            None => {
+                panic!(
+                    "Unknown config key '{}' in file '{}'. Valid keys are: {:?}",
+                    config_key,
+                    expected_filename,
+                    configs.keys().collect::<Vec<_>>()
+                );
+            }
+        };
+        
+        // Read the source .vl file
+        let source_path = format!("examples/{}.vl", base_name);
+        let veltrano_code = match fs::read_to_string(&source_path) {
+            Ok(code) => code,
+            Err(_) => {
+                panic!(
+                    "Expected output file '{}' exists but source file '{}' not found",
+                    expected_filename,
+                    source_path
+                );
+            }
+        };
+        
+        // Read the expected output
+        let expected_path = format!("examples/{}", expected_filename);
+        let expected_rust = fs::read_to_string(&expected_path)
+            .expect(&format!("Failed to read expected output file {}", expected_path));
+        
+        // Transpile the source
+        let mut lexer = Lexer::with_config(veltrano_code.clone(), config.clone());
+        let all_tokens = lexer.tokenize();
+        let mut parser = Parser::new(all_tokens);
+        
+        let program = match parser.parse() {
+            Ok(program) => program,
+            Err(err) => {
+                panic!(
+                    "Failed to parse {} for config '{}': {}",
+                    source_path, config_key, err
+                );
+            }
+        };
+        
+        let mut codegen = CodeGenerator::with_config(config);
+        let actual_rust = codegen.generate(&program);
+        
+        // Compare output (trim to handle trailing newlines)
+        if actual_rust.trim() != expected_rust.trim() {
+            // For better error messages, show the diff
+            eprintln!("\n=== EXPECTED OUTPUT MISMATCH ===");
+            eprintln!("File: {}", expected_filename);
+            eprintln!("Config: {}", config_key);
+            eprintln!("\n--- Expected ---\n{}", expected_rust);
+            eprintln!("\n--- Actual ---\n{}", actual_rust);
+            eprintln!("\n--- Diff ---");
+            
+            // Simple line-by-line diff
+            let expected_lines: Vec<&str> = expected_rust.lines().collect();
+            let actual_lines: Vec<&str> = actual_rust.lines().collect();
+            let max_lines = expected_lines.len().max(actual_lines.len());
+            
+            for i in 0..max_lines {
+                let expected_line = expected_lines.get(i).unwrap_or(&"<EOF>");
+                let actual_line = actual_lines.get(i).unwrap_or(&"<EOF>");
+                
+                if expected_line != actual_line {
+                    eprintln!("Line {}:", i + 1);
+                    eprintln!("  - {}", expected_line);
+                    eprintln!("  + {}", actual_line);
+                }
+            }
+            
+            panic!(
+                "Output mismatch for {} with config '{}'",
+                base_name, config_key
+            );
+        }
+    }
+    
+    // Print summary if no expected files found
+    if expected_files_count == 0 {
+        println!("Note: No expected output files found. Expected files should match pattern: example.[config-key].expected.rs");
+    } else {
+        println!("Validated {} expected output files", expected_files_count);
+    }
+}
