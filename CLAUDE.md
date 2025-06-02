@@ -18,6 +18,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - This MUST happen before ANY other action, even if the user gives a specific request
   - NO EXCEPTIONS: Even for "quick" tasks or urgent requests
   - If you haven't read WORKSPACE.md yet, stop and read it first
+  - **ENFORCEMENT:** Start every response by checking if you've read WORKSPACE.md
+  - **VIOLATION CONSEQUENCE:** Session restart required if WORKSPACE.md not read first
 
 ### File Formatting Requirements
 - **EVERY Git-tracked file MUST end with a trailing newline (empty line)**
@@ -41,6 +43,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 3. **Update Triggers:** After discovering important patterns/gotchas, debugging breakthroughs, or major architectural changes
 4. **Before Major Actions:** Re-read WORKSPACE.md if you realize you haven't loaded context yet
 5. **Focus:** Prioritize current project state, TODOs, and critical insights over completed work history
+
+### MANDATORY Update Checkpoints
+- **After discovering syntax limitations:** Document unsupported language features immediately
+- **After creating new examples:** Update "Recent Session Work" with examples created
+- **After major debugging sessions:** Document solutions and gotchas discovered
+- **Before committing changes:** Update WORKSPACE.md with session summary
+- **Every 3-4 tool uses:** Check if WORKSPACE.md needs updates
 
 ### TODO Management in WORKSPACE.md
 **Proactively maintain a TODO section** to track work across sessions:
@@ -315,11 +324,13 @@ When the user requests a release:
 **Problem:** Jumping directly into user requests without loading context  
 **Solution:** Make reading WORKSPACE.md a reflex action - do it before even thinking about the user's request  
 **Self-Check:** "Have I read WORKSPACE.md yet?" - If no, stop everything and read it
+**New Enforcement:** Every response must begin with explicit confirmation of WORKSPACE.md loading
 
 ### 2. Not Capturing Important Insights in WORKSPACE.md
 **Problem:** Missing valuable discoveries that would help future sessions  
 **Solution:** When you find important patterns, gotchas, or architectural insights, document them in WORKSPACE.md  
 **Self-Check:** "Did I learn something that would help me (or another session) work on this project later?"
+**New Triggers:** Document syntax limitations, successful examples, debugging solutions immediately
 
 ### 3. Not Using TODO Management
 **Problem:** Losing track of ongoing work across sessions  
@@ -330,6 +341,12 @@ When the user requests a release:
 **Problem:** Adding unnecessary newlines based on misleading Read tool output  
 **Solution:** Use git diff to check - Git explicitly shows `\ No newline at end of file` when missing  
 **Self-Check:** "Does git diff show a newline warning? If not, the file is fine"
+
+### 5. Failing to Update WORKSPACE.md During Extended Sessions
+**Problem:** Completing significant work without documenting discoveries, syntax limitations, or new examples  
+**Solution:** Set systematic checkpoints every few tool uses to assess if WORKSPACE.md needs updates  
+**Self-Check:** "Have I discovered anything that would help future sessions? Have I created examples? Have I found limitations?"
+**Triggers:** Any syntax error resolution, any successful example creation, any debugging breakthrough
 
 ---
 
