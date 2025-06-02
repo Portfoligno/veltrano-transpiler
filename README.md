@@ -149,7 +149,7 @@ fun main() {
 **Transpiles to:**
 ```rust
 fn modify(value: &mut i64) {
-        // Function accepting a mutable reference
+    // Function accepting a mutable reference
 }
 fn main() {
     let bump = &bumpalo::Bump::new();

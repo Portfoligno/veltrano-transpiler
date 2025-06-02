@@ -1603,6 +1603,88 @@ fun main() {
 }
 
 #[test]
+fn test_contextual_comment_indentation() {
+    // Test that comments are properly indented based on their contextual nesting level
+    let veltrano_code = r#"fun test() {
+    // First level comment (4 spaces in source)
+    if (true) {
+        // Second level comment (8 spaces in source)
+            // Extra indented comment (12 spaces = 8 base + 4 extra)
+        val x = 42
+    }
+    // Back to first level (4 spaces in source)
+}
+
+fun main() {
+// Top level comment (0 spaces in source)
+    val y = 10
+}"#;
+
+    let config = Config {
+        preserve_comments: true,
+    };
+    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
+    let all_tokens = lexer.tokenize();
+    let mut parser = Parser::new(all_tokens);
+    let program = parser
+        .parse()
+        .expect("Failed to parse contextual indentation test");
+    let mut codegen = CodeGenerator::with_config(config);
+    let rust_code = codegen.generate(&program);
+
+    // Check that comments have proper indentation without double indentation
+    assert!(rust_code.contains("fn test() {\n    // First level comment"));
+    assert!(rust_code.contains("    if true {\n        // Second level comment"));
+    assert!(rust_code.contains("    }\n    // Back to first level"));
+    assert!(rust_code.contains("    // Top level comment (0 spaces in source)"));
+
+    // Verify that the extra indentation is preserved while base indentation is stripped
+    let lines: Vec<&str> = rust_code.lines().collect();
+    let first_level_comment = lines
+        .iter()
+        .find(|line| line.contains("First level comment"))
+        .unwrap();
+    let second_level_comment = lines
+        .iter()
+        .find(|line| line.contains("Second level comment"))
+        .unwrap();
+    let extra_indented_comment = lines
+        .iter()
+        .find(|line| line.contains("Extra indented comment"))
+        .unwrap();
+    let back_to_first_comment = lines
+        .iter()
+        .find(|line| line.contains("Back to first level"))
+        .unwrap();
+    let top_level_comment = lines
+        .iter()
+        .find(|line| line.contains("Top level comment"))
+        .unwrap();
+
+    // Count leading spaces to verify proper indentation
+    assert_eq!(
+        first_level_comment.len() - first_level_comment.trim_start().len(),
+        4
+    );
+    assert_eq!(
+        second_level_comment.len() - second_level_comment.trim_start().len(),
+        8
+    );
+    assert_eq!(
+        extra_indented_comment.len() - extra_indented_comment.trim_start().len(),
+        12
+    ); // 8 base + 4 extra
+    assert_eq!(
+        back_to_first_comment.len() - back_to_first_comment.trim_start().len(),
+        4
+    );
+    assert_eq!(
+        top_level_comment.len() - top_level_comment.trim_start().len(),
+        4
+    ); // Inside main() function
+}
+
+#[test]
 fn test_data_class_field_access() {
     // Test field access for data classes
     let source = r#"

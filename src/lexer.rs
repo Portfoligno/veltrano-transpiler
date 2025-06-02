@@ -69,6 +69,8 @@ pub struct Lexer {
     position: usize,
     line: usize,
     column: usize,
+    brace_depth: usize,  // Track nesting level of braces
+    at_line_start: bool, // Whether we're at the start of a line (after newline)
     config: Config,
 }
 
@@ -79,6 +81,8 @@ impl Lexer {
             position: 0,
             line: 1,
             column: 1,
+            brace_depth: 0,
+            at_line_start: true, // Start at beginning of first line
             config,
         }
     }
@@ -93,16 +97,20 @@ impl Lexer {
             }
 
             if let Some(mut token) = self.next_token() {
-                // Add whitespace to comment tokens
+                // Clear at_line_start flag when we encounter any token
+                self.at_line_start = false;
+                // Add whitespace to comment tokens, stripping base indentation
                 match &mut token.token_type {
                     TokenType::LineComment(_, ws) => {
-                        *ws = whitespace;
+                        // For comments, strip the expected base indentation based on brace depth
+                        *ws = self.strip_base_indentation(&whitespace);
                         if self.config.preserve_comments {
                             tokens.push(token);
                         }
                     }
                     TokenType::BlockComment(_, ws) => {
-                        *ws = whitespace;
+                        // For comments, strip the expected base indentation based on brace depth
+                        *ws = self.strip_base_indentation(&whitespace);
                         if self.config.preserve_comments {
                             tokens.push(token);
                         }
@@ -135,8 +143,16 @@ impl Lexer {
         let token_type = match ch {
             '(' => TokenType::LeftParen,
             ')' => TokenType::RightParen,
-            '{' => TokenType::LeftBrace,
-            '}' => TokenType::RightBrace,
+            '{' => {
+                self.brace_depth += 1;
+                TokenType::LeftBrace
+            }
+            '}' => {
+                if self.brace_depth > 0 {
+                    self.brace_depth -= 1;
+                }
+                TokenType::RightBrace
+            }
             ';' => TokenType::Semicolon,
             ':' => TokenType::Colon,
             ',' => TokenType::Comma,
@@ -202,6 +218,7 @@ impl Lexer {
             '\n' => {
                 self.line += 1;
                 self.column = 1;
+                self.at_line_start = true; // Mark that we're now at the start of a new line
                 TokenType::Newline
             }
             '"' => {
@@ -295,7 +312,32 @@ impl Lexer {
     }
 
     fn collect_whitespace(&mut self) -> String {
-        self.read_while(|ch| matches!(ch, ' ' | '\r' | '\t'))
+        let whitespace = self.read_while(|ch| matches!(ch, ' ' | '\r' | '\t'));
+
+        // If we just consumed whitespace at the start of a line, clear the flag
+        if self.at_line_start && !whitespace.is_empty() {
+            self.at_line_start = false;
+        }
+
+        whitespace
+    }
+
+    /// Calculate expected indentation based on current brace depth
+    /// Uses 4 spaces per indentation level to match Rust conventions
+    fn expected_indentation(&self) -> usize {
+        self.brace_depth * 4
+    }
+
+    /// Strip expected base indentation from whitespace for comments
+    fn strip_base_indentation(&self, whitespace: &str) -> String {
+        let expected = self.expected_indentation();
+        if whitespace.len() >= expected {
+            // Keep only the extra whitespace beyond expected indentation
+            whitespace[expected..].to_string()
+        } else {
+            // If less than expected, keep all (might be mid-line or special formatting)
+            whitespace.to_string()
+        }
     }
 
     fn is_at_end(&self) -> bool {
