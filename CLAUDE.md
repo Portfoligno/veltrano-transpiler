@@ -2,31 +2,123 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Session Start Protocol - CRITICAL
+## Table of Contents
+- [🚨 Critical Protocols](#-critical-protocols)
+- [📂 Memory Management](#-memory-management)
+- [🔧 Development Workflow](#-development-workflow)
+- [🚀 Release Process](#-release-process)
+- [⚠️ Common Pitfalls](#️-common-pitfalls)
+
+---
+
+## 🚨 Critical Protocols
+
+### Session Start Protocol - MANDATORY
 - **FIRST ACTION:** Always read `WORKSPACE.md` using Read tool to load project context and memory
   - This MUST happen before ANY other action, even if the user gives a specific request
   - NO EXCEPTIONS: Even for "quick" tasks or urgent requests
   - If you haven't read WORKSPACE.md yet, stop and read it first
 
-## File Formatting - CRITICAL RULES
+### File Formatting Requirements
 - **EVERY Git-tracked file MUST end with a trailing newline (empty line)**
   - Gitignored files do not require trailing newline checks
 - All files MUST be formatted with the appropriate code formatter
 - **Run `cargo fmt` before committing Rust code changes**
 
-### Rust Code Formatting
+---
+
+## 📂 Memory Management
+
+### WORKSPACE.md File
+- **Purpose:** Store project context and memory across Claude Code sessions
+- **Location:** `WORKSPACE.md` (gitignored for privacy)
+- **Usage:** Read at session start, update throughout work
+- **Token Limit:** Maximum 400 tokens (~300 words) to maintain readability and context efficiency
+
+### Memory Guidelines
+1. **Session Start:** Always read `WORKSPACE.md` to understand project context
+2. **During Work:** Update `WORKSPACE.md` immediately after completing any significant work or discoveries
+3. **Update Triggers:** After fixing bugs, adding features, refactoring, or discovering important patterns/gotchas
+4. **Before Major Actions:** Re-read WORKSPACE.md if you realize you haven't loaded context yet
+5. **Commit Reminder:** After any git push, immediately update WORKSPACE.md with what was done
+
+### TODO Management in WORKSPACE.md
+**Proactively maintain a TODO section** to track work across sessions:
+
+1. **Automatic TODO Updates**
+   - When starting a task: Mark as "IN PROGRESS"
+   - When completing a task: Mark with `[x]` immediately
+   - When discovering issues: Add new TODOs right away
+   - When finding blockers: Document them with the TODO
+
+2. **TODO Format:**
+   ```markdown
+   ## TODO
+   ### Category Name
+   - [x] Completed task
+   - [ ] Pending task - IN PROGRESS (if actively working)
+   - [ ] Future task (with context/reason)
+   ```
+
+3. **Best Practices**
+   - Group related tasks under descriptive categories
+   - Include error messages or line numbers for bugs
+   - Note which files/examples are affected
+   - Add "CRITICAL:" prefix for blocking issues
+   - Keep TODOs actionable and specific
+
+4. **Continuous Maintenance**
+   - Don't wait for user to ask about TODOs
+   - Update immediately as work progresses
+   - Remove completed work only if no longer relevant
+   - Preserve context for future sessions
+
+### Value-Driven Update Strategy
+
+**Goal:** Store information that maximizes context reuse for future sessions, regardless of format.
+
+#### **Update Immediately After:**
+- **Completing any significant work** - bug fixes, features, refactoring
+- **Making important discoveries** - architectural insights, gotchas, patterns
+- **Solving problems** - debugging breakthroughs, build issues, testing approaches
+- **Major file changes** - new files, moved files, significant restructuring
+
+#### **High-Value Information (Always Keep)**
+- **Current project state** - what works, what's broken, active issues
+- **Recent significant changes** - with enough detail for future context
+- **Critical discoveries** - gotchas, performance insights, debugging tips
+- **Active development context** - files being worked on, testing approaches
+
+#### **Flexible Content Strategy**
+- **Format freedom:** Use whatever structure best conveys the information
+- **Context over convention:** Prioritize useful content over maintaining sections
+- **Optimize for handoff:** Focus on "What would I need to know to continue this work?"
+- **Token management:** When approaching 400 tokens, remove least valuable content first
+
+#### **Maintenance Process**
+- **Immediate updates:** Don't wait for session end - update as you work
+- **Token pruning:** Remove old/less-relevant content when space is needed
+- **Value assessment:** Keep information that provides ongoing context, remove completed work that won't help future sessions
+
+---
+
+## 🔧 Development Workflow
+
+### Code Formatting
+
+#### Rust Code Formatting
 - **Tool:** Use `cargo fmt` to format all Rust files
 - **When to run:** Before committing changes that include Rust files
 - **Command:** `cargo fmt` (formats entire project)
 - **Check formatting:** `cargo fmt --check` (verifies without modifying)
 
-### MANDATORY Pre-Commit Checklist
+#### MANDATORY Pre-Commit Checklist
 1. If Rust files (`.rs`) changed: Run `cargo fmt`
 2. Check for any new/modified files with `git status`
 3. If Rust code changed: Verify tests pass with `cargo test`
 4. Only then proceed with commit
 
-### Trailing Newline Enforcement
+#### Trailing Newline Enforcement
 **TOOL LIMITATION:** The `Write` and `Edit` tools cannot add trailing newlines directly.
 
 **SCOPE:** This applies only to Git-tracked files. Gitignored files do not require trailing newline checks.
@@ -66,9 +158,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **CAUTION:** The Read tool alone is not sufficient to determine newline presence
 - Before any commit: Use git diff to check - Git will warn about missing newlines
 
-## Git Workflow - CRITICAL RULES
+### Git Workflow - CRITICAL RULES
 
-### Staging and Committing
+#### Staging and Committing
 ❌ **NEVER** run `git add` as a separate command  
 ✅ **ALWAYS** combine staging and committing in ONE tool call
 
@@ -87,7 +179,7 @@ git commit -a -m "message"
 - **File deletions:** `git add deleted_file && git commit -m "message"`
 - **Multiple operations:** Stage all affected files together to preserve Git's rename detection
 
-### Commit Process
+#### Commit Process
 1. **Analyze changes:** Run `git status`, `git diff`, and `git log` in parallel
 2. **FORMAT CODE - ONLY IF RUST FILES CHANGED:** 
    - Check if any `.rs` files were modified: `git diff --name-only | grep -q '\.rs$'`
@@ -98,12 +190,14 @@ git commit -a -m "message"
 4. **Stage + Commit:** Single tool call combining `git add` and `git commit`
 5. **Push:** Run `git push` (no summary output required)
 
-### Push Behavior
+#### Push Behavior
 - Use `git push --no-progress` to suppress progress indicators while keeping push summary
 - Alternative: `git push --quiet` for minimal output (errors only)
 - **After every push:** Update `WORKSPACE.md` with details of the work completed
 
-## Release Process
+---
+
+## 🚀 Release Process
 
 ### Version Numbering Pattern
 This project uses a development version with `-dev` suffix that gets released without the suffix:
@@ -287,26 +381,37 @@ When the user requests a release:
 - **Token pruning:** Remove old/less-relevant content when space is needed
 - **Value assessment:** Keep information that provides ongoing context, remove completed work that won't help future sessions
 
-## Common Pitfalls to Avoid
+---
+
+## ⚠️ Common Pitfalls
 
 ### 1. Skipping WORKSPACE.md on Session Start
-**Problem:** Jumping directly into user requests without loading context
-**Solution:** Make reading WORKSPACE.md a reflex action - do it before even thinking about the user's request
+**Problem:** Jumping directly into user requests without loading context  
+**Solution:** Make reading WORKSPACE.md a reflex action - do it before even thinking about the user's request  
 **Self-Check:** "Have I read WORKSPACE.md yet?" - If no, stop everything and read it
 
 ### 2. Forgetting to Update WORKSPACE.md After Work
-**Problem:** Completing work without documenting it for future sessions
-**Solution:** After every git push or significant change, immediately update WORKSPACE.md
+**Problem:** Completing work without documenting it for future sessions  
+**Solution:** After every git push or significant change, immediately update WORKSPACE.md  
 **Self-Check:** "Did I just push code? Time to update WORKSPACE.md"
 
 ### 3. Not Using TODO Management
-**Problem:** Losing track of ongoing work across sessions
-**Solution:** Actively maintain TODO section, marking items as IN PROGRESS or completed
+**Problem:** Losing track of ongoing work across sessions  
+**Solution:** Actively maintain TODO section, marking items as IN PROGRESS or completed  
 **Self-Check:** "Is my current task in the TODO list? Are completed items marked?"
 
 ### 4. Misinterpreting Trailing Newline Status
-**Problem:** Adding unnecessary newlines based on misleading Read tool output
-**Solution:** Use git diff to check - Git explicitly shows `\ No newline at end of file` when missing
+**Problem:** Adding unnecessary newlines based on misleading Read tool output  
+**Solution:** Use git diff to check - Git explicitly shows `\ No newline at end of file` when missing  
 **Self-Check:** "Does git diff show a newline warning? If not, the file is fine"
 
+---
+
+## 📚 Additional Information
+
+### Important Instructions
+Codebase and user instructions are shown below. Be sure to adhere to these instructions. IMPORTANT: These instructions OVERRIDE any default behavior and you MUST follow them exactly as written.
+
+### File Footer Requirements
+**EVERY Git-tracked file MUST end with a trailing newline (empty line)**
 
