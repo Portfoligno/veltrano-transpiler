@@ -37,10 +37,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Memory Guidelines
 1. **Session Start:** Always read `WORKSPACE.md` to understand project context
-2. **During Work:** Update `WORKSPACE.md` immediately after completing any significant work or discoveries
-3. **Update Triggers:** After fixing bugs, adding features, refactoring, or discovering important patterns/gotchas
+2. **During Work:** Update `WORKSPACE.md` immediately after significant discoveries or architectural insights
+3. **Update Triggers:** After discovering important patterns/gotchas, debugging breakthroughs, or major architectural changes
 4. **Before Major Actions:** Re-read WORKSPACE.md if you realize you haven't loaded context yet
-5. **Commit Reminder:** After any git push, immediately update WORKSPACE.md with what was done
+5. **Focus:** Prioritize current project state, TODOs, and critical insights over completed work history
 
 ### TODO Management in WORKSPACE.md
 **Proactively maintain a TODO section** to track work across sessions:
@@ -78,16 +78,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Goal:** Store information that maximizes context reuse for future sessions, regardless of format.
 
 #### **Update Immediately After:**
-- **Completing any significant work** - bug fixes, features, refactoring
 - **Making important discoveries** - architectural insights, gotchas, patterns
-- **Solving problems** - debugging breakthroughs, build issues, testing approaches
-- **Major file changes** - new files, moved files, significant restructuring
+- **Solving complex problems** - debugging breakthroughs, build issues, testing approaches
+- **Major architectural changes** - significant restructuring, design decisions
+- **Finding critical insights** - performance patterns, development gotchas
 
 #### **High-Value Information (Always Keep)**
 - **Current project state** - what works, what's broken, active issues
-- **Recent significant changes** - with enough detail for future context
+- **TODOs and ongoing work** - tasks in progress, blockers, next steps
 - **Critical discoveries** - gotchas, performance insights, debugging tips
-- **Active development context** - files being worked on, testing approaches
+- **Active development context** - key architecture decisions, design patterns
 
 #### **Flexible Content Strategy**
 - **Format freedom:** Use whatever structure best conveys the information
@@ -96,9 +96,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Token management:** When approaching 400 tokens, remove least valuable content first
 
 #### **Maintenance Process**
-- **Immediate updates:** Don't wait for session end - update as you work
-- **Token pruning:** Remove old/less-relevant content when space is needed
-- **Value assessment:** Keep information that provides ongoing context, remove completed work that won't help future sessions
+- **Selective updates:** Update when discoveries provide ongoing value for future sessions
+- **Token pruning:** Remove old/less-relevant content when space is needed, prioritize TODOs and insights
+- **Value assessment:** Keep information that provides ongoing context, focus on current state over history
 
 ---
 
@@ -193,7 +193,6 @@ git commit -a -m "message"
 #### Push Behavior
 - Use `git push --no-progress` to suppress progress indicators while keeping push summary
 - Alternative: `git push --quiet` for minimal output (errors only)
-- **After every push:** Update `WORKSPACE.md` with details of the work completed
 
 ---
 
@@ -306,80 +305,7 @@ When the user requests a release:
 - Version tags do NOT use 'v' prefix (use `0.1.2`, not `v0.1.2`)
 - Development versions always use `-dev` suffix
 - The version in Cargo.toml should match the release tag exactly when tagging
-- Update WORKSPACE.md after pushing the release
 
-## Memory Management
-
-### WORKSPACE.md File
-- **Purpose:** Store project context and memory across Claude Code sessions
-- **Location:** `WORKSPACE.md` (gitignored for privacy)
-- **Usage:** Read at session start, update throughout work
-- **Token Limit:** Maximum 400 tokens (~300 words) to maintain readability and context efficiency
-
-### Memory Guidelines
-1. **Session Start:** Always read `WORKSPACE.md` to understand project context
-2. **During Work:** Update `WORKSPACE.md` immediately after completing any significant work or discoveries
-3. **Update Triggers:** After fixing bugs, adding features, refactoring, or discovering important patterns/gotchas
-4. **Before Major Actions:** Re-read WORKSPACE.md if you realize you haven't loaded context yet
-5. **Commit Reminder:** After any git push, immediately update WORKSPACE.md with what was done
-
-### TODO Management in WORKSPACE.md
-**Proactively maintain a TODO section** to track work across sessions:
-
-1. **Automatic TODO Updates**
-   - When starting a task: Mark as "IN PROGRESS"
-   - When completing a task: Mark with `[x]` immediately
-   - When discovering issues: Add new TODOs right away
-   - When finding blockers: Document them with the TODO
-
-2. **TODO Format:**
-   ```markdown
-   ## TODO
-   ### Category Name
-   - [x] Completed task
-   - [ ] Pending task - IN PROGRESS (if actively working)
-   - [ ] Future task (with context/reason)
-   ```
-
-3. **Best Practices**
-   - Group related tasks under descriptive categories
-   - Include error messages or line numbers for bugs
-   - Note which files/examples are affected
-   - Add "CRITICAL:" prefix for blocking issues
-   - Keep TODOs actionable and specific
-
-4. **Continuous Maintenance**
-   - Don't wait for user to ask about TODOs
-   - Update immediately as work progresses
-   - Remove completed work only if no longer relevant
-   - Preserve context for future sessions
-
-### Value-Driven Update Strategy
-
-**Goal:** Store information that maximizes context reuse for future sessions, regardless of format.
-
-#### **Update Immediately After:**
-- **Completing any significant work** - bug fixes, features, refactoring
-- **Making important discoveries** - architectural insights, gotchas, patterns
-- **Solving problems** - debugging breakthroughs, build issues, testing approaches
-- **Major file changes** - new files, moved files, significant restructuring
-
-#### **High-Value Information (Always Keep)**
-- **Current project state** - what works, what's broken, active issues
-- **Recent significant changes** - with enough detail for future context
-- **Critical discoveries** - gotchas, performance insights, debugging tips
-- **Active development context** - files being worked on, testing approaches
-
-#### **Flexible Content Strategy**
-- **Format freedom:** Use whatever structure best conveys the information
-- **Context over convention:** Prioritize useful content over maintaining sections
-- **Optimize for handoff:** Focus on "What would I need to know to continue this work?"
-- **Token management:** When approaching 400 tokens, remove least valuable content first
-
-#### **Maintenance Process**
-- **Immediate updates:** Don't wait for session end - update as you work
-- **Token pruning:** Remove old/less-relevant content when space is needed
-- **Value assessment:** Keep information that provides ongoing context, remove completed work that won't help future sessions
 
 ---
 
@@ -390,10 +316,10 @@ When the user requests a release:
 **Solution:** Make reading WORKSPACE.md a reflex action - do it before even thinking about the user's request  
 **Self-Check:** "Have I read WORKSPACE.md yet?" - If no, stop everything and read it
 
-### 2. Forgetting to Update WORKSPACE.md After Work
-**Problem:** Completing work without documenting it for future sessions  
-**Solution:** After every git push or significant change, immediately update WORKSPACE.md  
-**Self-Check:** "Did I just push code? Time to update WORKSPACE.md"
+### 2. Not Capturing Important Insights in WORKSPACE.md
+**Problem:** Missing valuable discoveries that would help future sessions  
+**Solution:** When you find important patterns, gotchas, or architectural insights, document them in WORKSPACE.md  
+**Self-Check:** "Did I learn something that would help me (or another session) work on this project later?"
 
 ### 3. Not Using TODO Management
 **Problem:** Losing track of ongoing work across sessions  
