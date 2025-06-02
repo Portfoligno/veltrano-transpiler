@@ -1,0 +1,89 @@
+// Data class reference preparation patterns
+// Shows how functions prepare data class instances with references for caller use
+
+data class Point(val x: Int, val y: Int)
+data class Config(val enabled: Bool, val max_retries: Int)
+
+data class Person(val name: Str, val age: Int)
+data class Message(val content: Str, val sender: Str)
+
+// ========= KEY INSIGHT: ALL DATA CLASSES GET BUMP PARAMETERS =========
+
+// Even data classes with only value fields get bump parameters
+fun createPoint(x: Int, y: Int): Point {
+    return Point(x = x, y = y).bumpRef()
+}
+
+fun isConfigValid(config: Config): Bool {
+    if (config.enabled) {
+        return config.max_retries > 0;
+    } else {
+        return false;
+    }
+}
+
+// Data classes with reference fields also get bump parameters
+fun createPerson(name: Str, age: Int): Person {
+    return Person(name = name, age = age).bumpRef()
+}
+
+fun formatMessage(msg: Message): Str {
+    return msg.content
+}
+
+data class Company(val name: Str, val size: Int)
+data class Employee(val person: Person, val company: Company)
+
+// Nested data classes - all components need bump allocation
+fun createEmployee(name: Str, age: Int, company_name: Str, company_size: Int): Employee {
+    val person = createPerson(name, age)
+    val company = Company(name = company_name, size = company_size).bumpRef()
+    return Employee(person = person, company = company).bumpRef()
+}
+
+// Accessing nested data - gets bump parameters because of data class parameters
+fun getEmployeeCompanyName(employee: Employee): Str {
+    return employee.company.name
+}
+
+fun main() {
+    // ALL data class operations get bump parameters, even value-only ones
+    val origin = createPoint(0, 0)
+    val config = Config(enabled = true, max_retries = 3)
+    val valid = isConfigValid(config.ref())
+    
+    // Data classes with reference fields
+    val john = createPerson("John", 30)
+    val message = Message(content = "Hello", sender = "Alice")
+    val msg_content = formatMessage(message.ref())
+    
+    // Nested data class structures
+    val employee = createEmployee("Bob", 25, "TechCorp", 500)
+    val company_name = getEmployeeCompanyName(employee.ref())
+    
+    println("All data classes require bump parameters:")
+    println("Point: {}, {}", origin.x, origin.y)
+    println("Config valid: {}", valid)
+    println("Person: {}", john.name)
+    println("Message: {}", msg_content)
+    println("Employee company: {}", company_name)
+}
+
+// DATA CLASS REFERENCE PREPARATION:
+//
+// This shows how functions prepare data class instances for cross-scope use.
+// The key insight: ANY function returning a data class instance prepares it
+// for use in the caller's scope, regardless of field types.
+//
+// Functions that prepare data classes:
+// - createPoint, isConfigValid: Even "value-only" data classes get prepared
+// - createPerson, formatMessage: Data classes with reference fields get prepared  
+// - createEmployee, getEmployeeCompanyName: Nested data class preparation
+// - main: Uses all prepared data class instances
+//
+// This enables a clean programming model where:
+// 1. Functions can return complex data structures without lifetime concerns
+// 2. Callers receive fully-prepared instances ready for use
+// 3. No manual allocator threading required through call chains
+//
+// The automatic detection handles all the lifetime plumbing invisibly.

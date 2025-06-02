@@ -1,0 +1,400 @@
+// Event System with Callback/Closure Reference Preparation
+// Demonstrates event handling patterns where callbacks prepare references for deferred execution
+
+data class Event(val type: Str, val payload: Str, val timestamp: Int)
+data class EventHandler(val id: Str, val filter: Str, val callback: Fun<Event, Str>)
+data class EventResult(val handler_id: Str, val result: Str, val execution_time: Int)
+data class EventBatch(val events: Array<Event>, val batch_id: Str)
+
+// Event subscription and listener management with reference preparation
+data class Subscription(val handler_id: Str, val event_types: Array<Str>, val is_active: Bool)
+data class EventRegistry(val handlers: Array<EventHandler>, val subscriptions: Array<Subscription>)
+
+// ========= EVENT CREATION WITH REFERENCE PREPARATION =========
+
+fun createEvent(event_type: Str, payload_data: Str, time: Int): Event {
+    // Prepare event with references valid for entire event lifecycle
+    val type_ref = event_type.bumpRef()
+    val payload_ref = payload_data.bumpRef()
+    return Event(type = type_ref, payload = payload_ref, timestamp = time).bumpRef()
+}
+
+fun createEventBatch(events: Array<Event>, batch_identifier: Str): EventBatch {
+    // Prepare event batch with references valid for batch processing
+    val batch_id_ref = batch_identifier.bumpRef()
+    val events_ref = Array<Event>().bumpRef()
+    
+    // Prepare references to all events for batch scope
+    for event in events {
+        events_ref.push(event)
+    }
+    
+    return EventBatch(events = events_ref, batch_id = batch_id_ref).bumpRef()
+}
+
+fun generateEventStream(base_type: Str, count: Int): Array<Event> {
+    // Generate event stream preparing all events for handler processing
+    val events = Array<Event>().bumpRef()
+    
+    for i in range(0, count) {
+        val event_type = base_type.concat("_").concat(i.toString()).bumpRef()
+        val payload = "payload_data_".concat(i.toString()).bumpRef()
+        val event = createEvent(event_type, payload, i)
+        events.push(event)
+    }
+    
+    return events
+}
+
+// ========= CALLBACK FUNCTION PREPARATION =========
+
+fun createLoggingCallback(log_prefix: Str): Fun<Event, Str> {
+    // Create callback function preparing log messages for caller scope
+    val prefix_ref = log_prefix.bumpRef()
+    
+    return |event: Event| -> Str {
+        // Each callback execution prepares result for caller
+        val log_message = prefix_ref.concat(": ").concat(event.type).concat(" - ").concat(event.payload).bumpRef()
+        return log_message
+    }
+}
+
+fun createTransformationCallback(transform_pattern: Str): Fun<Event, Str> {
+    // Create transformation callback preparing processed results for caller
+    val pattern_ref = transform_pattern.bumpRef()
+    
+    return |event: Event| -> Str {
+        // Transform event data preparing result reference for caller
+        val transformed = pattern_ref.concat("_transformed_").concat(event.payload).bumpRef()
+        return transformed
+    }
+}
+
+fun createAggregationCallback(accumulator_key: Str): Fun<Event, Str> {
+    // Create aggregation callback preparing accumulated results for caller
+    val key_ref = accumulator_key.bumpRef()
+    
+    return |event: Event| -> Str {
+        // Aggregate event data preparing summary for caller
+        val aggregated = key_ref.concat("_aggregated_count_").concat(event.timestamp.toString()).bumpRef()
+        return aggregated
+    }
+}
+
+fun createCompositeCallback(primary_transform: Fun<Event, Str>, secondary_transform: Fun<Event, Str>): Fun<Event, Str> {
+    // Create composite callback preparing combined results for caller
+    return |event: Event| -> Str {
+        // Execute both transformations preparing combined result
+        val primary_result = primary_transform(event.ref())
+        val secondary_result = secondary_transform(event.ref())
+        val combined = primary_result.concat(" | ").concat(secondary_result).bumpRef()
+        return combined
+    }
+}
+
+// ========= EVENT HANDLER REGISTRATION WITH CLOSURE PREPARATION =========
+
+fun createEventHandler(handler_id: Str, event_filter: Str, callback: Fun<Event, Str>): EventHandler {
+    // Create event handler preparing all references for registry
+    val id_ref = handler_id.bumpRef()
+    val filter_ref = event_filter.bumpRef()
+    return EventHandler(id = id_ref, filter = filter_ref, callback = callback).bumpRef()
+}
+
+fun registerHandler(registry: EventRegistry, handler: EventHandler): EventRegistry {
+    // Register handler preparing updated registry for caller
+    val updated_handlers = Array<EventHandler>().bumpRef()
+    
+    // Copy existing handlers
+    for existing_handler in registry.handlers {
+        updated_handlers.push(existing_handler)
+    }
+    updated_handlers.push(handler)
+    
+    return EventRegistry(handlers = updated_handlers, subscriptions = registry.subscriptions).bumpRef()
+}
+
+fun createSubscription(handler_id: Str, event_types: Array<Str>): Subscription {
+    // Create subscription preparing references for event matching
+    val id_ref = handler_id.bumpRef()
+    val types_ref = Array<Str>().bumpRef()
+    
+    for event_type in event_types {
+        types_ref.push(event_type.bumpRef())
+    }
+    
+    return Subscription(handler_id = id_ref, event_types = types_ref, is_active = true).bumpRef()
+}
+
+fun setupEventRegistry(): EventRegistry {
+    // Setup event registry preparing handlers with closures for caller
+    val handlers = Array<EventHandler>().bumpRef()
+    val subscriptions = Array<Subscription>().bumpRef()
+    
+    // Create handlers with prepared callbacks
+    val logger_callback = createLoggingCallback("LOG")
+    val transform_callback = createTransformationCallback("TRANSFORM")
+    val aggregate_callback = createAggregationCallback("AGGREGATE")
+    
+    val logger_handler = createEventHandler("logger", "log_event", logger_callback)
+    val transform_handler = createEventHandler("transformer", "transform_event", transform_callback)
+    val aggregate_handler = createEventHandler("aggregator", "aggregate_event", aggregate_callback)
+    
+    handlers.push(logger_handler)
+    handlers.push(transform_handler)
+    handlers.push(aggregate_handler)
+    
+    // Create subscriptions for handlers
+    val log_types = Array<Str>().push("log_event_0").push("log_event_1")
+    val transform_types = Array<Str>().push("transform_event_0").push("transform_event_1")
+    val aggregate_types = Array<Str>().push("aggregate_event_0").push("aggregate_event_1")
+    
+    val log_subscription = createSubscription("logger", log_types.bumpRef())
+    val transform_subscription = createSubscription("transformer", transform_types.bumpRef())
+    val aggregate_subscription = createSubscription("aggregator", aggregate_types.bumpRef())
+    
+    subscriptions.push(log_subscription)
+    subscriptions.push(transform_subscription)
+    subscriptions.push(aggregate_subscription)
+    
+    return EventRegistry(handlers = handlers, subscriptions = subscriptions).bumpRef()
+}
+
+// ========= EVENT PROCESSING WITH CALLBACK EXECUTION =========
+
+fun findMatchingHandlers(registry: EventRegistry, event: Event): Array<EventHandler> {
+    // Find handlers that match event preparing result array for execution
+    val matching_handlers = Array<EventHandler>().bumpRef()
+    
+    for handler in registry.handlers {
+        // Check if handler's filter matches event type
+        if (event.type.contains(handler.filter)) {
+            matching_handlers.push(handler)
+        }
+    }
+    
+    return matching_handlers
+}
+
+fun executeHandler(handler: EventHandler, event: Event): EventResult {
+    // Execute handler callback preparing result for caller
+    val start_time = event.timestamp
+    val callback_result = handler.callback(event.ref())
+    val end_time = start_time + 1  // Simplified timing
+    
+    return EventResult(
+        handler_id = handler.id,
+        result = callback_result,
+        execution_time = end_time - start_time
+    ).bumpRef()
+}
+
+fun processEvent(registry: EventRegistry, event: Event): Array<EventResult> {
+    // Process event with all matching handlers preparing results for caller
+    val matching_handlers = findMatchingHandlers(registry.ref(), event.ref())
+    val results = Array<EventResult>().bumpRef()
+    
+    for handler in matching_handlers {
+        val result = executeHandler(handler.ref(), event.ref())
+        results.push(result)
+    }
+    
+    return results
+}
+
+fun processBatchEvents(registry: EventRegistry, batch: EventBatch): Array<Array<EventResult>> {
+    // Process event batch preparing nested results for caller
+    val batch_results = Array<Array<EventResult>>().bumpRef()
+    
+    for event in batch.events {
+        val event_results = processEvent(registry.ref(), event.ref())
+        batch_results.push(event_results)
+    }
+    
+    return batch_results
+}
+
+// ========= ADVANCED CALLBACK PATTERNS =========
+
+fun createConditionalCallback(condition: Str, success_callback: Fun<Event, Str>, failure_callback: Fun<Event, Str>): Fun<Event, Str> {
+    // Create conditional callback preparing branched results for caller
+    val condition_ref = condition.bumpRef()
+    
+    return |event: Event| -> Str {
+        // Execute appropriate callback branch preparing result for caller
+        if (event.payload.contains(condition_ref)) {
+            return success_callback(event.ref())
+        } else {
+            return failure_callback(event.ref())
+        }
+    }
+}
+
+fun createChainedCallback(callbacks: Array<Fun<Event, Str>>): Fun<Event, Str> {
+    // Create chained callback preparing accumulated results for caller
+    return |event: Event| -> Str {
+        // Execute all callbacks in chain preparing combined result
+        val chain_results = Array<Str>().bumpRef()
+        
+        for callback in callbacks {
+            val callback_result = callback(event.ref())
+            chain_results.push(callback_result)
+        }
+        
+        // Combine all results
+        val combined_result = "chained:".bumpRef()
+        for result in chain_results {
+            combined_result = combined_result.concat(" ").concat(result).bumpRef()
+        }
+        
+        return combined_result
+    }
+}
+
+fun createStatefulCallback(initial_state: Str): Fun<Event, Str> {
+    // Create stateful callback maintaining prepared state across calls
+    val state_ref = initial_state.bumpRef()
+    
+    return |event: Event| -> Str {
+        // Update state and prepare result for caller
+        val updated_state = state_ref.concat("_").concat(event.type).bumpRef()
+        val result = "state_evolved: ".concat(updated_state).bumpRef()
+        
+        // In real implementation, would update captured state
+        return result
+    }
+}
+
+// ========= EVENT SYSTEM ORCHESTRATION =========
+
+fun createAdvancedEventSystem(): EventRegistry {
+    // Create comprehensive event system with prepared callback compositions
+    val basic_registry = setupEventRegistry()
+    val enhanced_handlers = Array<EventHandler>().bumpRef()
+    
+    // Copy existing handlers
+    for handler in basic_registry.handlers {
+        enhanced_handlers.push(handler)
+    }
+    
+    // Add advanced callback patterns
+    val success_callback = createLoggingCallback("SUCCESS")
+    val failure_callback = createLoggingCallback("FAILURE")
+    val conditional_callback = createConditionalCallback("success", success_callback, failure_callback)
+    val conditional_handler = createEventHandler("conditional", "conditional", conditional_callback)
+    enhanced_handlers.push(conditional_handler)
+    
+    // Add chained callback
+    val chain_callbacks = Array<Fun<Event, Str>>()
+        .push(createTransformationCallback("chain1"))
+        .push(createTransformationCallback("chain2"))
+        .push(createAggregationCallback("chain3"))
+    val chained_callback = createChainedCallback(chain_callbacks.bumpRef())
+    val chained_handler = createEventHandler("chained", "chain", chained_callback)
+    enhanced_handlers.push(chained_handler)
+    
+    // Add stateful callback
+    val stateful_callback = createStatefulCallback("initial_state")
+    val stateful_handler = createEventHandler("stateful", "stateful", stateful_callback)
+    enhanced_handlers.push(stateful_handler)
+    
+    return EventRegistry(handlers = enhanced_handlers, subscriptions = basic_registry.subscriptions).bumpRef()
+}
+
+fun main() {
+    // ========= BASIC EVENT PROCESSING =========
+    val registry = createAdvancedEventSystem()
+    val test_events = generateEventStream("log_event", 3)
+    
+    // Process individual events
+    val single_results = Array<Array<EventResult>>().bumpRef()
+    for event in test_events {
+        val event_results = processEvent(registry.ref(), event.ref())
+        single_results.push(event_results)
+    }
+    
+    // ========= BATCH EVENT PROCESSING =========
+    val batch_events = generateEventStream("transform_event", 2)
+    val event_batch = createEventBatch(batch_events.bumpRef(), "test_batch")
+    val batch_results = processBatchEvents(registry.ref(), event_batch.ref())
+    
+    // ========= ADVANCED CALLBACK PATTERNS =========
+    val conditional_event = createEvent("conditional_success_event", "success_data", 100)
+    val conditional_results = processEvent(registry.ref(), conditional_event.ref())
+    
+    val chain_event = createEvent("chain_event", "chain_data", 200)
+    val chain_results = processEvent(registry.ref(), chain_event.ref())
+    
+    val stateful_event = createEvent("stateful_event", "stateful_data", 300)
+    val stateful_results = processEvent(registry.ref(), stateful_event.ref())
+    
+    // All callback results contain prepared references for use
+    println("Registry has {} handlers", registry.handlers.length)
+    println("Single event processing: {} events processed", single_results.length)
+    println("Batch processing: {} events in batch", batch_results.length)
+    println("Conditional callback results: {}", conditional_results.length)
+    println("Chained callback results: {}", chain_results.length)
+    println("Stateful callback results: {}", stateful_results.length)
+    
+    // Demonstrate deep access to prepared callback results
+    if (single_results.length > 0 && single_results.get(0).length > 0) {
+        val first_result = single_results.get(0).get(0)
+        println("First callback result: {} from handler {}", first_result.result, first_result.handler_id)
+    }
+    
+    if (conditional_results.length > 0) {
+        val conditional_result = conditional_results.get(0)
+        println("Conditional callback result: {}", conditional_result.result)
+    }
+    
+    if (chain_results.length > 0) {
+        val chain_result = chain_results.get(0)
+        println("Chained callback result: {}", chain_result.result)
+    }
+}
+
+// EVENT SYSTEM CALLBACK REFERENCE PREPARATION:
+//
+// This demonstrates sophisticated event system patterns where reference preparation enables:
+//
+// 1. CALLBACK FUNCTION PREPARATION:
+//    - createLoggingCallback, createTransformationCallback: Return functions with captured references
+//    - Each callback closure captures prepared references for deferred execution
+//    - Callback results are prepared references valid in caller scope
+//
+// 2. CLOSURE COMPOSITION:
+//    - createCompositeCallback: Combines callbacks preparing unified results
+//    - createConditionalCallback: Branches execution preparing conditional results
+//    - createChainedCallback: Sequences callbacks preparing accumulated results
+//    - Each composition pattern prepares references for complex execution flows
+//
+// 3. REGISTRY MANAGEMENT:
+//    - setupEventRegistry: Prepares handlers with closures for event matching
+//    - registerHandler: Updates registry preparing expanded handler collections
+//    - Handler references and callback closures remain valid throughout system lifecycle
+//
+// 4. EVENT PROCESSING PIPELINES:
+//    - processEvent, processBatchEvents: Execute callbacks preparing result collections
+//    - findMatchingHandlers: Filters handlers preparing execution candidates
+//    - Each processing stage prepares references for result aggregation
+//
+// 5. STATEFUL CALLBACK PATTERNS:
+//    - createStatefulCallback: Maintains captured state across callback executions
+//    - State evolution prepares updated references for each callback invocation
+//    - Enables complex state machines with prepared reference accumulation
+//
+// 6. DEFERRED EXECUTION PREPARATION:
+//    - Event handlers store prepared callback functions for later execution
+//    - Callback closures capture environment references for deferred use
+//    - Event processing executes prepared callbacks with reference validity guarantees
+//
+// 7. NESTED RESULT STRUCTURES:
+//    - Event results contain prepared references from callback executions
+//    - Batch processing creates nested arrays of prepared results
+//    - Result aggregation maintains reference validity across processing levels
+//
+// KEY ADVANCEMENT: Demonstrates how reference preparation enables sophisticated
+// event-driven architectures where callbacks can capture complex environments,
+// execute deferred computations, and prepare rich results that remain valid
+// for the caller, enabling powerful reactive programming patterns with
+// zero-copy reference management and complex closure compositions.

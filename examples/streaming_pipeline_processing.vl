@@ -1,0 +1,402 @@
+// Streaming Pipeline Processing with Cross-Stage Reference Preparation
+// Demonstrates data processing pipelines where each stage prepares references for downstream consumption
+
+data class StreamItem(val id: Str, val payload: Str, val metadata: Array<Str>)
+data class ProcessedItem(val original_id: Str, val transformed_data: Str, val processing_info: Array<Str>)
+data class ValidationResult(val item: ProcessedItem, val is_valid: Bool, val issues: Array<Str>)
+data class AggregateStats(val total_items: Int, val valid_items: Int, val issue_summary: Array<Str>)
+
+// Pipeline stage configurations with reference preparation
+data class StageConfig(val name: Str, val parameters: Array<Str>)
+data class PipelineContext(val stage_configs: Array<StageConfig>, val accumulated_stats: AggregateStats)
+
+// ========= STREAM SOURCE PREPARATION =========
+
+fun createStreamItem(id: Str, payload: Str, metadata_list: Array<Str>): StreamItem {
+    // Prepare stream item with references valid for entire pipeline
+    val id_ref = id.bumpRef()
+    val payload_ref = payload.bumpRef()
+    val metadata_refs = Array<Str>().bumpRef()
+    
+    // Prepare each metadata string for downstream stages
+    for meta in metadata_list {
+        val meta_ref = meta.bumpRef()
+        metadata_refs.push(meta_ref)
+    }
+    
+    return StreamItem(id = id_ref, payload = payload_ref, metadata = metadata_refs).bumpRef()
+}
+
+fun generateDataStream(count: Int): Array<StreamItem> {
+    // Generate stream of items with prepared references for pipeline processing
+    val stream = Array<StreamItem>().bumpRef()
+    
+    for i in range(0, count) {
+        val item_id = "item_".concat(i.toString()).bumpRef()
+        val payload_data = "data_content_".concat(i.toString()).bumpRef()
+        val metadata = Array<Str>()
+            .push("source=generator".bumpRef())
+            .push("batch=1".bumpRef())
+            .push("priority=normal".bumpRef())
+        
+        val stream_item = createStreamItem(item_id, payload_data, metadata.bumpRef())
+        stream.push(stream_item)
+    }
+    
+    return stream
+}
+
+fun loadExternalDataStream(source_name: Str): Array<StreamItem> {
+    // Simulate loading external data preparing references for pipeline
+    val stream = Array<StreamItem>().bumpRef()
+    val base_id = source_name.concat("_external").bumpRef()
+    
+    // Simulate external data with complex metadata
+    for i in range(0, 5) {
+        val item_id = base_id.concat("_").concat(i.toString()).bumpRef()
+        val external_payload = "external_".concat(source_name).concat("_").concat(i.toString()).bumpRef()
+        val external_metadata = Array<Str>()
+            .push("source=external".bumpRef())
+            .push("validated=true".bumpRef())
+            .push(source_name.concat("_specific_meta").bumpRef())
+        
+        val external_item = createStreamItem(item_id, external_payload, external_metadata.bumpRef())
+        stream.push(external_item)
+    }
+    
+    return stream
+}
+
+// ========= TRANSFORMATION STAGE WITH REFERENCE PREPARATION =========
+
+fun transformPayload(item: StreamItem, transform_type: Str): ProcessedItem {
+    // Transform item preparing processed result for downstream stages
+    val original_id_ref = item.id.bumpRef()
+    val transform_prefix = transform_type.concat("_").bumpRef()
+    val transformed_data = transform_prefix.concat(item.payload).bumpRef()
+    
+    // Prepare processing info for downstream consumption
+    val processing_info = Array<Str>().bumpRef()
+    processing_info.push("transform_type=".concat(transform_type).bumpRef())
+    processing_info.push("original_payload_length=".concat(item.payload.length.toString()).bumpRef())
+    
+    // Add metadata-derived processing info
+    for meta in item.metadata {
+        val info_entry = "source_meta=".concat(meta).bumpRef()
+        processing_info.push(info_entry)
+    }
+    
+    return ProcessedItem(
+        original_id = original_id_ref,
+        transformed_data = transformed_data,
+        processing_info = processing_info
+    ).bumpRef()
+}
+
+fun batchTransformItems(items: Array<StreamItem>, config: StageConfig): Array<ProcessedItem> {
+    // Batch transformation preparing all results for validation stage
+    val processed_items = Array<ProcessedItem>().bumpRef()
+    val transform_type = config.name.bumpRef()
+    
+    for item in items {
+        val processed = transformPayload(item.ref(), transform_type)
+        processed_items.push(processed)
+    }
+    
+    return processed_items
+}
+
+fun createEnhancedTransformation(base_transform: Str, enhancement: Str): Fun<StreamItem, ProcessedItem> {
+    // Create transformation function preparing enhanced processors for caller
+    val enhanced_transform = base_transform.concat("_").concat(enhancement).bumpRef()
+    
+    return |item: StreamItem| -> ProcessedItem {
+        // Each transformation call prepares references for caller scope
+        val enhanced_result = transformPayload(item.ref(), enhanced_transform)
+        
+        // Add enhancement-specific processing info
+        val enhanced_info = Array<Str>().bumpRef()
+        for info in enhanced_result.processing_info {
+            enhanced_info.push(info)
+        }
+        enhanced_info.push("enhancement=".concat(enhancement).bumpRef())
+        
+        return ProcessedItem(
+            original_id = enhanced_result.original_id,
+            transformed_data = enhanced_result.transformed_data,
+            processing_info = enhanced_info
+        ).bumpRef()
+    }
+}
+
+// ========= VALIDATION STAGE WITH COMPLEX REFERENCE TRACKING =========
+
+fun validateProcessedItem(item: ProcessedItem, validation_rules: Array<Str>): ValidationResult {
+    // Validate item preparing result with references for aggregation stage
+    val issues = Array<Str>().bumpRef()
+    val is_valid = true  // Simplified validation logic
+    
+    // Check validation rules preparing issue references
+    for rule in validation_rules {
+        if (rule == "min_length" && item.transformed_data.length < 10) {
+            val issue = "Data too short for item ".concat(item.original_id).bumpRef()
+            issues.push(issue)
+        } else if (rule == "required_prefix" && !item.transformed_data.startsWith("transform_")) {
+            val issue = "Missing required prefix for item ".concat(item.original_id).bumpRef()
+            issues.push(issue)
+        }
+    }
+    
+    val final_validity = issues.length == 0
+    
+    return ValidationResult(
+        item = item,
+        is_valid = final_validity,
+        issues = issues
+    ).bumpRef()
+}
+
+fun runValidationPipeline(items: Array<ProcessedItem>, config: StageConfig): Array<ValidationResult> {
+    // Run validation preparing all results for aggregation
+    val validation_results = Array<ValidationResult>().bumpRef()
+    val rules = config.parameters  // Use config parameters as validation rules
+    
+    for item in items {
+        val validation_result = validateProcessedItem(item.ref(), rules.ref())
+        validation_results.push(validation_result)
+    }
+    
+    return validation_results
+}
+
+fun createValidationChain(primary_rules: Array<Str>, secondary_rules: Array<Str>): Fun<ProcessedItem, ValidationResult> {
+    // Create validation chain preparing composite validators for caller
+    val combined_rules = Array<Str>().bumpRef()
+    
+    // Prepare combined rule set for validator
+    for rule in primary_rules {
+        combined_rules.push(rule.bumpRef())
+    }
+    for rule in secondary_rules {
+        combined_rules.push(rule.bumpRef())
+    }
+    
+    return |item: ProcessedItem| -> ValidationResult {
+        // Each validation call prepares comprehensive result for caller
+        val primary_result = validateProcessedItem(item.ref(), primary_rules.ref())
+        val secondary_result = validateProcessedItem(item.ref(), secondary_rules.ref())
+        
+        // Combine validation results preparing comprehensive issues list
+        val combined_issues = Array<Str>().bumpRef()
+        for issue in primary_result.issues {
+            combined_issues.push(issue)
+        }
+        for issue in secondary_result.issues {
+            combined_issues.push(issue)
+        }
+        
+        val combined_validity = primary_result.is_valid && secondary_result.is_valid
+        
+        return ValidationResult(
+            item = item,
+            is_valid = combined_validity,
+            issues = combined_issues
+        ).bumpRef()
+    }
+}
+
+// ========= AGGREGATION STAGE WITH CROSS-PIPELINE REFERENCE COLLECTION =========
+
+fun aggregateValidationResults(results: Array<ValidationResult>): AggregateStats {
+    // Aggregate results preparing summary with references for final output
+    val total_items = results.length
+    val valid_count = 0
+    val issue_summary = Array<Str>().bumpRef()
+    
+    // Count valid items and collect issues
+    for result in results {
+        if (result.is_valid) {
+            valid_count = valid_count + 1
+        } else {
+            // Prepare issue summary entries for caller
+            for issue in result.issues {
+                val summary_entry = "Issue: ".concat(issue).bumpRef()
+                issue_summary.push(summary_entry)
+            }
+        }
+    }
+    
+    // Add aggregate statistics
+    val total_summary = "Total items processed: ".concat(total_items.toString()).bumpRef()
+    val valid_summary = "Valid items: ".concat(valid_count.toString()).bumpRef()
+    val invalid_summary = "Invalid items: ".concat((total_items - valid_count).toString()).bumpRef()
+    
+    issue_summary.push(total_summary)
+    issue_summary.push(valid_summary)
+    issue_summary.push(invalid_summary)
+    
+    return AggregateStats(
+        total_items = total_items,
+        valid_items = valid_count,
+        issue_summary = issue_summary
+    ).bumpRef()
+}
+
+fun createPipelineContext(stage_names: Array<Str>): PipelineContext {
+    // Create pipeline context preparing stage configurations for execution
+    val stage_configs = Array<StageConfig>().bumpRef()
+    
+    for stage_name in stage_names {
+        val config_name = stage_name.bumpRef()
+        val parameters = Array<Str>()
+            .push("min_length".bumpRef())
+            .push("required_prefix".bumpRef())
+        
+        val config = StageConfig(name = config_name, parameters = parameters.bumpRef()).bumpRef()
+        stage_configs.push(config)
+    }
+    
+    // Create initial empty stats
+    val empty_summary = Array<Str>().bumpRef()
+    val initial_stats = AggregateStats(total_items = 0, valid_items = 0, issue_summary = empty_summary).bumpRef()
+    
+    return PipelineContext(stage_configs = stage_configs, accumulated_stats = initial_stats).bumpRef()
+}
+
+// ========= COMPLETE PIPELINE ORCHESTRATION =========
+
+fun executePipeline(input_stream: Array<StreamItem>, context: PipelineContext): AggregateStats {
+    // Execute complete pipeline preparing final results for caller
+    
+    // Stage 1: Transformation - prepare processed items
+    val transform_config = context.stage_configs.get(0)
+    val processed_items = batchTransformItems(input_stream.ref(), transform_config.ref())
+    
+    // Stage 2: Validation - prepare validation results
+    val validation_config = context.stage_configs.get(1)
+    val validation_results = runValidationPipeline(processed_items.ref(), validation_config.ref())
+    
+    // Stage 3: Aggregation - prepare final statistics
+    val final_stats = aggregateValidationResults(validation_results.ref())
+    
+    return final_stats
+}
+
+fun createMultiSourcePipeline(source_names: Array<Str>): Fun<Void, AggregateStats> {
+    // Create multi-source pipeline preparing aggregated processor for caller
+    val prepared_sources = Array<Str>().bumpRef()
+    for source in source_names {
+        prepared_sources.push(source.bumpRef())
+    }
+    
+    return |_: Void| -> AggregateStats {
+        // Each execution prepares references from multiple sources
+        val combined_stream = Array<StreamItem>().bumpRef()
+        
+        // Load and combine streams from all sources
+        for source_name in prepared_sources {
+            val source_stream = loadExternalDataStream(source_name)
+            for item in source_stream {
+                combined_stream.push(item)
+            }
+        }
+        
+        // Execute pipeline on combined stream
+        val stage_names = Array<Str>().push("transform".bumpRef()).push("validate".bumpRef())
+        val pipeline_context = createPipelineContext(stage_names.bumpRef())
+        val result = executePipeline(combined_stream.ref(), pipeline_context.ref())
+        
+        return result
+    }
+}
+
+fun main() {
+    // ========= SINGLE SOURCE PIPELINE =========
+    val generated_stream = generateDataStream(10)
+    val stage_names = Array<Str>().push("uppercase_transform").push("validation")
+    val context = createPipelineContext(stage_names.bumpRef())
+    val single_result = executePipeline(generated_stream.ref(), context.ref())
+    
+    // ========= ENHANCED TRANSFORMATION PIPELINE =========
+    val enhanced_transformer = createEnhancedTransformation("base_transform", "enhancement_v2")
+    val enhanced_items = Array<ProcessedItem>().bumpRef()
+    
+    for item in generated_stream {
+        val enhanced_item = enhanced_transformer(item.ref())
+        enhanced_items.push(enhanced_item)
+    }
+    
+    // ========= VALIDATION CHAIN PIPELINE =========
+    val primary_rules = Array<Str>().push("min_length")
+    val secondary_rules = Array<Str>().push("required_prefix")
+    val validation_chain = createValidationChain(primary_rules.bumpRef(), secondary_rules.bumpRef())
+    
+    val chained_results = Array<ValidationResult>().bumpRef()
+    for item in enhanced_items {
+        val chain_result = validation_chain(item.ref())
+        chained_results.push(chain_result)
+    }
+    val chained_stats = aggregateValidationResults(chained_results.ref())
+    
+    // ========= MULTI-SOURCE PIPELINE =========
+    val source_names = Array<Str>().push("database").push("api").push("file_system")
+    val multi_source_pipeline = createMultiSourcePipeline(source_names.bumpRef())
+    val multi_result = multi_source_pipeline(Void())
+    
+    // All pipeline results contain prepared references for use
+    println("Single source pipeline: {} total, {} valid", single_result.total_items, single_result.valid_items)
+    println("Enhanced pipeline: {} items processed", enhanced_items.length)
+    println("Validation chain: {} total, {} valid", chained_stats.total_items, chained_stats.valid_items)
+    println("Multi-source pipeline: {} total, {} valid", multi_result.total_items, multi_result.valid_items)
+    
+    // Demonstrate deep access to prepared references across pipeline stages
+    if (single_result.issue_summary.length > 0) {
+        val first_issue = single_result.issue_summary.get(0)
+        println("First issue from single pipeline: {}", first_issue)
+    }
+    
+    if (chained_stats.issue_summary.length > 2) {
+        val summary_stats = chained_stats.issue_summary.get(chained_stats.issue_summary.length - 1)
+        println("Chained pipeline summary: {}", summary_stats)
+    }
+}
+
+// STREAMING PIPELINE REFERENCE PREPARATION:
+//
+// This demonstrates sophisticated pipeline patterns where reference preparation enables:
+//
+// 1. CROSS-STAGE REFERENCE FLOW:
+//    - generateDataStream: Prepares items with references valid throughout pipeline
+//    - batchTransformItems: Transforms while preparing references for validation stage
+//    - runValidationPipeline: Validates while preparing references for aggregation
+//    - Each stage prepares references that remain valid in subsequent stages
+//
+// 2. COMPLEX DATA TRANSFORMATION:
+//    - transformPayload: Builds processed items with prepared reference arrays
+//    - createEnhancedTransformation: Returns functions that prepare enhanced results
+//    - Transformation preserves original references while preparing new ones
+//
+// 3. MULTI-LEVEL VALIDATION:
+//    - validateProcessedItem: Prepares validation results with issue reference arrays
+//    - createValidationChain: Combines validators preparing comprehensive results
+//    - Each validation level prepares references for error reporting and aggregation
+//
+// 4. REFERENCE AGGREGATION:
+//    - aggregateValidationResults: Collects references from multiple validation results
+//    - Issue summaries accumulate prepared string references across all items
+//    - Statistics contain references prepared from entire pipeline execution
+//
+// 5. PIPELINE COMPOSITION:
+//    - executePipeline: Orchestrates stages each preparing references for next stage
+//    - createMultiSourcePipeline: Returns function preparing aggregated results
+//    - Multi-source execution combines references from multiple input streams
+//
+// 6. HIGHER-ORDER PIPELINE CONSTRUCTION:
+//    - Pipeline factory functions prepare pipeline executors for caller use
+//    - Closures capture prepared references for deferred pipeline execution
+//    - Configuration objects contain prepared reference arrays for stage coordination
+//
+// KEY ADVANCEMENT: Demonstrates how reference preparation enables complex data flow
+// where each pipeline stage can build rich, reference-containing results that remain
+// valid for all downstream stages, enabling sophisticated streaming processing with
+// zero-copy reference passing and comprehensive error/metadata tracking.

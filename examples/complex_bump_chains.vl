@@ -1,0 +1,117 @@
+// Reference preparation call chains
+// Shows how reference preparation propagates through function calls
+
+data class User(val name: Str, val id: Int)
+data class Stats(val count: Int, val active: Bool)
+
+// ========= TRANSITIVE CALL CHAINS =========
+
+// Direct bump allocation
+fun allocateUserName(name: Str): Str {
+    return name.bumpRef()
+}
+
+// Calls bump-allocating function - gets bump parameter transitively
+fun processUserName(name: Str): Str {
+    return allocateUserName(name)
+}
+
+// Calls processing function - also gets bump parameter transitively
+fun validateUserName(name: Str): Str {
+    return processUserName(name)
+}
+
+// ========= BRANCHING CALL PATTERNS =========
+
+// Function with different paths - gets bump because ANY path needs it
+fun processUserData(user: User, use_bump: Bool): Str {
+    if (use_bump) {
+        return allocateUserName(user.name)    // Explicit bump allocation
+    } else {
+        return getUserId(user)                // Reference type handling
+    }
+}
+
+fun getUserId(user: User): Str {
+    return user.name  // Reference type access
+}
+
+fun getUserStats(user: User): Stats {
+    return Stats(count = user.id, active = true).bumpRef()  // Data class allocation
+}
+
+// Pure value function - NO bump parameter
+fun calculateChecksum(id: Int): Int {
+    return id * 31
+}
+
+// ========= MIXED DEPENDENCIES =========
+
+// Function mixing bump-requiring and value-only calls
+fun analyzeUser(user: User): Int {
+    val processed_name = processUserName(user.name)  // Needs bump (transitive)
+    val stats = getUserStats(user)                   // Needs bump (data class)
+    val id_check = calculateChecksum(user.id)        // No bump (pure value)
+    return stats.count + id_check
+}
+
+// ========= CONDITIONAL PATHS =========
+
+// Gets bump parameter because one path requires it
+fun conditionalProcessing(user: User, mode: Int): Int {
+    if (mode == 1) {
+        val name = processUserName(user.name)  // This path needs bump
+        return 100
+    } else {
+        return calculateChecksum(user.id)      // This path doesn't, but function still gets bump
+    }
+}
+
+fun main() {
+    val user = User(name = "Alice", id = 12345)
+    
+    // Transitive chain example
+    val validated_name = validateUserName(user.name)
+    
+    // Branching patterns
+    val processed_data = processUserData(user.ref(), true)
+    val user_id = getUserId(user.ref())
+    val stats = getUserStats(user.ref())
+    
+    // Mixed dependencies
+    val analysis = analyzeUser(user.ref())
+    
+    // Conditional processing
+    val conditional1 = conditionalProcessing(user.ref(), 1)  // Bump path
+    val conditional2 = conditionalProcessing(user.ref(), 2)  // Value path, but still gets bump
+    
+    // Pure value operation
+    val checksum = calculateChecksum(user.id)  // No bump needed
+    
+    println("Validated name: {}", validated_name)
+    println("Analysis: {}, Stats count: {}", analysis, stats.count)
+    println("Conditional results: {}, {}", conditional1, conditional2)
+    println("Checksum (no bump): {}", checksum)
+}
+
+// REFERENCE PREPARATION CALL CHAINS:
+//
+// This demonstrates how reference preparation propagates through call chains,
+// enabling complex workflows where any function can prepare references for
+// use anywhere up the call stack.
+//
+// Reference preparation chain:
+// - allocateUserName: Prepares string reference from input
+// - processUserName -> validateUserName: Chain that prepares processed strings  
+// - processUserData, getUserId: Prepare strings from User data class
+// - getUserStats: Prepares Stats data class instance
+// - analyzeUser: Combines multiple prepared results
+// - conditionalProcessing: Prepares results based on execution path
+// - main: Uses all prepared references regardless of their preparation depth
+//
+// Pure value function:
+// - calculateChecksum: No reference preparation (Int -> Int)
+//
+// Key benefit: Functions anywhere in the call chain can prepare references
+// for use by any caller, enabling flexible data flow patterns without
+// manual lifetime management or allocator parameter threading.

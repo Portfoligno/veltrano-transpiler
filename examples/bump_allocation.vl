@@ -1,26 +1,115 @@
-// Bump allocation examples - demonstrating explicit memory management
+// Cross-scope reference preparation using automatic bump parameter detection
+// Shows how functions prepare references for use in caller scope
 
 data class Person(val name: Str, val age: Int)
+data class Company(val name: Str, val employee_count: Int)
+
+// ========= VALUE-ONLY FUNCTIONS (NO bump parameters) =========
 
 fun processValue(val_param: Int): Int {
     return val_param * 2
+}
+
+fun calculateBonus(age: Int): Int {
+    return age * 100
+}
+
+// ========= REFERENCE-HANDLING FUNCTIONS (GET bump parameters) =========
+
+// Function with reference types - GETS automatic bump parameter
+fun formatPersonInfo(person: Person): Str {
+    return person.name
+}
+
+fun getPersonName(person: Person): Str {
+    return person.name
+}
+
+// ========= EXPLICIT BUMP ALLOCATION (GET bump parameters) =========
+
+// Function with explicit bump allocation - GETS automatic bump parameter
+fun createBumpPerson(name: Str, age: Int): Person {
+    return Person(name = name, age = age).bumpRef()
+}
+
+fun createBumpAllocatedPerson(name: Str, age: Int): Person {
+    return Person(name = name, age = age).bumpRef()
+}
+
+// ========= TRANSITIVE BUMP FUNCTIONS (GET bump parameters) =========
+
+// Function calling bump-requiring function - GETS automatic bump parameter transitively
+fun processPersonData(person: Person): Str {
+    return formatPersonInfo(person)
+}
+
+fun createEmployeeRecord(name: Str, age: Int): Person {
+    val person = createBumpAllocatedPerson(name, age)
+    return person
+}
+
+// Function that mixes value types and references
+fun processEmployee(person: Person): Int {
+    val bonus = calculateBonus(person.age)  // No bump needed for calculateBonus
+    return bonus
+}
+
+// Complex transitive chain: main -> setupOffice -> createTeam -> createBumpAllocatedPerson
+fun createTeam(lead_name: Str, member_name: Str): Person {
+    val leader = createBumpAllocatedPerson(lead_name, 35)
+    val member = createBumpAllocatedPerson(member_name, 28)
+    return leader  // Return the leader for this example
+}
+
+fun setupOffice(company_name: Str): Person {
+    val team_lead = createTeam("Alice", "Bob")
+    return team_lead
 }
 
 fun main() {
     // Regular allocation - uses standard heap
     val person1 = Person(name = "Alice", age = 30)
     val person2 = Person(name = "Bob", age = 25)
+    val company = Company(name = "TechCorp", employee_count = 50)
     
     // Explicit bump allocation using .bumpRef()
     val person_ref = Person(name = "Charlie", age = 35).bumpRef()
     val value_ref = 42.bumpRef()
     
-    // Function calls with values
-    val result1 = processValue(42)
-    val result2 = processValue(person1.age)
+    // Function calls demonstrate automatic bump parameter behavior:
+    val result1 = processValue(42)           // No bump needed (value types only)
+    val result2 = processValue(person1.age)  // No bump needed (extracts value type)
+    val bonus = calculateBonus(person1.age)  // No bump needed (value types only)
     
-    println("Regular person: {} is {} years old", person1.name, person1.age)
-    println("Bump allocated person: {} is {} years old", person_ref.name, person_ref.age)
-    println("Value processing: {} -> {}", 42, result1)
-    println("Age processing: {} -> {}", person1.age, result2)
+    val formatted = formatPersonInfo(person1.ref()) // Automatic bump (handles reference types)
+    val processed = processPersonData(person2.ref()) // Automatic bump (transitively calls formatPersonInfo)
+    val bump_person = createBumpPerson("David", 40) // Automatic bump (explicit .bumpRef())
+    
+    // Transitive analysis - this triggers the entire chain
+    val office_lead = setupOffice(company.name)
+    val lead_name = getPersonName(office_lead.ref())
+    val employee_bonus = processEmployee(office_lead.ref())
+    
+    println("Value operations: {} -> {}, bonus: {}", 42, result1, bonus)
+    println("Reference operations: {}, processed: {}", formatted, processed)
+    println("Transitive chain: office lead {} gets bonus {}", lead_name, employee_bonus)
+    println("Bump allocated person: {} is {} years old", bump_person.name, bump_person.age)
 }
+
+// CROSS-SCOPE REFERENCE PREPARATION:
+//
+// This demonstrates the core value: functions can prepare references that remain
+// valid in the caller's scope without manual lifetime management.
+//
+// Functions that prepare references:
+// - formatPersonInfo, getPersonName: Return string references from Person data
+// - createBumpPerson, createBumpAllocatedPerson: Create Person instances with prepared references
+// - processPersonData, createEmployeeRecord: Build results using reference preparation
+// - createTeam, setupOffice: Factory functions that prepare complex structures
+// - main: Uses all the prepared references without managing allocator details
+//
+// Functions that don't prepare references:
+// - processValue, calculateBonus: Pure value operations (Int -> Int)
+//
+// Key benefit: Clean separation between reference preparation (in callees) and
+// reference usage (in callers), with automatic lifetime management.

@@ -1,0 +1,169 @@
+// Cross-Scope Reference Preparation Patterns
+// Demonstrates functions preparing references for use in caller scope
+
+data class Config(val name: Str, val version: Str, val enabled: Bool)
+data class User(val email: Str, val name: Str)
+data class Session(val user: User, val token: Str)
+
+// ========= DATA STRUCTURE PREPARATION =========
+// Functions that build reference-containing structures for caller use
+
+fun buildConfiguration(app_name: Str, version: Str): Config {
+    // Prepare references that remain valid in caller's scope
+    val name_ref = app_name.bumpRef()
+    val version_ref = version.bumpRef()
+    val config = Config(name = name_ref, version = version_ref, enabled = true)
+    return config.bumpRef()
+}
+
+fun createUserProfile(email: Str, display_name: Str): User {
+    // Both string references prepared for caller scope
+    val email_ref = email.bumpRef()
+    val name_ref = display_name.bumpRef()
+    val user = User(email = email_ref, name = name_ref)
+    return user.bumpRef()
+}
+
+// ========= FACTORY FUNCTIONS =========
+// Functions that configure complex objects with prepared references
+
+fun createGuestSession(): Session {
+    // Create references that outlive function scope
+    val guest_email = "guest@system.local".bumpRef()
+    val guest_name = "Guest User".bumpRef()
+    val guest_user = User(email = guest_email, name = guest_name).bumpRef()
+    
+    val session_token = "guest-session-token".bumpRef()
+    val session = Session(user = guest_user, token = session_token)
+    return session.bumpRef()
+}
+
+fun createAuthenticatedSession(email: Str, name: Str): Session {
+    // Prepare user with references valid in caller scope
+    val user = createUserProfile(email, name)
+    val token = "auth-token-12345".bumpRef()
+    val session = Session(user = user, token = token)
+    return session.bumpRef()
+}
+
+// ========= BUILDER PATTERNS =========
+// Functions that incrementally build structures with prepared references
+
+fun buildConfigFromDefaults(): Config {
+    // Start with default values, preparing references
+    val default_name = "DefaultApp".bumpRef()
+    val default_version = "0.1.0".bumpRef()
+    val config = Config(name = default_name, version = default_version, enabled = false)
+    return config.bumpRef()
+}
+
+fun enhanceConfig(base_config: Config, new_name: Str): Config {
+    // Create enhanced version with prepared reference
+    val enhanced_name = new_name.bumpRef()
+    val config = Config(name = enhanced_name, version = base_config.version, enabled = base_config.enabled)
+    return config.bumpRef()
+}
+
+// ========= VIEW PREPARATION =========
+// Functions that prepare data views for caller consumption
+
+fun formatUserDisplay(user: User): Str {
+    // Prepare formatted display string for caller
+    val formatted = user.name
+    return formatted.bumpRef()
+}
+
+fun prepareWelcomeMessage(user: User): Str {
+    // Build message with prepared reference
+    val display = formatUserDisplay(user.ref())
+    val welcome = "Welcome back"
+    return welcome.bumpRef()
+}
+
+// ========= PROCESSING CHAINS =========
+// Functions that process and prepare results for caller use
+
+fun processEmailDomain(email: Str): Str {
+    // Extract and prepare domain reference
+    val domain = "example.com"  // Simplified domain extraction
+    return domain.bumpRef()
+}
+
+fun createUserWithDomain(email: Str, name: Str): User {
+    // Create user with processed domain information
+    val processed_email = email.bumpRef()
+    val domain = processEmailDomain(email)
+    val name_with_domain = name.bumpRef()
+    val user = User(email = processed_email, name = name_with_domain)
+    return user.bumpRef()
+}
+
+// ========= CALLER USAGE PATTERNS =========
+
+fun demonstrateReferencePreparation(): Config {
+    // Function prepares configuration that caller will use
+    val app_config = buildConfiguration("MyApplication", "2.0.0")
+    
+    // Caller can safely use the references
+    val enhanced = enhanceConfig(app_config.ref(), "Enhanced MyApp")
+    
+    return enhanced
+}
+
+fun demonstrateSessionCreation(): Session {
+    // Functions prepare session data for caller
+    val user_session = createAuthenticatedSession("alice@example.com", "Alice Smith")
+    
+    // Caller receives session with valid references
+    return user_session
+}
+
+fun main() {
+    // All these functions prepare references for our use
+    val config = demonstrateReferencePreparation()
+    val session = demonstrateSessionCreation()
+    val guest = createGuestSession()
+    
+    // We can safely use the prepared references
+    println("Config: {} v{}", config.name, config.version)
+    println("Session user: {}", session.user.name)
+    println("Guest email: {}", guest.user.email)
+    
+    // Additional reference preparation
+    val welcome = prepareWelcomeMessage(session.user.ref())
+    val domain_user = createUserWithDomain("bob@company.com", "Bob Jones")
+    
+    println("Welcome message: {}", welcome)
+    println("Domain user: {}", domain_user.name)
+}
+
+// CROSS-SCOPE REFERENCE PREPARATION PATTERNS:
+//
+// 1. DATA STRUCTURE PREPARATION:
+//    - buildConfiguration() prepares Config with string references
+//    - createUserProfile() prepares User with email/name references
+//    - References remain valid for caller to use
+//
+// 2. FACTORY FUNCTIONS:
+//    - createGuestSession() prepares complete session structure
+//    - createAuthenticatedSession() combines user creation with session setup
+//    - All internal references prepared for caller scope
+//
+// 3. BUILDER PATTERNS:
+//    - buildConfigFromDefaults() creates base structure with prepared references
+//    - enhanceConfig() modifies existing structure, preparing new references
+//    - Allows incremental building with cross-scope validity
+//
+// 4. VIEW PREPARATION:
+//    - formatUserDisplay() prepares formatted string for caller
+//    - prepareWelcomeMessage() builds display content with prepared references
+//    - Enables separation of formatting logic from usage
+//
+// 5. PROCESSING CHAINS:
+//    - processEmailDomain() extracts and prepares domain reference
+//    - createUserWithDomain() combines processing with user creation
+//    - Functions can prepare processed results for caller use
+//
+// KEY BENEFIT: Functions can return complex reference-containing structures
+// without the caller needing to manage memory allocation or lifetime details.
+// The automatic bump parameter detection handles the plumbing invisibly.

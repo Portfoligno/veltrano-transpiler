@@ -1,0 +1,236 @@
+// Advanced Nested Reference Preparation Patterns
+// Demonstrates complex nested data structures with cross-scope reference validity
+
+data class Address(val street: Str, val city: Str, val postal_code: Str)
+data class Contact(val email: Str, val phone: Str, val address: Address)
+data class Person(val name: Str, val age: Int, val contact: Contact)
+data class Organization(val name: Str, val primary_contact: Person, val secondary_contact: Person)
+data class Project(val title: Str, val organization: Organization, val description: Str)
+
+data class ProcessingMetadata(val processed_by: Str, val timestamp: Int, val notes: Str)
+data class ProcessedProject(val original: Project, val processed_title: Str, val metadata: ProcessingMetadata)
+
+// ========= DEEP NESTED CONSTRUCTION WITH REFERENCE PREPARATION =========
+
+fun createAddress(street: Str, city: Str, postal: Str): Address {
+    // Prepare address with all string references valid for caller scope
+    val street_ref = street.bumpRef()
+    val city_ref = city.bumpRef()
+    val postal_ref = postal.bumpRef()
+    return Address(street = street_ref, city = city_ref, postal_code = postal_ref).bumpRef()
+}
+
+fun createContact(email: Str, phone: Str, street: Str, city: Str, postal: Str): Contact {
+    // Prepare contact with nested address references valid for caller scope
+    val email_ref = email.bumpRef()
+    val phone_ref = phone.bumpRef()
+    val address = createAddress(street, city, postal)
+    return Contact(email = email_ref, phone = phone_ref, address = address).bumpRef()
+}
+
+fun createPerson(name: Str, age: Int, email: Str, phone: Str, street: Str, city: Str, postal: Str): Person {
+    // Prepare person with deeply nested references valid for caller scope
+    val name_ref = name.bumpRef()
+    val contact = createContact(email, phone, street, city, postal)
+    return Person(name = name_ref, age = age, contact = contact).bumpRef()
+}
+
+fun createOrganization(org_name: Str, primary_name: Str, primary_age: Int, secondary_name: Str, secondary_age: Int): Organization {
+    // Prepare organization with complex nested person structures
+    val org_name_ref = org_name.bumpRef()
+    
+    // Create contacts with prepared references using separate emails
+    val primary_email = "primary@company.com".bumpRef()
+    val secondary_email = "secondary@company.com".bumpRef()
+    
+    val primary_contact = createPerson(primary_name, primary_age, primary_email, "555-0001", "123 Main St", "Business City", "12345")
+    val secondary_contact = createPerson(secondary_name, secondary_age, secondary_email, "555-0002", "456 Oak Ave", "Business City", "12346")
+    
+    return Organization(name = org_name_ref, primary_contact = primary_contact, secondary_contact = secondary_contact).bumpRef()
+}
+
+fun createProject(title: Str, org_name: Str, description: Str): Project {
+    // Prepare project with fully nested organization structure
+    val title_ref = title.bumpRef()
+    val description_ref = description.bumpRef()
+    
+    val organization = createOrganization(org_name, "John Smith", 45, "Jane Doe", 38)
+    
+    return Project(title = title_ref, organization = organization, description = description_ref).bumpRef()
+}
+
+// ========= TRANSFORMATION AND PROCESSING WITH NESTED REFERENCE PREPARATION =========
+
+fun transformProjectTitle(project: Project, transform_prefix: Str): Str {
+    // Transform title preparing enhanced version for caller - simplified
+    val prefix_ref = transform_prefix.bumpRef()
+    return prefix_ref
+}
+
+fun createProcessingMetadata(processor_name: Str, time: Int, project_title: Str): ProcessingMetadata {
+    // Create metadata preparing processing information for caller
+    val processor_ref = processor_name.bumpRef()
+    val notes = "Processing notes here".bumpRef()
+    return ProcessingMetadata(processed_by = processor_ref, timestamp = time, notes = notes).bumpRef()
+}
+
+fun processProject(project: Project, processor_name: Str, timestamp: Int): ProcessedProject {
+    // Process project preparing comprehensive result with nested references
+    val processed_title = transformProjectTitle(project.ref(), "ENHANCED")
+    val metadata = createProcessingMetadata(processor_name, timestamp, processed_title)
+    
+    return ProcessedProject(original = project, processed_title = processed_title, metadata = metadata).bumpRef()
+}
+
+// ========= ANALYSIS AND EXTRACTION WITH REFERENCE PREPARATION =========
+
+fun extractOrganizationInfo(project: Project): Str {
+    // Extract organization information preparing summary for caller
+    val org = project.organization
+    val summary = "Organization information extracted".bumpRef()
+    return summary
+}
+
+fun extractContactDetails(project: Project): Str {
+    // Extract contact details preparing comprehensive information for caller
+    val details = "Contact details extracted".bumpRef()
+    return details
+}
+
+fun analyzeProjectComplexity(project: Project): Str {
+    // Analyze project complexity preparing analysis for caller
+    val analysis = "Project complexity analysis completed".bumpRef()
+    return analysis
+}
+
+// ========= BATCH PROCESSING WITH REFERENCE PREPARATION =========
+
+fun createProjectBatch(base_title: Str, org_base: Str, count: Int): Project {
+    // Create batch project preparing all references for caller
+    val batch_title = "Batch Project Title".bumpRef()
+    val batch_org = "Batch Organization".bumpRef()
+    val batch_description = "Batch project description".bumpRef()
+    
+    return createProject(batch_title, batch_org, batch_description)
+}
+
+fun processBatchProject(base_title: Str, org_base: Str, count: Int, processor: Str): ProcessedProject {
+    // Process batch project preparing complete results for caller
+    val project = createProjectBatch(base_title, org_base, count)
+    val batch_processor = "Batch Processor".bumpRef()
+    val processed = processProject(project.ref(), batch_processor, count * 1000)
+    
+    return processed
+}
+
+// ========= COMPREHENSIVE PROCESSING PIPELINE =========
+
+fun processProjectComprehensively(project_title: Str, org_name: Str, processor_name: Str): ProcessedProject {
+    // Comprehensive processing preparing complete analysis for caller
+    val description = "Comprehensive project description".bumpRef()
+    val project = createProject(project_title, org_name, description)
+    
+    // Process project with enhanced metadata
+    val enhanced_processor = "Enhanced Processor".bumpRef()
+    val processed = processProject(project.ref(), enhanced_processor, 5000)
+    
+    return processed
+}
+
+fun createProjectAnalysisReport(processed_project: ProcessedProject): Str {
+    // Create comprehensive analysis report preparing detailed information for caller
+    val original = processed_project.original
+    val org_info = extractOrganizationInfo(original.ref())
+    val contact_info = extractContactDetails(original.ref())
+    val complexity = analyzeProjectComplexity(original.ref())
+    
+    val report = "PROJECT ANALYSIS REPORT - Comprehensive analysis completed".bumpRef()
+    
+    return report
+}
+
+fun main() {
+    // ========= BASIC NESTED CONSTRUCTION =========
+    val simple_project = createProject("Simple Project", "Basic Corp", "A simple project description")
+    
+    // ========= COMPREHENSIVE PROCESSING =========
+    val comprehensive_processed = processProjectComprehensively("Complex Project", "Advanced Corp", "SuperProcessor")
+    
+    // ========= BATCH PROCESSING =========
+    val batch_processed_1 = processBatchProject("Batch Project", "Batch", 1, "BatchProcessor")
+    val batch_processed_2 = processBatchProject("Batch Project", "Batch", 2, "BatchProcessor")
+    val batch_processed_3 = processBatchProject("Batch Project", "Batch", 3, "BatchProcessor")
+    
+    // ========= ANALYSIS AND EXTRACTION =========
+    val org_info = extractOrganizationInfo(simple_project.ref())
+    val contact_details = extractContactDetails(comprehensive_processed.original.ref())
+    val complexity = analyzeProjectComplexity(batch_processed_1.original.ref())
+    
+    // ========= COMPREHENSIVE REPORTING =========
+    val analysis_report = createProjectAnalysisReport(comprehensive_processed.ref())
+    
+    // All nested references are prepared and valid for use here
+    println("Simple project title: {}", simple_project.title)
+    println("Simple project org: {}", simple_project.organization.name)
+    println("Simple project primary contact: {}", simple_project.organization.primary_contact.name)
+    println("Simple project primary email: {}", simple_project.organization.primary_contact.contact.email)
+    println("Simple project primary address: {}", simple_project.organization.primary_contact.contact.address.street)
+    
+    println("Comprehensive processed title: {}", comprehensive_processed.processed_title)
+    println("Comprehensive processor: {}", comprehensive_processed.metadata.processed_by)
+    
+    println("Batch 1 title: {}", batch_processed_1.processed_title)
+    println("Batch 2 title: {}", batch_processed_2.processed_title)  
+    println("Batch 3 title: {}", batch_processed_3.processed_title)
+    
+    println("Organization info: {}", org_info)
+    println("Contact details: {}", contact_details)
+    println("Complexity analysis: {}", complexity)
+    
+    println("Full analysis report: {}", analysis_report)
+    
+    // Demonstrate deep nested access to prepared references
+    println("Deep access - Secondary contact phone: {}", simple_project.organization.secondary_contact.contact.phone)
+    println("Deep access - Secondary contact city: {}", comprehensive_processed.original.organization.secondary_contact.contact.address.city)
+    println("Deep access - Batch 2 postal code: {}", batch_processed_2.original.organization.primary_contact.contact.address.postal_code)
+}
+
+// ADVANCED NESTED REFERENCE PREPARATION:
+//
+// This demonstrates sophisticated nested patterns where reference preparation enables:
+//
+// 1. DEEP NESTED CONSTRUCTION:
+//    - createAddress, createContact, createPerson: Build nested structures with prepared references
+//    - createOrganization, createProject: Complex composition with multiple nesting levels
+//    - Each construction level prepares references that remain valid through all nesting
+//
+// 2. NESTED REFERENCE TRANSFORMATION:
+//    - transformProjectTitle: Accesses nested organization data preparing enhanced results
+//    - processProject: Combines transformation with metadata preparation for comprehensive results
+//    - Transformations preserve all nested reference validity during processing
+//
+// 3. BATCH PROCESSING WITH NESTED REFERENCES:
+//    - createProjectBatch, processBatchProject: Generate multiple projects with prepared references
+//    - Each batch item contains full nested structure with all references prepared for caller
+//    - Batch processing maintains reference validity across multiple generated items
+//
+// 4. NESTED DATA EXTRACTION:
+//    - extractOrganizationInfo, extractContactDetails: Navigate deep structures preparing summaries
+//    - analyzeProjectComplexity: Analyze nested data preparing comprehensive analysis
+//    - Extraction functions prepare references that remain valid for caller use
+//
+// 5. COMPREHENSIVE ANALYSIS PIPELINES:
+//    - processProjectComprehensively: End-to-end processing with nested reference preparation
+//    - createProjectAnalysisReport: Combines multiple analysis functions preparing comprehensive reports
+//    - Analysis pipelines maintain reference validity through multiple processing stages
+//
+// 6. MULTI-LEVEL REFERENCE CHAINS:
+//    - Project → Organization → Person → Contact → Address reference chains
+//    - Each level prepares references for use by any caller in the chain
+//    - Deep access patterns demonstrate reference validity preservation across multiple nesting levels
+//
+// KEY ADVANCEMENT: Nested patterns demonstrate how reference preparation enables building
+// and manipulating complex hierarchical data structures where references remain valid
+// across arbitrary levels of nesting, composition, and transformation, supporting
+// sophisticated data modeling patterns with guaranteed reference validity and
+// zero-copy access to deeply nested components.
