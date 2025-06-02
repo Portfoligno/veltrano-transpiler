@@ -42,7 +42,6 @@ pub enum TokenType {
     RightParen,
     LeftBrace,
     RightBrace,
-    Semicolon,
     Colon,
     Comma,
     Dot,
@@ -153,7 +152,6 @@ impl Lexer {
                 }
                 TokenType::RightBrace
             }
-            ';' => TokenType::Semicolon,
             ':' => TokenType::Colon,
             ',' => TokenType::Comma,
             '.' => TokenType::Dot,

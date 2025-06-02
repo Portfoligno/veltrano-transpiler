@@ -4,7 +4,7 @@ fun simpleAdd(
     a: Int,
     b: Int
 ): Int {
-    return a + b;
+    return a + b
 }
 
 fun complexCalculation(
@@ -13,7 +13,7 @@ fun complexCalculation(
     z: Int,
     multiplier: Int
 ): Int {
-    return (x + y + z) * multiplier;
+    return (x + y + z) * multiplier
 }
 
 fun main() {
@@ -21,7 +21,7 @@ fun main() {
     val result1 = simpleAdd(
         10,
         20
-    );
+    )
     
     // Multiline function call with more arguments
     val result2 = complexCalculation(
@@ -64,5 +64,5 @@ fun main() {
     // Multiline method calls on integers
     val processed = result1
         .ref()
-        .clone();
+        .clone()
 }

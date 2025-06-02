@@ -184,7 +184,7 @@ impl Parser {
             None
         };
 
-        let inline_comment = self.consume_newline_or_semicolon()?;
+        let inline_comment = self.consume_newline()?;
 
         Ok(vec![Stmt::VarDecl(
             VarDeclStmt {
@@ -208,7 +208,7 @@ impl Parser {
             None
         };
 
-        self.consume_newline_or_semicolon()?;
+        self.consume_newline()?;
 
         Ok(Stmt::Import(ImportStmt {
             type_name,
@@ -268,7 +268,7 @@ impl Parser {
             &TokenType::RightParen,
             "Expected ')' after data class fields",
         )?;
-        self.consume_newline_or_semicolon()?;
+        self.consume_newline()?;
 
         Ok(Stmt::DataClass(DataClassStmt { name, fields }))
     }
@@ -333,13 +333,13 @@ impl Parser {
     }
 
     fn return_statement(&mut self) -> Result<Stmt, String> {
-        let value = if self.check(&TokenType::Newline) || self.check(&TokenType::Semicolon) {
+        let value = if self.check(&TokenType::Newline) {
             None
         } else {
             Some(self.expression()?)
         };
 
-        let inline_comment = self.consume_newline_or_semicolon()?;
+        let inline_comment = self.consume_newline()?;
         Ok(Stmt::Return(value, inline_comment))
     }
 
@@ -367,7 +367,7 @@ impl Parser {
 
     fn expression_statement(&mut self) -> Result<Vec<Stmt>, String> {
         let expr = self.expression()?;
-        let inline_comment = self.consume_newline_or_semicolon()?;
+        let inline_comment = self.consume_newline()?;
 
         Ok(vec![Stmt::Expression(expr, inline_comment)])
     }
@@ -759,28 +759,21 @@ impl Parser {
         }
     }
 
-    fn consume_newline_or_semicolon(&mut self) -> Result<Option<(String, String)>, String> {
-        // First check for semicolon
-        if self.check(&TokenType::Semicolon) {
-            self.advance(); // consume semicolon
-                            // Now check for inline comment after semicolon
-            Ok(self.parse_inline_comment())
-        } else {
-            // Check for inline comment before newline (no semicolon case)
-            let inline_comment = self.parse_inline_comment();
+    fn consume_newline(&mut self) -> Result<Option<(String, String)>, String> {
+        // Check for inline comment before newline
+        let inline_comment = self.parse_inline_comment();
 
-            if self.check(&TokenType::Newline) {
-                self.advance();
-                Ok(inline_comment)
-            } else if self.is_at_end() || self.check(&TokenType::RightBrace) {
-                Ok(inline_comment)
-            } else {
-                let unexpected = self.peek();
-                Err(format!(
-                    "Expected newline or semicolon after statement at line {}, column {}, but found {:?}",
-                    unexpected.line, unexpected.column, unexpected.token_type
-                ))
-            }
+        if self.check(&TokenType::Newline) {
+            self.advance();
+            Ok(inline_comment)
+        } else if self.is_at_end() || self.check(&TokenType::RightBrace) {
+            Ok(inline_comment)
+        } else {
+            let unexpected = self.peek();
+            Err(format!(
+                "Expected newline after statement at line {}, column {}, but found {:?}",
+                unexpected.line, unexpected.column, unexpected.token_type
+            ))
         }
     }
 

@@ -16,9 +16,9 @@ fun createPoint(x: Int, y: Int): Point {
 
 fun isConfigValid(config: Config): Bool {
     if (config.enabled) {
-        return config.max_retries > 0;
+        return config.max_retries > 0
     } else {
-        return false;
+        return false
     }
 }
 
