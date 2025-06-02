@@ -99,10 +99,8 @@ impl Parser {
         let mut params = Vec::new();
         if !self.check(&TokenType::RightParen) {
             loop {
-                // Skip any newlines before parsing the parameter
-                while self.match_token(&TokenType::Newline) {
-                    // Consume newlines
-                }
+                // Skip any newlines and comments before parsing the parameter
+                self.skip_newlines_and_comments();
 
                 let param_name = self.consume_identifier("Expected parameter name")?;
                 self.consume(&TokenType::Colon, "Expected ':' after parameter name")?;
@@ -113,26 +111,20 @@ impl Parser {
                     param_type,
                 });
 
-                // Skip any newlines after the parameter
-                while self.match_token(&TokenType::Newline) {
-                    // Consume newlines
-                }
+                // Skip any newlines and comments after the parameter
+                self.skip_newlines_and_comments();
 
                 if !self.match_token(&TokenType::Comma) {
                     break;
                 }
 
-                // Skip any newlines after the comma
-                while self.match_token(&TokenType::Newline) {
-                    // Consume newlines
-                }
+                // Skip any newlines and comments after the comma
+                self.skip_newlines_and_comments();
             }
         }
 
-        // Skip any newlines before the closing parenthesis
-        while self.match_token(&TokenType::Newline) {
-            // Consume newlines
-        }
+        // Skip any newlines and comments before the closing parenthesis
+        self.skip_newlines_and_comments();
 
         self.consume(&TokenType::RightParen, "Expected ')' after parameters")?;
 
@@ -142,10 +134,8 @@ impl Parser {
             None
         };
 
-        // Skip any newlines before the opening brace
-        while self.match_token(&TokenType::Newline) {
-            // Consume newlines
-        }
+        // Skip any newlines and comments before the opening brace
+        self.skip_newlines_and_comments();
 
         self.consume(&TokenType::LeftBrace, "Expected '{' before function body")?;
 
@@ -155,10 +145,8 @@ impl Parser {
         let body = Box::new(self.block_statement()?);
         self.in_function_body = was_in_function_body;
 
-        // Skip any trailing newlines after the function body
-        while self.match_token(&TokenType::Newline) {
-            // Consume newlines
-        }
+        // Skip any trailing newlines and comments after the function body
+        self.skip_newlines_and_comments();
 
         Ok(Stmt::FunDecl(FunDeclStmt {
             name: name.clone(),
@@ -227,10 +215,8 @@ impl Parser {
         let mut fields = Vec::new();
         if !self.check(&TokenType::RightParen) {
             loop {
-                // Skip any newlines before parsing the field
-                while self.match_token(&TokenType::Newline) {
-                    // Consume newlines
-                }
+                // Skip any newlines and comments before parsing the field
+                self.skip_newlines_and_comments();
 
                 // Each field starts with 'val'
                 self.consume(&TokenType::Val, "Expected 'val' before field name")?;
@@ -243,26 +229,20 @@ impl Parser {
                     field_type,
                 });
 
-                // Skip any newlines after the field
-                while self.match_token(&TokenType::Newline) {
-                    // Consume newlines
-                }
+                // Skip any newlines and comments after the field
+                self.skip_newlines_and_comments();
 
                 if !self.match_token(&TokenType::Comma) {
                     break;
                 }
 
-                // Skip any newlines after the comma
-                while self.match_token(&TokenType::Newline) {
-                    // Consume newlines
-                }
+                // Skip any newlines and comments after the comma
+                self.skip_newlines_and_comments();
             }
         }
 
-        // Skip any newlines before the closing parenthesis
-        while self.match_token(&TokenType::Newline) {
-            // Consume newlines
-        }
+        // Skip any newlines and comments before the closing parenthesis
+        self.skip_newlines_and_comments();
 
         self.consume(
             &TokenType::RightParen,
@@ -451,13 +431,22 @@ impl Parser {
         let mut expr = self.primary()?;
 
         loop {
-            // Check if there's a dot after potential newlines
+            // Check if there's a dot after potential newlines and comments
             let mut newline_count = 0;
+            let start_pos = self.current;
+
             while self.check(&TokenType::Newline) {
                 newline_count += 1;
                 self.advance();
 
-                // If we find a dot after newline(s), continue the chain
+                // Skip any standalone comments after the newline
+                while let TokenType::LineComment(_, _) | TokenType::BlockComment(_, _) =
+                    &self.peek().token_type
+                {
+                    self.advance();
+                }
+
+                // If we find a dot after newline(s) and comments, continue the chain
                 if self.check(&TokenType::Dot) {
                     break;
                 }
@@ -469,7 +458,7 @@ impl Parser {
                 && !self.check(&TokenType::LeftParen)
             {
                 // Put back one newline for the statement terminator
-                self.current -= 1;
+                self.current = start_pos + newline_count - 1;
                 break;
             }
 
@@ -478,10 +467,8 @@ impl Parser {
 
                 if !self.check(&TokenType::RightParen) {
                     loop {
-                        // Skip any newlines before parsing the argument
-                        while self.match_token(&TokenType::Newline) {
-                            // Consume newlines
-                        }
+                        // Skip any newlines and comments before parsing the argument
+                        self.skip_newlines_and_comments();
 
                         // Try to parse named argument (name = expr)
                         if let TokenType::Identifier(name) = &self.peek().token_type {
@@ -506,26 +493,20 @@ impl Parser {
                             args.push(Argument::Bare(expr));
                         }
 
-                        // Skip any newlines after the argument
-                        while self.match_token(&TokenType::Newline) {
-                            // Consume newlines
-                        }
+                        // Skip any newlines and comments after the argument
+                        self.skip_newlines_and_comments();
 
                         if !self.match_token(&TokenType::Comma) {
                             break;
                         }
 
-                        // Skip any newlines after the comma
-                        while self.match_token(&TokenType::Newline) {
-                            // Consume newlines
-                        }
+                        // Skip any newlines and comments after the comma
+                        self.skip_newlines_and_comments();
                     }
                 }
 
-                // Skip any newlines before the closing parenthesis
-                while self.match_token(&TokenType::Newline) {
-                    // Consume newlines
-                }
+                // Skip any newlines and comments before the closing parenthesis
+                self.skip_newlines_and_comments();
 
                 self.consume(&TokenType::RightParen, "Expected ')' after arguments")?;
 
@@ -545,33 +526,25 @@ impl Parser {
                     let mut args = Vec::new();
                     if !self.check(&TokenType::RightParen) {
                         loop {
-                            // Skip any newlines before parsing the argument
-                            while self.match_token(&TokenType::Newline) {
-                                // Consume newlines
-                            }
+                            // Skip any newlines and comments before parsing the argument
+                            self.skip_newlines_and_comments();
 
                             args.push(self.expression()?);
 
-                            // Skip any newlines after the argument
-                            while self.match_token(&TokenType::Newline) {
-                                // Consume newlines
-                            }
+                            // Skip any newlines and comments after the argument
+                            self.skip_newlines_and_comments();
 
                             if !self.match_token(&TokenType::Comma) {
                                 break;
                             }
 
-                            // Skip any newlines after the comma
-                            while self.match_token(&TokenType::Newline) {
-                                // Consume newlines
-                            }
+                            // Skip any newlines and comments after the comma
+                            self.skip_newlines_and_comments();
                         }
                     }
 
-                    // Skip any newlines before the closing parenthesis
-                    while self.match_token(&TokenType::Newline) {
-                        // Consume newlines
-                    }
+                    // Skip any newlines and comments before the closing parenthesis
+                    self.skip_newlines_and_comments();
 
                     self.consume(
                         &TokenType::RightParen,
@@ -590,6 +563,20 @@ impl Parser {
                         field: field_or_method,
                     });
                 }
+            } else if let TokenType::LineComment(_, _) = &self.peek().token_type {
+                // Check if this inline comment is followed by newline + dot (method chain continuation)
+                let next_pos = self.current + 1;
+                let nextnext_pos = self.current + 2;
+                if next_pos < self.tokens.len()
+                    && nextnext_pos < self.tokens.len()
+                    && matches!(self.tokens[next_pos].token_type, TokenType::Newline)
+                    && matches!(self.tokens[nextnext_pos].token_type, TokenType::Dot)
+                {
+                    // Skip the inline comment and continue the loop to handle the newline and dot
+                    self.advance();
+                    continue;
+                }
+                break;
             } else {
                 break;
             }
@@ -769,11 +756,21 @@ impl Parser {
         } else if self.is_at_end() || self.check(&TokenType::RightBrace) {
             Ok(inline_comment)
         } else {
-            let unexpected = self.peek();
-            Err(format!(
-                "Expected newline after statement at line {}, column {}, but found {:?}",
-                unexpected.line, unexpected.column, unexpected.token_type
-            ))
+            // If we encounter a standalone comment token (when preserve_comments is enabled),
+            // we should not treat it as an error since it will be handled by the higher-level parser
+            match &self.peek().token_type {
+                TokenType::LineComment(_, _) | TokenType::BlockComment(_, _) => {
+                    // Don't advance - let the higher-level parser handle this comment
+                    Ok(inline_comment)
+                }
+                _ => {
+                    let unexpected = self.peek();
+                    Err(format!(
+                        "Expected newline after statement at line {}, column {}, but found {:?}",
+                        unexpected.line, unexpected.column, unexpected.token_type
+                    ))
+                }
+            }
         }
     }
 
@@ -854,6 +851,24 @@ impl Parser {
                 }))
             }
             _ => None,
+        }
+    }
+
+    /// Skip newlines and comments in contexts where they should be ignored (e.g., inside expressions)
+    fn skip_newlines_and_comments(&mut self) {
+        loop {
+            if self.match_token(&TokenType::Newline) {
+                // Continue to check for more newlines or comments
+                continue;
+            }
+
+            // Check if there's a comment token to skip
+            match &self.peek().token_type {
+                TokenType::LineComment(_, _) | TokenType::BlockComment(_, _) => {
+                    self.advance(); // Skip the comment token
+                }
+                _ => break, // No more newlines or comments to skip
+            }
         }
     }
 
