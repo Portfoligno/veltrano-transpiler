@@ -221,7 +221,8 @@ git add file1 file2 && git commit -m "message" && git push --no-progress
    - If user explicitly requested "push": `git add files && git commit -m "message" && git push --no-progress`
 
 #### Push Behavior
-- **Only push when explicitly requested** by user (e.g., "push", "commit and push")
+- **Push when explicitly requested** by user (e.g., "push", "commit and push")
+- **Push when it makes sense** - after completing features, fixing bugs, or making significant improvements
 - **When pushing:** Always integrate with commit command chain for efficiency
 - Use `git push --no-progress` to suppress progress indicators while keeping push summary
 - Alternative: `git push --quiet` for minimal output (errors only)
