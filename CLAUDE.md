@@ -215,6 +215,33 @@ git add file1 file2 && git commit -m "message" && git push --no-progress
 - **File deletions:** `git add deleted_file && git commit -m "message"`
 - **Multiple operations:** Stage all affected files together to preserve Git's rename detection
 
+#### Creating Backup Branches
+When the user requests a backup before operations like squashing or rebasing:
+
+**EFFICIENT METHOD - Direct push to new remote branch:**
+```bash
+# Push current branch directly to a new remote branch without local creation
+git push origin HEAD:backup-branch-name
+```
+
+**Example for timestamped backups:**
+```bash
+git push origin HEAD:backup-before-squash-$(date +%Y%m%d-%H%M%S)
+```
+
+**Benefits:**
+- No need to create local branch
+- No need to switch branches
+- Single command operation
+- Cleaner local branch list
+
+**Alternative (if local branch needed):**
+```bash
+git checkout -b backup-branch-name
+git push -u origin backup-branch-name
+git checkout original-branch
+```
+
 #### Commit Process
 1. **Analyze changes:** Run `git status`, `git diff`, and `git log` in parallel
 2. **FORMAT CODE - ONLY IF RUST FILES CHANGED:** 
