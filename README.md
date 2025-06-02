@@ -49,10 +49,8 @@ fun main() {
 
 **Generated Output (hello.rs):**
 ```rust
-use bumpalo::Bump;
-
 fn main() {
-    let bump = &Bump::new();
+    let bump = &bumpalo::Bump::new();
     let message: &str = "Hello, Veltrano!";
     println!("{}", message);
 }
@@ -150,14 +148,12 @@ fun main() {
 
 **Transpiles to:**
 ```rust
-use bumpalo::Bump;
-
 fn modify<'a>(bump: &'a bumpalo::Bump, value: &mut i64) {
         // Function accepting a mutable reference
 }
 
 fn main() {
-    let bump = &Bump::new();
+    let bump = &bumpalo::Bump::new();
     let number: i64 = 42;
     let mutable_ref: &mut i64 = &mut (&number).clone();
     modify(bump, mutable_ref);
@@ -289,8 +285,6 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
 
 **Transpiles to:**
 ```rust
-use bumpalo::Bump;
-
 fn calculate_sum<'a>(bump: &'a bumpalo::Bump, first_number: i64, second_number: i64) -> i64 {
     let total_result: i64 = first_number + second_number;
     return total_result;

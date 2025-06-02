@@ -59,8 +59,7 @@ impl CodeGenerator {
             }
         }
 
-        // Add bumpalo import at the beginning
-        self.output.push_str("use bumpalo::Bump;\n\n");
+        // Skip bumpalo import - use fully qualified names instead
 
         // Second pass: generate code
         for stmt in &program.statements {
@@ -187,7 +186,7 @@ impl CodeGenerator {
             self.output.push_str("{\n");
             self.indent_level += 1;
             self.indent();
-            self.output.push_str("let bump = &Bump::new();\n");
+            self.output.push_str("let bump = &bumpalo::Bump::new();\n");
 
             // Generate the body content but skip the outer braces since we're handling them
             if let Stmt::Block(statements) = fun_decl.body.as_ref() {
