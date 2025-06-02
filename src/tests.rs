@@ -165,14 +165,14 @@ fn test_readme_examples() {
             });
             let actual_rust = codegen.generate(&program);
 
-            // Normalize whitespace for comparison
-            let actual_normalized = normalize_code(&actual_rust);
-            let expected_normalized = normalize_code(&expected_rust);
-
+            // Compare with trimmed whitespace to handle trailing newlines
             assert_eq!(
-                actual_normalized, expected_normalized,
+                actual_rust.trim(),
+                expected_rust.trim(),
                 "\nVeltrano code:\n{}\n\nExpected Rust:\n{}\n\nActual Rust:\n{}",
-                veltrano_code, expected_rust, actual_rust
+                veltrano_code,
+                expected_rust,
+                actual_rust
             );
         }
     }
@@ -575,14 +575,6 @@ fn extract_table_examples(readme: &str) -> Vec<String> {
     }
 
     examples
-}
-
-fn normalize_code(code: &str) -> String {
-    code.lines()
-        .map(|line| line.trim())
-        .filter(|line| !line.is_empty())
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 #[test]
