@@ -401,6 +401,28 @@ impl Parser {
         let mut expr = self.primary()?;
 
         loop {
+            // Check if there's a dot after potential newlines
+            let mut newline_count = 0;
+            while self.check(&TokenType::Newline) {
+                newline_count += 1;
+                self.advance();
+
+                // If we find a dot after newline(s), continue the chain
+                if self.check(&TokenType::Dot) {
+                    break;
+                }
+            }
+
+            // If we consumed newlines but didn't find a dot, we need to backtrack
+            if newline_count > 0
+                && !self.check(&TokenType::Dot)
+                && !self.check(&TokenType::LeftParen)
+            {
+                // Put back one newline for the statement terminator
+                self.current -= 1;
+                break;
+            }
+
             if self.match_token(&TokenType::LeftParen) {
                 let mut args = Vec::new();
 

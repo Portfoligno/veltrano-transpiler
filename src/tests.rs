@@ -1724,3 +1724,49 @@ fun main() {
     assert!(rust_code.contains("let age = person.age;"));
     assert!(rust_code.contains("let some_x = p.x;"));
 }
+
+#[test]
+fn test_multiline_method_chains() {
+    // Test that method chains can span multiple lines with dots on new lines
+    let source = r#"
+fun main() {
+    val hello: Str = "Hello".bumpRef()
+    
+    // Single line chain
+    val single: Str = hello.ref().bumpRef()
+    
+    // Multiline chain with dots on new lines
+    val multi: Str = hello
+        .ref()
+        .bumpRef()
+    
+    // Mixed style
+    val mixed: Str = hello.ref()
+        .bumpRef()
+    
+    // Longer chains
+    val long: Str = hello
+        .ref()
+        .ref()
+        .ref()
+        .bumpRef()
+}
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut codegen = CodeGenerator::with_config(config);
+    let rust_code = codegen.generate(&program);
+
+    // All variations should generate bump allocations
+    assert!(rust_code.contains("let single: &str = bump.alloc(&hello);"));
+    assert!(rust_code.contains("let multi: &str = bump.alloc(&hello);"));
+    assert!(rust_code.contains("let mixed: &str = bump.alloc(&hello);"));
+    assert!(rust_code.contains("let long: &str = bump.alloc(&&&hello);"));
+}

@@ -719,7 +719,7 @@ impl CodeGenerator {
                         return true;
                     }
                 }
-                
+
                 self.expr_uses_bump_allocation(&call.callee)
                     || call.args.iter().any(|arg| match arg {
                         Argument::Bare(expr) => self.expr_uses_bump_allocation(expr),

@@ -1,0 +1,43 @@
+// Example demonstrating multiline method chains in Veltrano
+// This example shows that dots can appear on new lines for method chaining
+
+fun main() {
+    // String literal preparation
+    val hello: Str = "Hello, World!".bumpRef()
+    
+    // Variable for demonstration
+    val message: Str = hello
+    
+    // Single-line method chain - traditional style
+    val singleLine: Str = message.ref().bumpRef()
+    
+    // Multiline method chain - dots on new lines
+    val multiLine: Str = message
+        .ref()
+        .bumpRef()
+    
+    // Deep indentation style
+    val deepIndent: Str = message
+                            .ref()
+                            .bumpRef()
+    
+    // Mixed style - start on same line, continue on next
+    val mixed: Str = message.ref()
+        .bumpRef()
+    
+    // Very long chain split across lines
+    val longChain: Str = message
+        .ref()
+        .ref()  
+        .ref()
+        .ref()
+        .bumpRef()
+    
+    // Print all variations to show they work identically
+    println("Original: {}", hello)
+    println("Single line: {}", singleLine)
+    println("Multi line: {}", multiLine)
+    println("Deep indent: {}", deepIndent)
+    println("Mixed style: {}", mixed)
+    println("Long chain: {}", longChain)
+}
