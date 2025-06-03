@@ -37,11 +37,11 @@ fn main() {
         70
     );
     // Test 6: Comments in method chains
-    let chained = Clone::clone(&result1);// Clone it
+    let chained = Clone::clone(&result1);  // Get reference,  Clone it
     // Test 7: Method chain that won't be optimized away
     let message: &str = bump.alloc("Hello");
-    let chained2: &str = bump.alloc(&&message);  // Final bumpRef
+    let chained2: &str = bump.alloc(&&message);  // First ref,  Second ref,  Final bumpRef
     // Test 8: Mixed style method chain with comments
-    let mixed = bump.alloc(&&message);  // And finish
+    let mixed = bump.alloc(&&message);  // Start on same line,  Continue on next,  And finish
     println!("Results: {}, {}, {}, {}", result1, result2, result3, result5);
 }

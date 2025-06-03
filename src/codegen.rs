@@ -166,19 +166,29 @@ impl CodeGenerator {
         if let Some(initializer) = &var_decl.initializer {
             self.output.push_str(" = ");
 
-            // Check if initializer is a method call with its own comment
-            let method_comment = if let Expr::MethodCall(method_call) = initializer {
-                method_call.inline_comment.clone()
-            } else {
-                None
-            };
+            // Collect all comments from method chain if this is a method call
+            let method_chain_comments = self.collect_method_chain_comments(initializer);
 
             self.generate_expression(initializer);
             self.output.push(';');
 
-            // Generate method comment after semicolon, or variable comment if no method comment
-            if let Some(comment) = method_comment {
-                self.generate_inline_comment(&Some(comment));
+            // Generate all method chain comments after semicolon
+            if !method_chain_comments.is_empty() {
+                // Concatenate all comments with proper spacing
+                let mut combined_content = String::new();
+                let mut combined_whitespace = String::new();
+
+                for (i, (content, whitespace)) in method_chain_comments.iter().enumerate() {
+                    if i == 0 {
+                        combined_whitespace = whitespace.clone();
+                    }
+                    if i > 0 {
+                        combined_content.push_str(", ");
+                    }
+                    combined_content.push_str(content);
+                }
+
+                self.generate_inline_comment(&Some((combined_content, combined_whitespace)));
             } else {
                 self.generate_inline_comment(inline_comment);
             }
@@ -717,6 +727,23 @@ impl CodeGenerator {
         } else {
             self.generate_generic_call(call);
         }
+    }
+
+    // Helper to collect all comments from a method chain
+    fn collect_method_chain_comments(&self, expr: &Expr) -> Vec<(String, String)> {
+        let mut comments = Vec::new();
+
+        if let Expr::MethodCall(method_call) = expr {
+            // First collect comments from the inner expression
+            comments.extend(self.collect_method_chain_comments(&method_call.object));
+
+            // Then add this method's comment if it exists
+            if let Some(comment) = &method_call.inline_comment {
+                comments.push(comment.clone());
+            }
+        }
+
+        comments
     }
 
     fn generate_method_call_expression(&mut self, method_call: &MethodCallExpr) {
