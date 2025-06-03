@@ -411,20 +411,23 @@ When the user requests a release:
 **Self-Check:** "Have I discovered anything that would help future sessions? Have I created examples? Have I found limitations?"
 **Triggers:** Any syntax error resolution, any successful example creation, any debugging breakthrough
 
-### 6. Misunderstanding Expected Output File Requests
-**Problem:** When asked to "fix" or "look at" expected output files, assuming the current expected output is the desired behavior  
-**Solution:** Understand that expected output files often need updating along with implementation changes  
-**Context Clues to Interpret User Intent:**
-- "Fix comment format correspondence issues in X.expected.rs" → BOTH implementation AND expected file likely need updating
-- "This file is the expected output for the current implementation" → The expected file shows what's currently generated (may need fixing)
-- "Update both the implementation and the file" → Clear indication both need changes
-- "The expected output is correct" → Only the implementation needs to match it
+### 6. Handling "Fix the missing cases" Requests
+**Problem:** Not recognizing that expected output files reveal transpiler bugs  
+**Solution:** The expected output is showing what the transpiler currently generates - and it's incomplete/wrong
 
-**Best Practices:**
-- Don't assume expected files are always correct - they may contain bugs or outdated behavior
-- When fixing issues, consider that the fix might involve changing what the "expected" behavior should be
-- Look for hints about whether the current behavior or the expected behavior is correct
-- When in doubt, implement the most sensible behavior and update expected outputs to match
+**When user says "Fix the missing cases in X.expected.rs":**
+1. The expected output file already matches what the transpiler generates
+2. Look at both the source `.vl` file and expected `.rs` output
+3. Identify what's missing or wrong (e.g., lost comments, missing code)
+4. Fix the transpiler to generate the correct output
+5. Update the expected file to match the fixed behavior
+
+**Common patterns:**
+- Method chain comments being lost: `.ref() // comment` becomes just `&x` with no comment
+- Multiline constructs being flattened incorrectly
+- Some source constructs not appearing in output at all
+
+**Key insight:** "Missing cases" means the transpiler is failing to handle certain patterns correctly. Focus on fixing the transpiler implementation.
 
 ---
 
