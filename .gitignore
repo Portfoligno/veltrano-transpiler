@@ -7,6 +7,7 @@
 # Generated files in examples/
 /examples/*
 !/examples/*.vl
+!/examples/*.expected.rs
 
 # Session memory (not tracked in git)
 /WORKSPACE.md
