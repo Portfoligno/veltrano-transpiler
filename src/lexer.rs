@@ -69,6 +69,7 @@ pub struct Lexer {
     line: usize,
     column: usize,
     brace_depth: usize,  // Track nesting level of braces
+    paren_depth: usize,  // Track nesting level of parentheses
     at_line_start: bool, // Whether we're at the start of a line (after newline)
     config: Config,
 }
@@ -81,6 +82,7 @@ impl Lexer {
             line: 1,
             column: 1,
             brace_depth: 0,
+            paren_depth: 0,
             at_line_start: true, // Start at beginning of first line
             config,
         }
@@ -140,8 +142,16 @@ impl Lexer {
         };
 
         let token_type = match ch {
-            '(' => TokenType::LeftParen,
-            ')' => TokenType::RightParen,
+            '(' => {
+                self.paren_depth += 1;
+                TokenType::LeftParen
+            }
+            ')' => {
+                if self.paren_depth > 0 {
+                    self.paren_depth -= 1;
+                }
+                TokenType::RightParen
+            }
             '{' => {
                 self.brace_depth += 1;
                 TokenType::LeftBrace
@@ -320,10 +330,17 @@ impl Lexer {
         whitespace
     }
 
-    /// Calculate expected indentation based on current brace depth
+    /// Calculate expected indentation based on current context
     /// Uses 4 spaces per indentation level to match Rust conventions
     fn expected_indentation(&self) -> usize {
-        self.brace_depth * 4
+        // Base indentation from brace depth
+        let base = self.brace_depth * 4;
+        // Add extra indentation if we're inside parentheses (function calls, etc.)
+        if self.paren_depth > 0 {
+            base + 4
+        } else {
+            base
+        }
     }
 
     /// Strip expected base indentation from whitespace for comments

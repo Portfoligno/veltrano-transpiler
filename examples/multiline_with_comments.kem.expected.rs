@@ -12,9 +12,9 @@ fn main() {
     // Test 2: Comments on their own lines
     let result2 = test_function(
         10,
-            // This is a comment between arguments
+        // This is a comment between arguments
         20,
-            // Another comment
+        // Another comment
         30
     );
     // Test 3: Block comments in multiline calls
@@ -27,6 +27,14 @@ fn main() {
     fn with_commented_params(x: i64  /* The x coordinate*/, y: i64  /* The y coordinate*/, z: i64   /* The z coordinate*/) -> i64 {
         return x + y + z;
     }
+    let result5 = test_function(
+        50,
+            // This comment has 4 extra spaces
+        60,
+                // This comment has 8 extra spaces
+        70
+    );
+    // Test 6: Comments in method chains
     let chained = Clone::clone(&result1);// Clone it
-    println!("Results: {}, {}, {}", result1, result2, result3);
+    println!("Results: {}, {}, {}, {}", result1, result2, result3, result5);
 }

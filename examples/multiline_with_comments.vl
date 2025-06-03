@@ -37,10 +37,19 @@ fun main() {
         return x + y + z
     }
     
-    // Test 5: Comments in method chains
+    // Test 5: Extra indented standalone comments
+    val result5 = testFunction(
+        50,
+            // This comment has 4 extra spaces
+        60,
+                // This comment has 8 extra spaces
+        70
+    )
+    
+    // Test 6: Comments in method chains
     val chained = result1
         .ref()      // Get reference
         .clone()    // Clone it
     
-    println("Results: {}, {}, {}", result1, result2, result3)
+    println("Results: {}, {}, {}, {}", result1, result2, result3, result5)
 }

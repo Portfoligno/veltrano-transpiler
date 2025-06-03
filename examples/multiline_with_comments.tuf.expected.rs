@@ -20,6 +20,11 @@ fn main() {
     fn with_commented_params(x: i64, y: i64, z: i64) -> i64 {
         return x + y + z;
     }
+    let result5 = test_function(
+        50,
+        60,
+        70
+    );
     let chained = Clone::clone(&result1);
-    println!("Results: {}, {}, {}", result1, result2, result3);
+    println!("Results: {}, {}, {}, {}", result1, result2, result3, result5);
 }

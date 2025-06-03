@@ -567,6 +567,9 @@ impl CodeGenerator {
                     Argument::StandaloneComment(content, whitespace) => {
                         // Generate standalone comment as its own line
                         if self.config.preserve_comments {
+                            // Following the pattern from generate_comment for regular statements:
+                            // The loop already called indent() to add base indentation.
+                            // Now add any extra whitespace preserved by the lexer.
                             self.output.push_str(whitespace);
                             if content.starts_with("/*") {
                                 // Block comment
