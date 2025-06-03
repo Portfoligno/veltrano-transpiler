@@ -1,0 +1,6 @@
+fn main() {
+    let message: &str = "Hello, World!";
+    println!("{}", message);
+    let number: i64 = 42;
+    println!("{}", number);
+}
