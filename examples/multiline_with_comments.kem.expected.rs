@@ -3,6 +3,7 @@ fn test_function(a: i64, b: i64, c: i64) -> i64 {
     return a + b + c;
 }
 fn main() {
+    let bump = &bumpalo::Bump::new();
     // Test 1: Comments between arguments
     let result1 = test_function(
         1,  // first argument
@@ -37,5 +38,10 @@ fn main() {
     );
     // Test 6: Comments in method chains
     let chained = Clone::clone(&result1);// Clone it
+    // Test 7: Method chain that won't be optimized away
+    let message: &str = bump.alloc("Hello");
+    let chained2: &str = bump.alloc(&&message);  // Final bumpRef
+    // Test 8: Mixed style method chain with comments
+    let mixed = bump.alloc(&&message);  // And finish
     println!("Results: {}, {}, {}, {}", result1, result2, result3, result5);
 }

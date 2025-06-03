@@ -51,5 +51,17 @@ fun main() {
         .ref()      // Get reference
         .clone()    // Clone it
     
+    // Test 7: Method chain that won't be optimized away
+    val message: Str = "Hello".bumpRef()
+    val chained2: Str = message
+        .ref()      // First ref
+        .ref()      // Second ref
+        .bumpRef()  // Final bumpRef
+    
+    // Test 8: Mixed style method chain with comments
+    val mixed = message.ref()  // Start on same line
+        .ref()      // Continue on next
+        .bumpRef()  // And finish
+    
     println("Results: {}, {}, {}, {}", result1, result2, result3, result5)
 }

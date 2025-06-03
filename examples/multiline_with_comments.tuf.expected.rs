@@ -2,6 +2,7 @@ fn test_function(a: i64, b: i64, c: i64) -> i64 {
     return a + b + c;
 }
 fn main() {
+    let bump = &bumpalo::Bump::new();
     let result1 = test_function(
         1,
         2,
@@ -26,5 +27,8 @@ fn main() {
         70
     );
     let chained = Clone::clone(&result1);
+    let message: &str = bump.alloc("Hello");
+    let chained2: &str = bump.alloc(&&message);
+    let mixed = bump.alloc(&&message);
     println!("Results: {}, {}, {}, {}", result1, result2, result3, result5);
 }
