@@ -411,6 +411,21 @@ When the user requests a release:
 **Self-Check:** "Have I discovered anything that would help future sessions? Have I created examples? Have I found limitations?"
 **Triggers:** Any syntax error resolution, any successful example creation, any debugging breakthrough
 
+### 6. Misunderstanding Expected Output File Requests
+**Problem:** When asked to "fix" or "look at" expected output files, assuming the current expected output is the desired behavior  
+**Solution:** Understand that expected output files often need updating along with implementation changes  
+**Context Clues to Interpret User Intent:**
+- "Fix comment format correspondence issues in X.expected.rs" → BOTH implementation AND expected file likely need updating
+- "This file is the expected output for the current implementation" → The expected file shows what's currently generated (may need fixing)
+- "Update both the implementation and the file" → Clear indication both need changes
+- "The expected output is correct" → Only the implementation needs to match it
+
+**Best Practices:**
+- Don't assume expected files are always correct - they may contain bugs or outdated behavior
+- When fixing issues, consider that the fix might involve changing what the "expected" behavior should be
+- Look for hints about whether the current behavior or the expected behavior is correct
+- When in doubt, implement the most sensible behavior and update expected outputs to match
+
 ---
 
 ## 📚 Additional Information
