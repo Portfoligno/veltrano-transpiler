@@ -63,5 +63,16 @@ fun main() {
         .ref()      // Continue on next
         .bumpRef()  // And finish
     
+    // Test 9: Block comments in method chains
+    val blockChained = result1
+        .ref()      /* Get reference (block) */
+        .clone()    /* Clone it (block) */
+    
+    // Test 10: Mixed block and line comments in method chains
+    val mixedComments = message
+        .ref()      /* First block comment */
+        .ref()      // Line comment in middle
+        .bumpRef()  /* Final block comment */
+    
     println("Results: {}, {}, {}, {}", result1, result2, result3, result5)
 }

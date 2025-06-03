@@ -174,21 +174,17 @@ impl CodeGenerator {
 
             // Generate all method chain comments after semicolon
             if !method_chain_comments.is_empty() {
-                // Concatenate all comments with proper spacing
-                let mut combined_content = String::new();
-                let mut combined_whitespace = String::new();
-
-                for (i, (content, whitespace)) in method_chain_comments.iter().enumerate() {
+                // Output each comment in its original style
+                for (i, comment) in method_chain_comments.iter().enumerate() {
                     if i == 0 {
-                        combined_whitespace = whitespace.clone();
+                        // First comment uses its original whitespace
+                        self.generate_inline_comment(&Some(comment.clone()));
+                    } else {
+                        // Subsequent comments get minimal whitespace to stay on same line
+                        let (content, _) = comment;
+                        self.generate_inline_comment(&Some((content.clone(), " ".to_string())));
                     }
-                    if i > 0 {
-                        combined_content.push_str(", ");
-                    }
-                    combined_content.push_str(content);
                 }
-
-                self.generate_inline_comment(&Some((combined_content, combined_whitespace)));
             } else {
                 self.generate_inline_comment(inline_comment);
             }
