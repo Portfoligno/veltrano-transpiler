@@ -547,17 +547,19 @@ impl CodeGenerator {
                 match arg {
                     Argument::Bare(expr, comment) => {
                         self.generate_expression(expr);
-                        self.generate_inline_comment_as_block(comment);
+                        if i < args.len() - 1 {
+                            self.output.push(',');
+                        }
+                        self.generate_inline_comment(comment);
                     }
                     // For function calls, named arguments are just treated as positional
                     Argument::Named(_, expr, comment) => {
                         self.generate_expression(expr);
-                        self.generate_inline_comment_as_block(comment);
+                        if i < args.len() - 1 {
+                            self.output.push(',');
+                        }
+                        self.generate_inline_comment(comment);
                     }
-                }
-
-                if i < args.len() - 1 {
-                    self.output.push(',');
                 }
                 self.output.push('\n');
                 self.indent_level -= 1;
