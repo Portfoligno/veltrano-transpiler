@@ -209,7 +209,16 @@ impl CodeGenerator {
         }
 
         self.output.push('(');
-        self.generate_comma_separated_params(&fun_decl.params, fun_decl.has_hidden_bump);
+
+        // Check if we should use multiline formatting for parameters
+        let use_multiline = fun_decl.params.iter().any(|p| p.inline_comment.is_some());
+
+        if use_multiline && !fun_decl.params.is_empty() {
+            self.generate_multiline_params(&fun_decl.params, fun_decl.has_hidden_bump);
+        } else {
+            self.generate_comma_separated_params(&fun_decl.params, fun_decl.has_hidden_bump);
+        }
+
         self.output.push(')');
 
         if let Some(return_type) = &fun_decl.return_type {
@@ -514,6 +523,40 @@ impl CodeGenerator {
             self.generate_type(&param.param_type);
             self.generate_inline_comment_as_block(&param.inline_comment);
         }
+    }
+
+    fn generate_multiline_params(&mut self, params: &[Parameter], include_bump: bool) {
+        self.output.push('\n');
+        self.indent_level += 1;
+
+        if include_bump {
+            self.indent();
+            self.output.push_str("bump: &'a bumpalo::Bump");
+            if !params.is_empty() {
+                self.output.push(',');
+            }
+            self.output.push('\n');
+        }
+
+        for (i, param) in params.iter().enumerate() {
+            self.indent();
+            let snake_name = self.camel_to_snake_case(&param.name);
+            self.output.push_str(&snake_name);
+            self.output.push_str(": ");
+            self.generate_type(&param.param_type);
+
+            // Add comma if not the last parameter
+            if i < params.len() - 1 {
+                self.output.push(',');
+            }
+
+            // Generate inline comment as line comment, not block comment
+            self.generate_inline_comment(&param.inline_comment);
+            self.output.push('\n');
+        }
+
+        self.indent_level -= 1;
+        self.indent();
     }
 
     fn generate_comma_separated_args(&mut self, args: &[Argument]) {

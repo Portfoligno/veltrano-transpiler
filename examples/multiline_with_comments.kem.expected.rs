@@ -25,7 +25,11 @@ fn main() {
         300  /* third */
     );
     // Test 4: Comments in function parameter definitions
-    fn with_commented_params(x: i64  /* The x coordinate*/, y: i64  /* The y coordinate*/, z: i64   /* The z coordinate*/) -> i64 {
+    fn with_commented_params(
+        x: i64,  // The x coordinate
+        y: i64,  // The y coordinate
+        z: i64   // The z coordinate
+    ) -> i64 {
         return x + y + z;
     }
     // Test 5: Extra indented standalone comments
