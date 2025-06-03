@@ -72,24 +72,24 @@ impl CodeGenerator {
         match stmt {
             Stmt::Expression(expr, inline_comment) => {
                 self.indent();
-                
+
                 // Check if this is a method call with its own comment
                 let method_comment = if let Expr::MethodCall(method_call) = expr {
                     method_call.inline_comment.clone()
                 } else {
                     None
                 };
-                
+
                 self.generate_expression(expr);
                 self.output.push(';');
-                
+
                 // Generate method comment after semicolon, or statement comment if no method comment
                 if let Some(comment) = method_comment {
                     self.generate_inline_comment(&Some(comment));
                 } else {
                     self.generate_inline_comment(inline_comment);
                 }
-                
+
                 self.output.push('\n');
             }
             Stmt::VarDecl(var_decl, inline_comment) => {
@@ -165,17 +165,17 @@ impl CodeGenerator {
 
         if let Some(initializer) = &var_decl.initializer {
             self.output.push_str(" = ");
-            
+
             // Check if initializer is a method call with its own comment
             let method_comment = if let Expr::MethodCall(method_call) = initializer {
                 method_call.inline_comment.clone()
             } else {
                 None
             };
-            
+
             self.generate_expression(initializer);
             self.output.push(';');
-            
+
             // Generate method comment after semicolon, or variable comment if no method comment
             if let Some(comment) = method_comment {
                 self.generate_inline_comment(&Some(comment));
@@ -186,7 +186,7 @@ impl CodeGenerator {
             self.output.push(';');
             self.generate_inline_comment(inline_comment);
         }
-        
+
         self.output.push('\n');
     }
 
@@ -532,15 +532,18 @@ impl CodeGenerator {
         }
     }
 
-
-    fn generate_comma_separated_args_for_function_call_with_multiline(&mut self, args: &[Argument], is_multiline: bool) {
+    fn generate_comma_separated_args_for_function_call_with_multiline(
+        &mut self,
+        args: &[Argument],
+        is_multiline: bool,
+    ) {
         if is_multiline && !args.is_empty() {
             // Generate multiline format
             self.output.push('\n');
             for (i, arg) in args.iter().enumerate() {
                 self.indent_level += 1;
                 self.indent();
-                
+
                 match arg {
                     Argument::Bare(expr, comment) => {
                         self.generate_expression(expr);
@@ -552,7 +555,7 @@ impl CodeGenerator {
                         self.generate_inline_comment_as_block(comment);
                     }
                 }
-                
+
                 if i < args.len() - 1 {
                     self.output.push(',');
                 }
@@ -597,7 +600,10 @@ impl CodeGenerator {
     fn generate_generic_call(&mut self, call: &CallExpr) {
         self.generate_expression(&call.callee);
         self.output.push('(');
-        self.generate_comma_separated_args_for_function_call_with_multiline(&call.args, call.is_multiline);
+        self.generate_comma_separated_args_for_function_call_with_multiline(
+            &call.args,
+            call.is_multiline,
+        );
         self.output.push(')');
     }
 
@@ -642,7 +648,10 @@ impl CodeGenerator {
                     }
                 }
 
-                self.generate_comma_separated_args_for_function_call_with_multiline(&call.args, call.is_multiline);
+                self.generate_comma_separated_args_for_function_call_with_multiline(
+                    &call.args,
+                    call.is_multiline,
+                );
                 self.output.push(')');
             } else if let Some((type_name, original_method)) = self.imports.get(name) {
                 // Imported function/constructor: use UFCS
@@ -651,13 +660,19 @@ impl CodeGenerator {
                 self.output.push_str("::");
                 self.output.push_str(&snake_method);
                 self.output.push('(');
-                self.generate_comma_separated_args_for_function_call_with_multiline(&call.args, call.is_multiline);
+                self.generate_comma_separated_args_for_function_call_with_multiline(
+                    &call.args,
+                    call.is_multiline,
+                );
                 self.output.push(')');
             } else if self.is_rust_macro(name) {
                 self.output.push_str(name);
                 self.output.push('!');
                 self.output.push('(');
-                self.generate_comma_separated_args_for_function_call_with_multiline(&call.args, call.is_multiline);
+                self.generate_comma_separated_args_for_function_call_with_multiline(
+                    &call.args,
+                    call.is_multiline,
+                );
                 self.output.push(')');
             } else {
                 // Default case for identifiers that aren't special
@@ -724,7 +739,7 @@ impl CodeGenerator {
             self.generate_comma_separated_exprs(&method_call.args);
             self.output.push(')');
         }
-        
+
         // Note: Method call comments are now handled by the statement generator to ensure proper placement after semicolons
     }
 
@@ -748,7 +763,7 @@ impl CodeGenerator {
         if let Some((content, whitespace)) = inline_comment {
             if self.config.preserve_comments {
                 self.output.push_str(whitespace);
-                
+
                 // Check if this is a block comment (starts with /*) or line comment
                 if content.starts_with("/*") {
                     // Block comment - output as-is
@@ -766,7 +781,7 @@ impl CodeGenerator {
         if let Some((content, whitespace)) = inline_comment {
             if self.config.preserve_comments {
                 self.output.push_str(whitespace);
-                
+
                 // Check if this is a block comment (starts with /*) or line comment
                 if content.starts_with("/*") {
                     // Already a block comment - output as-is

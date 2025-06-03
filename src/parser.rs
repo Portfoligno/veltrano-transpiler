@@ -122,7 +122,7 @@ impl Parser {
                 // Capture any comment after the comma for the PREVIOUS parameter
                 // This handles patterns like: x: Int, // The x coordinate
                 let comment_after_comma = self.skip_newlines_and_capture_comment();
-                
+
                 // If we found a comment after the comma, update the last parameter
                 if let Some(comment) = comment_after_comma {
                     if let Some(last_param) = params.last_mut() {
@@ -501,14 +501,14 @@ impl Parser {
                                 self.advance(); // consume identifier
                                 self.advance(); // consume =
                                 let value = self.expression()?;
-                                
+
                                 // Capture comment immediately after the expression
                                 let comment = self.skip_newlines_and_capture_comment();
                                 args.push(Argument::Named(name, value, comment));
                             } else {
                                 // This is a bare argument starting with an identifier
                                 let expr = self.expression()?;
-                                
+
                                 // Capture comment immediately after the expression
                                 let comment = self.skip_newlines_and_capture_comment();
                                 args.push(Argument::Bare(expr, comment));
@@ -516,7 +516,7 @@ impl Parser {
                         } else {
                             // This is a bare argument
                             let expr = self.expression()?;
-                            
+
                             // Capture comment immediately after the expression
                             let comment = self.skip_newlines_and_capture_comment();
                             args.push(Argument::Bare(expr, comment));
@@ -529,7 +529,7 @@ impl Parser {
                         // Capture any comment after the comma for the PREVIOUS argument
                         // This handles patterns like: 1, // first argument
                         let comment_after_comma = self.skip_newlines_and_capture_comment();
-                        
+
                         // If we found a comment after the comma, update the last argument
                         if let Some(comment) = comment_after_comma {
                             if let Some(last_arg) = args.last_mut() {
@@ -599,7 +599,7 @@ impl Parser {
 
                     // Capture comment after method call without consuming statement-terminating newlines
                     let comment = self.capture_comment_preserve_newlines();
-                    
+
                     expr = Expr::MethodCall(MethodCallExpr {
                         object: Box::new(expr),
                         method: field_or_method,
@@ -943,7 +943,7 @@ impl Parser {
     /// Skip newlines and comments, returning true if any newlines were found
     fn skip_newlines_and_track_multiline(&mut self) -> bool {
         let mut found_newlines = false;
-        
+
         loop {
             if self.match_token(&TokenType::Newline) {
                 found_newlines = true;
@@ -958,7 +958,7 @@ impl Parser {
                 _ => break, // No more newlines or comments to skip
             }
         }
-        
+
         found_newlines
     }
 
@@ -966,7 +966,7 @@ impl Parser {
     /// Returns the first inline comment found, if any
     fn skip_newlines_and_capture_comment(&mut self) -> Option<(String, String)> {
         let mut captured_comment = None;
-        
+
         loop {
             if self.match_token(&TokenType::Newline) {
                 // Continue to check for more newlines or comments
@@ -987,7 +987,7 @@ impl Parser {
                 _ => break, // No more newlines or comments
             }
         }
-        
+
         captured_comment
     }
 
@@ -1002,7 +1002,6 @@ impl Parser {
             _ => None,
         }
     }
-
 
     fn parse_binary_expression<F, M>(
         &mut self,
