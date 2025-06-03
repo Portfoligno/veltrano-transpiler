@@ -335,12 +335,8 @@ impl Lexer {
     fn expected_indentation(&self) -> usize {
         // Base indentation from brace depth
         let base = self.brace_depth * 4;
-        // Add extra indentation if we're inside parentheses (function calls, etc.)
-        if self.paren_depth > 0 {
-            base + 4
-        } else {
-            base
-        }
+        // Add extra indentation for each level of parentheses (function calls, etc.)
+        base + (self.paren_depth * 4)
     }
 
     /// Strip expected base indentation from whitespace for comments

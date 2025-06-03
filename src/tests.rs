@@ -1772,6 +1772,104 @@ fun main() {
 }
 
 #[test]
+fn test_nested_function_call_comment_indentation() {
+    // Test that comments in nested function calls have proper indentation
+    let veltrano_code = r#"fun f(a: Int, b: Int): Int {
+    return a + b
+}
+
+fun g(x: Int, y: Int, z: Int): Int {
+    return x * y * z
+}
+
+fun main() {
+    val result = f(
+        g(
+            1,
+            // Nested level comment (base)
+            2,
+                // Nested level with extra indent
+            3
+        ),
+        // Outer level comment
+        4
+    )
+    
+    // Even deeper nesting
+    val deep = f(
+        g(
+            f(
+                10,
+                // Three levels deep
+                20
+            ),
+            // Two levels deep
+            30,
+            40
+        ),
+        50
+    )
+}"#;
+
+    let config = Config {
+        preserve_comments: true,
+    };
+    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
+    let all_tokens = lexer.tokenize();
+    let mut parser = Parser::new(all_tokens);
+    let program = parser
+        .parse()
+        .expect("Failed to parse nested function calls");
+    let mut codegen = CodeGenerator::with_config(config);
+    let rust_code = codegen.generate(&program);
+
+    // Check proper indentation at different nesting levels
+    let lines: Vec<&str> = rust_code.lines().collect();
+
+    // Find and verify comment indentations
+    let nested_base = lines
+        .iter()
+        .find(|line| line.contains("Nested level comment (base)"))
+        .expect("Should find nested base comment");
+    let nested_extra = lines
+        .iter()
+        .find(|line| line.contains("Nested level with extra indent"))
+        .expect("Should find nested extra comment");
+    let outer = lines
+        .iter()
+        .find(|line| line.contains("Outer level comment"))
+        .expect("Should find outer comment");
+    let three_deep = lines
+        .iter()
+        .find(|line| line.contains("Three levels deep"))
+        .expect("Should find three levels deep comment");
+    let two_deep = lines
+        .iter()
+        .find(|line| line.contains("Two levels deep"))
+        .expect("Should find two levels deep comment");
+
+    // Count leading spaces
+    let nested_base_indent = nested_base.len() - nested_base.trim_start().len();
+    let nested_extra_indent = nested_extra.len() - nested_extra.trim_start().len();
+    let outer_indent = outer.len() - outer.trim_start().len();
+    let three_deep_indent = three_deep.len() - three_deep.trim_start().len();
+    let two_deep_indent = two_deep.len() - two_deep.trim_start().len();
+
+    // Verify indentation levels
+    assert_eq!(outer_indent, 8, "Outer level should have 8 spaces");
+    assert_eq!(nested_base_indent, 12, "Nested level should have 12 spaces");
+    assert_eq!(
+        nested_extra_indent, 16,
+        "Nested with extra should have 16 spaces"
+    );
+    assert_eq!(two_deep_indent, 12, "Two levels deep should have 12 spaces");
+    assert_eq!(
+        three_deep_indent, 16,
+        "Three levels deep should have 16 spaces"
+    );
+}
+
+#[test]
 fn test_expected_outputs() {
     // Get predefined config mappings
     let configs = Config::test_configs();
