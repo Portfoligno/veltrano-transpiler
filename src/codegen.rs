@@ -528,6 +528,10 @@ impl CodeGenerator {
                     self.generate_expression(expr);
                     self.generate_inline_comment(comment);
                 }
+                Argument::StandaloneComment(_, _) => {
+                    // For single-line struct initialization, ignore standalone comments
+                    first = true; // Don't add comma before next real argument
+                }
             }
         }
     }
@@ -560,6 +564,21 @@ impl CodeGenerator {
                         }
                         self.generate_inline_comment(comment);
                     }
+                    Argument::StandaloneComment(content, whitespace) => {
+                        // Generate standalone comment as its own line
+                        if self.config.preserve_comments {
+                            self.output.push_str(whitespace);
+                            if content.starts_with("/*") {
+                                // Block comment
+                                self.output.push_str(content);
+                            } else {
+                                // Line comment
+                                self.output.push_str("//");
+                                self.output.push_str(content);
+                            }
+                        }
+                        // Note: No comma or expression - this is just a comment line
+                    }
                 }
                 self.output.push('\n');
                 self.indent_level -= 1;
@@ -582,6 +601,12 @@ impl CodeGenerator {
                     Argument::Named(_, expr, comment) => {
                         self.generate_expression(expr);
                         self.generate_inline_comment_as_block(comment);
+                    }
+                    Argument::StandaloneComment(_, _) => {
+                        // For single-line calls, standalone comments force multiline format
+                        // This should not happen in practice as standalone comments should trigger multiline
+                        // But handle it gracefully by ignoring the comment in single-line format
+                        first = true; // Don't add comma before next real argument
                     }
                 }
             }
@@ -630,10 +655,16 @@ impl CodeGenerator {
                     );
                 }
                 self.output.push_str("&mut (&");
-                if let Argument::Bare(expr, _) = &call.args[0] {
-                    self.generate_expression(expr);
-                } else {
-                    panic!("MutRef() does not support named arguments");
+                match &call.args[0] {
+                    Argument::Bare(expr, _) => {
+                        self.generate_expression(expr);
+                    }
+                    Argument::Named(_, _, _) => {
+                        panic!("MutRef() does not support named arguments");
+                    }
+                    Argument::StandaloneComment(_, _) => {
+                        panic!("MutRef() cannot have standalone comments as arguments");
+                    }
                 }
                 self.output.push_str(").clone()");
             } else if self.local_functions.contains(name) {
@@ -858,6 +889,7 @@ impl CodeGenerator {
                     || call.args.iter().any(|arg| match arg {
                         Argument::Bare(expr, _) => self.expr_uses_bump_allocation(expr),
                         Argument::Named(_, expr, _) => self.expr_uses_bump_allocation(expr),
+                        Argument::StandaloneComment(_, _) => false, // Comments don't use bump allocation
                     })
             }
             Expr::MethodCall(method_call) => {

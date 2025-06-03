@@ -484,13 +484,29 @@ impl Parser {
 
                 if !self.check(&TokenType::RightParen) {
                     loop {
-                        // Skip any newlines and comments before parsing the argument, but track if we found newlines
+                        // First check if we have a standalone comment (before skipping)
+                        if let Some(standalone_comment) = self.try_parse_standalone_comment() {
+                            args.push(Argument::StandaloneComment(
+                                standalone_comment.0,
+                                standalone_comment.1,
+                            ));
+                            is_multiline = true; // Standalone comments force multiline
+
+                            // Check for comma after standalone comment
+                            if self.match_token(&TokenType::Comma) {
+                                continue; // Continue to next argument/comment
+                            } else {
+                                break; // No comma, end of arguments
+                            }
+                        }
+
+                        // Skip newlines and track multiline (if no comment was found)
                         let had_newlines = self.skip_newlines_and_track_multiline();
                         if had_newlines {
                             is_multiline = true;
                         }
 
-                        // Try to parse named argument (name = expr)
+                        // Try to parse regular argument (named or bare)
                         if let TokenType::Identifier(name) = &self.peek().token_type {
                             let name = name.clone();
                             let next_pos = self.current + 1;
@@ -526,24 +542,44 @@ impl Parser {
                             break;
                         }
 
-                        // Capture any comment after the comma for the PREVIOUS argument
-                        // This handles patterns like: 1, // first argument
-                        let comment_after_comma = self.skip_newlines_and_capture_comment();
-
-                        // If we found a comment after the comma, update the last argument
-                        if let Some(comment) = comment_after_comma {
+                        // After comma, check for either inline comment or standalone comment
+                        // First check for immediate inline comment (no newlines)
+                        if let Some(inline_comment) = self.capture_comment_preserve_newlines() {
+                            // This is an inline comment - assign to previous argument
                             if let Some(last_arg) = args.last_mut() {
                                 match last_arg {
                                     Argument::Bare(_, ref mut existing_comment) => {
                                         if existing_comment.is_none() {
-                                            *existing_comment = Some(comment);
+                                            *existing_comment = Some(inline_comment);
                                         }
                                     }
                                     Argument::Named(_, _, ref mut existing_comment) => {
                                         if existing_comment.is_none() {
-                                            *existing_comment = Some(comment);
+                                            *existing_comment = Some(inline_comment);
                                         }
                                     }
+                                    Argument::StandaloneComment(_, _) => {
+                                        // Standalone comments can't have inline comments attached
+                                    }
+                                }
+                            }
+                        } else {
+                            // No inline comment found, check for standalone comment after newlines
+                            // Skip newlines only (preserve comments)
+                            let had_newlines = self.skip_newlines_only();
+                            if had_newlines {
+                                is_multiline = true;
+
+                                // Now check if there's a standalone comment
+                                if let Some(standalone_comment) =
+                                    self.try_parse_standalone_comment()
+                                {
+                                    args.push(Argument::StandaloneComment(
+                                        standalone_comment.0,
+                                        standalone_comment.1,
+                                    ));
+                                    // Don't consume comma here - let the next iteration handle it
+                                    continue;
                                 }
                             }
                         }
@@ -1001,6 +1037,26 @@ impl Parser {
             }
             _ => None,
         }
+    }
+
+    fn try_parse_standalone_comment(&mut self) -> Option<(String, String)> {
+        // Check if there's a comment token immediately at current position
+        match &self.peek().token_type {
+            TokenType::LineComment(_, _) | TokenType::BlockComment(_, _) => {
+                self.parse_inline_comment()
+            }
+            _ => None,
+        }
+    }
+
+    fn skip_newlines_only(&mut self) -> bool {
+        let mut found_newlines = false;
+
+        while self.match_token(&TokenType::Newline) {
+            found_newlines = true;
+        }
+
+        found_newlines
     }
 
     fn parse_binary_expression<F, M>(

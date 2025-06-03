@@ -11,8 +11,10 @@ fn main() {
     );
     // Test 2: Comments on their own lines
     let result2 = test_function(
-        10,    // This is a comment between arguments
-        20,    // Another comment
+        10,
+            // This is a comment between arguments
+        20,
+            // Another comment
         30
     );
     // Test 3: Block comments in multiline calls
