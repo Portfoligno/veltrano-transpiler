@@ -27,6 +27,7 @@ fn main() {
     fn with_commented_params(x: i64  /* The x coordinate*/, y: i64  /* The y coordinate*/, z: i64   /* The z coordinate*/) -> i64 {
         return x + y + z;
     }
+    // Test 5: Extra indented standalone comments
     let result5 = test_function(
         50,
             // This comment has 4 extra spaces

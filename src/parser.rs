@@ -156,9 +156,6 @@ impl Parser {
         let body = Box::new(self.block_statement()?);
         self.in_function_body = was_in_function_body;
 
-        // Skip any trailing newlines and comments after the function body
-        self.skip_newlines_and_comments();
-
         Ok(Stmt::FunDecl(FunDeclStmt {
             name: name.clone(),
             params,
