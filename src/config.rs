@@ -13,12 +13,22 @@ impl Default for Config {
 
 impl Config {
     /// Returns a HashMap of predefined config instances for testing.
-    /// Keys are used in expected output filenames (e.g., "example.default.expected.rs").
+    /// Keys are used in expected output filenames (e.g., "example.tuf.expected.rs").
     #[cfg(test)]
     pub fn test_configs() -> std::collections::HashMap<&'static str, Config> {
         let mut configs = std::collections::HashMap::new();
-        configs.insert("default", Config { preserve_comments: false });
-        configs.insert("comments", Config { preserve_comments: true });
+        configs.insert(
+            "tuf",
+            Config {
+                preserve_comments: false,
+            },
+        );
+        configs.insert(
+            "kem",
+            Config {
+                preserve_comments: true,
+            },
+        );
         configs
     }
 }
