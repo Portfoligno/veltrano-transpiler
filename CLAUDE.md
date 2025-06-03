@@ -411,23 +411,27 @@ When the user requests a release:
 **Self-Check:** "Have I discovered anything that would help future sessions? Have I created examples? Have I found limitations?"
 **Triggers:** Any syntax error resolution, any successful example creation, any debugging breakthrough
 
-### 6. Handling "Fix the missing cases" Requests
-**Problem:** Not recognizing that expected output files reveal transpiler bugs  
-**Solution:** The expected output is showing what the transpiler currently generates - and it's incomplete/wrong
+### 6. Understanding Expected Output File Issues
+**Problem:** Confusion about whether to fix the transpiler or just update test files  
+**Solution:** Expected output files show current transpiler behavior - if it looks wrong, fix the transpiler
 
-**When user says "Fix the missing cases in X.expected.rs":**
-1. The expected output file already matches what the transpiler generates
-2. Look at both the source `.vl` file and expected `.rs` output
-3. Identify what's missing or wrong (e.g., lost comments, missing code)
-4. Fix the transpiler to generate the correct output
-5. Update the expected file to match the fixed behavior
+**When user mentions problems with expected output files:**
+1. **Read both files:** Look at the source `.vl` and its `.expected.rs` output
+2. **Identify the issue:** What's missing, wrong, or incomplete in the output?
+3. **Fix the transpiler:** The issue is almost always a transpiler bug that needs fixing
+4. **Update expected file:** After fixing, update the expected output to match
 
-**Common patterns:**
-- Method chain comments being lost: `.ref() // comment` becomes just `&x` with no comment
-- Multiline constructs being flattened incorrectly
-- Some source constructs not appearing in output at all
+**Common phrases and what they mean:**
+- "Fix the missing cases" → Some code from the source isn't appearing in output
+- "Expected output is wrong" → Transpiler is generating incorrect code
+- "Comments are missing" → Transpiler is dropping comments during transformation
 
-**Key insight:** "Missing cases" means the transpiler is failing to handle certain patterns correctly. Focus on fixing the transpiler implementation.
+**Examples of transpiler bugs revealed by expected outputs:**
+- Method chain: `.ref() // comment` → `&x` (comment lost)
+- Multiline function params collapsed to single line
+- Some variables/functions from source completely missing in output
+
+**Remember:** Expected output files are test data showing current behavior. If the behavior looks wrong, fix the transpiler - don't just update the test file to hide the problem.
 
 ---
 
