@@ -24,14 +24,14 @@ This document proposes a Kotlin-inspired label syntax for explicit lifetime para
 ## Syntax Examples
 
 ### Basic Lifetime Parameter
-```veltrano
+```kotlin
 fun<@a> createRef(value: Str): Ref<Str@a> {
     return value.bumpRef()  // Uses @a's bump allocator
 }
 ```
 
 ### Multiple Lifetime Parameters
-```veltrano
+```kotlin
 fun<@a, @b> selectFirst(ref1: Ref<Str@a>, ref2: Ref<Str@b>): Ref<Str@a> {
     if (someCondition()) {
         return ref1
@@ -42,7 +42,7 @@ fun<@a, @b> selectFirst(ref1: Ref<Str@a>, ref2: Ref<Str@b>): Ref<Str@a> {
 ```
 
 ### Data Classes with Lifetimes
-```veltrano
+```kotlin
 data class Container<@a>(
     data: Ref<Str@a>,
     count: Int
@@ -55,7 +55,7 @@ fun<@x> makeContainer(s: Str): Container@x {
 ```
 
 ### Function's Own Lifetime
-```veltrano
+```kotlin
 fun processLocally(items: Array<Str>): Summary {
     // Implicit @processLocally lifetime available
     val tempRefs = items.map(|s| s.bumpRef())  // Uses @processLocally
@@ -69,7 +69,7 @@ fun processLocally(items: Array<Str>): Summary {
 
 ### 1. Escape Prevention
 References with a function's own lifetime cannot escape that function:
-```veltrano
+```kotlin
 fun badExample(): Ref<Str@badExample> {  // ERROR: Cannot return @badExample
     return "hello".bumpRef()
 }
@@ -77,7 +77,7 @@ fun badExample(): Ref<Str@badExample> {  // ERROR: Cannot return @badExample
 
 ### 2. Lifetime Compatibility
 References can only be assigned/passed where lifetimes match:
-```veltrano
+```kotlin
 fun<@a, @b> example(ref1: Ref<Str@a>) {
     val ref2: Ref<Str@b> = ref1  // ERROR: Lifetime mismatch
     val ref3: Ref<Str@a> = ref1  // OK
@@ -86,7 +86,7 @@ fun<@a, @b> example(ref1: Ref<Str@a>) {
 
 ### 3. Implicit Function Lifetime
 Every function has an implicit lifetime with its own name:
-```veltrano
+```kotlin
 fun helper(s: Str) {
     val local = s.bumpRef()  // Implicitly Ref<Str@helper>
     useLocally(local)        // OK - used within helper
@@ -97,12 +97,13 @@ fun helper(s: Str) {
 
 ### Bump Allocator Passing
 Functions with lifetime parameters receive hidden bump allocator parameters:
-```veltrano
+```kotlin
 // Veltrano
 fun<@a> createRef(value: Str): Ref<Str@a> {
     return value.bumpRef()
 }
-
+```
+```rust
 // Generated Rust
 fn createRef<'a>(value: &str, __bump_a: &'a Bump) -> &'a str {
     __bump_a.alloc_str(value)
@@ -110,12 +111,13 @@ fn createRef<'a>(value: &str, __bump_a: &'a Bump) -> &'a str {
 ```
 
 ### Multiple Lifetimes
-```veltrano
+```kotlin
 // Veltrano
 fun<@a, @b> process(x: Container@a, y: Container@b): Container@a {
     // ...
 }
-
+```
+```rust
 // Generated Rust
 fn process<'a, 'b>(
     x: Container<'a>, 
