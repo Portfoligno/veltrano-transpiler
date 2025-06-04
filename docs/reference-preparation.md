@@ -1,5 +1,7 @@
 # Cross-Scope Reference Preparation
 
+> **Note:** This document describes the current prototype implementation. The planned evolution to explicit lifetime parameters is detailed in `lifetime-labels-draft.md`.
+
 ## Overview
 
 The automatic bump parameter detection feature enables functions to prepare references that remain valid in the caller's scope. This allows functions to build and return reference-containing data structures without requiring the caller to manage memory allocation details.
