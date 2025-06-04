@@ -93,6 +93,32 @@ fun helper(s: Str) {
 }  // local's memory cleaned up here
 ```
 
+### 4. Nested Reference Lifetimes and Inference
+Since `Ref<Str>` translates to `&&str` in Rust, there are two distinct reference levels:
+
+```kotlin
+// Explicit form showing both lifetime levels
+val ref: Ref@a<Str@b> = ...  // Maps to &'a &'b str
+
+// When lifetimes are omitted, both default to the same inferred lifetime
+val ref: Ref<Str> = ...      // Maps to &'inferred &'inferred str
+
+// In function context, both would use function's lifetime
+fun helper(s: Str) {
+    val local: Ref<Str> = s.bumpRef()  // Ref@helper<Str@helper> -> &'helper &'helper str
+}
+```
+
+**Inference Rule**: When lifetime parameters are omitted from nested reference types, all reference levels use the same inferred lifetime. The inference context (function scope, data class parameter, etc.) determines what that lifetime is.
+
+**Explicit Control**: Developers can specify different lifetimes for each reference level when needed:
+```kotlin
+fun<@outer, @inner> complexRef(): Ref@outer<Str@inner> {
+    // Outer reference lives in @outer, inner reference lives in @inner
+    // Maps to &'outer &'inner str
+}
+```
+
 ## Code Generation
 
 ### Bump Allocator Passing
