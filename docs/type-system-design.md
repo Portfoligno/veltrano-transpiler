@@ -2,208 +2,255 @@
 
 ## Overview
 
-This document outlines the design for a comprehensive type system for the Veltrano transpiler. The type system will provide:
+This document outlines the design for a **supplementary type system** for Veltrano that adds stricter type checking on top of Rust's existing type system. The goal is to create **layered type validation** where Veltrano enforces additional constraints before code reaches Rust's type checker, resulting in a more restrictive and safer type system overall.
 
-1. **Rust Type Signature Extraction** - Parse and extract type information from generated Rust code
-2. **Type Inference** - Automatically infer types for Veltrano expressions
-3. **Type Checking** - Validate type compatibility and catch errors
-4. **Lifetime Integration** - Work seamlessly with existing lifetime and reference depth systems
+## Philosophy: Layered Type Checking
+
+```
+┌─────────────────────────────┐
+│    Veltrano Type System     │  <- Stricter, language-specific rules
+│    (Supplementary Layer)    │
+├─────────────────────────────┤
+│      Rust Type System       │  <- Foundation layer (current status)
+│    (Underlying Foundation)  │
+└─────────────────────────────┘
+```
+
+**Key Principle**: Veltrano type checking happens **before** code generation. If Veltrano's type checker passes, the generated Rust code is guaranteed to type-check successfully, but Veltrano enforces additional restrictions that Rust alone would not.
+
+## Veltrano-Specific Type Rules
+
+### 1. Reference Depth Validation
+```veltrano
+// Veltrano enforces explicit reference management
+val str1: Str = "hello"     // ✓ Veltrano: OK, Rust: &str
+val str2: Own<Str> = str1   // ✗ Veltrano: Error - depth mismatch
+val str3: Own<Str> = str1.own()  // ✓ Veltrano: OK after explicit conversion
+```
+
+### 2. Lifetime Scope Validation
+```veltrano
+fun createPerson(@caller name: Str): Person {
+    val person = Person(name = name, age = 30)
+    return person  // ✓ Veltrano: lifetime @caller flows correctly
+}
+
+fun invalidLifetime(@local name: Str): Person {
+    val person = Person(name = name, age = 30)
+    return person  // ✗ Veltrano: Error - @local cannot escape function
+}
+```
+
+### 3. Bump Allocation Constraints
+```veltrano
+fun processData(@caller data: Str): Ref<ProcessedData> {
+    val processed = ProcessedData(content = data)
+    return processed.bumpRef()  // ✓ Veltrano: bump allocation in @caller lifetime
+}
+
+fun invalidBump(data: Str): Ref<ProcessedData> {
+    val processed = ProcessedData(content = data)
+    return processed.bumpRef()  // ✗ Veltrano: Error - no lifetime context for bump
+}
+```
+
+### 4. Method Availability Validation
+```veltrano
+val num: Int = 42
+val numRef = num.ref()      // ✓ Veltrano: Int can be referenced
+val numBump = num.bumpRef() // ✗ Veltrano: Error - Int doesn't need bump allocation
+
+val str: Str = "hello"
+val strRef = str.ref()      // ✓ Veltrano: Str can be referenced  
+val strBump = str.bumpRef() // ✓ Veltrano: Str supports bump allocation
+```
+
+### 5. Data Class Initialization Validation
+```veltrano
+data class Person(val name: Str, val age: Int)
+
+val person1 = Person(name = "Alice", age = 30)    // ✓ All fields provided
+val person2 = Person(name = "Bob")                // ✗ Veltrano: Missing required field 'age'
+val person3 = Person(name = "Charlie", extra = 1) // ✗ Veltrano: Unknown field 'extra'
+```
 
 ## Core Components
 
-### 1. Type Representation
+### 1. Veltrano Type Checker
+```rust
+pub struct VeltranoTypeChecker {
+    pub environment: TypeEnvironment,
+    pub rules: Vec<TypeRule>,
+    pub errors: Vec<TypeCheckError>,
+}
 
-#### Enhanced Type Structure
+impl VeltranoTypeChecker {
+    pub fn check_program(&mut self, program: &Program) -> Result<(), Vec<TypeCheckError>>;
+    pub fn check_statement(&mut self, stmt: &Stmt) -> Result<(), TypeCheckError>;
+    pub fn check_expression(&mut self, expr: &Expr) -> Result<VeltranoType, TypeCheckError>;
+}
+```
+
+### 2. Veltrano Type System
 ```rust
 #[derive(Debug, Clone)]
-pub struct Type {
+pub struct VeltranoType {
     pub base: BaseType,
     pub reference_depth: u32,
-    pub lifetime: Option<String>,     // Optional lifetime parameter (e.g., "'a")
-    pub inferred: bool,               // Whether this type was inferred
+    pub lifetime: Option<String>,
+    pub mutability: Mutability,
+    pub source_location: SourceLocation,
 }
 
 #[derive(Debug, Clone)]
-pub struct TypeSignature {
-    pub rust_type: String,            // Actual Rust type (e.g., "&'a str")
-    pub veltrano_type: Type,          // Corresponding Veltrano type
-    pub constraints: Vec<TypeConstraint>, // Type constraints
+pub enum TypeRule {
+    ReferenceDepthConsistency,    // Own<T> + Ref<T> operations must match depths
+    LifetimeEscapeValidation,     // Prevent @local lifetimes from escaping
+    BumpAllocationConstraints,    // Only reference types can use .bumpRef()
+    MethodAvailabilityCheck,      // .ref(), .clone(), etc. only on valid types
+    DataClassFieldValidation,     // All required fields must be provided
+    ExplicitConversionRequired,   // No implicit reference depth changes
 }
 ```
 
-#### Type Constraints
+### 3. Type Error Reporting
 ```rust
 #[derive(Debug, Clone)]
-pub enum TypeConstraint {
-    Equal(Type, Type),                // Two types must be equal
-    RefOf(Type, Type),                // First type is reference to second
-    Clone(Type),                      // Type must support Clone
-    HasMethod(Type, String),          // Type must have specific method
-    BumpCompatible(Type),             // Type must work with bump allocation
-}
-```
-
-### 2. Type Environment
-
-#### Context Tracking
-```rust
-#[derive(Debug, Clone)]
-pub struct TypeEnvironment {
-    pub variables: HashMap<String, TypeSignature>,
-    pub functions: HashMap<String, FunctionSignature>,
-    pub data_classes: HashMap<String, DataClassSignature>,
-    pub current_lifetime: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct FunctionSignature {
-    pub name: String,
-    pub parameters: Vec<(String, TypeSignature)>,
-    pub return_type: TypeSignature,
-    pub has_bump_parameter: bool,
-    pub lifetime_parameters: Vec<String>,
-}
-```
-
-### 3. Rust Type Parser
-
-#### Type Signature Extraction
-```rust
-pub struct RustTypeParser {
-    // Parser for extracting type information from Rust code
-}
-
-impl RustTypeParser {
-    pub fn parse_type_signature(rust_code: &str) -> Result<TypeSignature, ParseError>;
-    pub fn extract_function_signatures(rust_code: &str) -> Vec<FunctionSignature>;
-    pub fn extract_struct_signatures(rust_code: &str) -> Vec<DataClassSignature>;
-}
-```
-
-### 4. Type Inference Engine
-
-#### Inference Algorithm
-```rust
-pub struct TypeInferenceEngine {
-    pub environment: TypeEnvironment,
-    pub constraints: Vec<TypeConstraint>,
-}
-
-impl TypeInferenceEngine {
-    pub fn infer_expression_type(&mut self, expr: &Expr) -> Result<TypeSignature, InferenceError>;
-    pub fn infer_statement_types(&mut self, stmt: &Stmt) -> Result<(), InferenceError>;
-    pub fn solve_constraints(&mut self) -> Result<(), ConstraintError>;
+pub enum TypeCheckError {
+    ReferenceDepthMismatch { 
+        expected: u32, 
+        found: u32, 
+        location: SourceLocation 
+    },
+    LifetimeEscapeError { 
+        lifetime: String, 
+        escape_location: SourceLocation 
+    },
+    InvalidMethodCall { 
+        method: String, 
+        type_name: String, 
+        location: SourceLocation 
+    },
+    MissingRequiredField { 
+        field: String, 
+        class: String, 
+        location: SourceLocation 
+    },
+    UnknownField { 
+        field: String, 
+        class: String, 
+        location: SourceLocation 
+    },
 }
 ```
 
 ## Implementation Strategy
 
-### Phase 1: Core Type Infrastructure
-1. **Extend Type struct** with lifetime and inference metadata
-2. **Add TypeSignature and TypeConstraint** enums
-3. **Create TypeEnvironment** for context tracking
-4. **Implement basic type methods** (to_rust_signature, needs_lifetime, etc.)
+### Phase 1: Core Infrastructure
+1. **Extend AST** with source location tracking for better error messages
+2. **Create VeltranoType** representation with Veltrano-specific metadata
+3. **Build TypeEnvironment** for tracking variable and function types
+4. **Implement basic type rules** as modular validators
 
-### Phase 2: Rust Type Parsing
-1. **Simple type parser** for basic Rust types (i64, bool, &str, etc.)
-2. **Struct signature extraction** from generated data classes
-3. **Function signature parsing** from generated functions
-4. **Lifetime parameter extraction** from complex types
+### Phase 2: Reference Depth Validation  
+1. **Track reference depths** through expressions and assignments
+2. **Validate .ref() and .own() operations** for depth consistency
+3. **Enforce explicit conversions** between different reference depths
+4. **Add depth-aware method availability** checking
 
-### Phase 3: Type Inference
-1. **Literal type inference** (integers, strings, booleans)
-2. **Variable type tracking** in TypeEnvironment
-3. **Method call type inference** (.ref(), .bumpRef(), .clone(), etc.)
-4. **Function call type inference** with parameter matching
+### Phase 3: Lifetime Validation
+1. **Parse @lifetime syntax** in function signatures and types
+2. **Track lifetime scopes** and validate escape constraints
+3. **Integrate with bump allocation** lifetime requirements
+4. **Validate lifetime flow** through function calls and returns
 
-### Phase 4: Integration
-1. **Integrate with existing codegen** to use type information
-2. **Enhance error messages** with type information
-3. **Type-aware optimizations** in code generation
-4. **Lifetime inference improvements** using type constraints
+### Phase 4: Advanced Validation
+1. **Data class field validation** for complete initialization
+2. **Method availability checking** based on type properties
+3. **Integration with existing codegen** to preserve all validation
+4. **Comprehensive error messages** with suggestions
 
-## Key Design Decisions
+## Example Validation Flow
 
-### 1. Rust Type Signature as Source of Truth
-- Generated Rust code contains the authoritative type information
-- Type inference works backward from desired Rust output
-- Enables precise type checking and better error messages
-
-### 2. Constraint-Based Inference
-- Type constraints capture relationships between types
-- Constraint solver resolves complex type relationships
-- Supports advanced features like method overloading resolution
-
-### 3. Lifetime Integration
-- Seamless integration with existing lifetime system
-- Type system understands bump allocation patterns
-- Automatic lifetime parameter inference for data classes
-
-### 4. Incremental Implementation
-- Start with simple types and build complexity gradually
-- Maintain compatibility with existing transpiler functionality
-- Add type checking as optional validation layer initially
-
-## Example Use Cases
-
-### 1. Basic Type Inference
+### Input Veltrano Code
 ```veltrano
-val x = 42        // Inferred as Int (i64 in Rust)
-val s = "hello"   // Inferred as Str (&str in Rust)
-val b = true      // Inferred as Bool (bool in Rust)
-```
-
-### 2. Method Chain Type Tracking
-```veltrano
-val person = Person(name = "Alice", age = 30)  // Person<'a>
-val nameRef = person.name.ref()                // &str (from &'a str)
-val cloned = person.clone()                    // Person<'a>
-```
-
-### 3. Function Type Checking
-```veltrano
-fun greet(name: Str): Str {
-    return "Hello, " + name    // Type check: String concatenation
+fun processName(@caller input: Str): Ref<Str> {
+    val processed = input.toUpperCase()
+    return processed.bumpRef()
 }
-
-val greeting = greet("World")  // Type check: argument compatibility
 ```
 
-### 4. Data Class Type Inference
+### Veltrano Type Checking Steps
+1. **Parse @caller lifetime** on input parameter
+2. **Validate toUpperCase() method** exists for Str type  
+3. **Check bumpRef() availability** for Str type (✓ allowed)
+4. **Validate lifetime flow** @caller → processed → return (✓ valid)
+5. **Verify return type** matches function signature (✓ Ref<Str>)
+
+### Generated Rust Code (if validation passes)
+```rust
+fn process_name<'a>(bump: &'a bumpalo::Bump, input: &'a str) -> &'a str {
+    let processed = input.to_uppercase();
+    bump.alloc(processed)
+}
+```
+
+### What Rust Alone Would Allow (but Veltrano Prevents)
 ```veltrano
-data class Book(val title: Str, val pages: Int)
-
-val book = Book(title = "Rust Guide", pages = 300)
-// Inferred: Book<'a> with lifetime for title field
+fun invalidExample(input: Str): Ref<Str> {
+    return input.bumpRef()  // ✗ Veltrano: No lifetime context for bump
+}
+// Rust would generate code that compiles but violates Veltrano's safety model
 ```
 
-## Benefits
+## Benefits of Layered Approach
 
-### 1. Enhanced Developer Experience
-- **Better error messages** with precise type information
-- **IDE integration** potential with type information
-- **Safer code** through compile-time type checking
+### 1. Stricter Safety
+- **Earlier error detection** before Rust compilation
+- **Language-specific constraints** that Rust cannot enforce
+- **Clearer error messages** in Veltrano terms, not Rust terms
 
-### 2. Improved Code Generation
-- **Type-aware optimizations** in Rust output
-- **Automatic lifetime inference** for complex patterns
-- **Better reference handling** with type constraints
+### 2. Language Control
+- **Enforce Veltrano idioms** like explicit reference management
+- **Prevent unsafe patterns** that Rust allows but Veltrano shouldn't
+- **Guide developers** toward correct Veltrano usage patterns
 
-### 3. Language Evolution
-- **Foundation for generics** in future Veltrano versions
-- **Support for traits** and interfaces
-- **Advanced type features** like associated types
+### 3. Evolution Path
+- **Independent development** of Veltrano type rules
+- **Backward compatibility** with existing Rust type system
+- **Foundation for future features** like Veltrano-specific generics
 
-### 4. Debugging and Analysis
-- **Type information in AST** for tools and analysis
-- **Constraint visualization** for debugging inference
-- **Performance analysis** with type-aware metrics
+### 4. Developer Experience
+- **Faster feedback** than waiting for Rust compiler
+- **Context-aware suggestions** for fixing Veltrano-specific issues
+- **Educational value** by explaining Veltrano's type model
+
+## Implementation Notes
+
+### Type Checking Phases
+1. **Pre-parsing**: Syntax-level validation
+2. **AST building**: Structure validation with source locations
+3. **Veltrano type checking**: Language-specific rule validation
+4. **Code generation**: Produce Rust code (guaranteed to type-check)
+5. **Rust compilation**: Final validation layer
+
+### Error Handling Strategy
+- **Fail fast**: Stop at first Veltrano type error
+- **Collect multiple errors**: Show all issues in a statement/expression
+- **Suggest fixes**: Provide concrete suggestions for common mistakes
+- **Source locations**: Precise error location reporting
+
+### Integration Points
+- **Parser integration**: Add source location tracking
+- **AST enhancement**: Include type metadata in nodes
+- **Codegen integration**: Use validated type information
+- **CLI integration**: Report type errors before Rust compilation
 
 ## Next Steps
 
-1. **Create basic type infrastructure** (Phase 1)
-2. **Implement simple Rust type parser** (Phase 2)
-3. **Build constraint-based inference engine** (Phase 3)
-4. **Integrate with existing transpiler** (Phase 4)
-5. **Add comprehensive test cases** and examples
-6. **Document type system usage** for language users
+1. **Implement core type infrastructure** with source locations
+2. **Build reference depth validation** rules
+3. **Add lifetime scope tracking** and validation
+4. **Create comprehensive error reporting** system
+5. **Integrate with existing transpiler** pipeline
+6. **Add extensive test coverage** for type rules
