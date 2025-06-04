@@ -492,13 +492,19 @@ impl CodeGenerator {
 
     pub fn camel_to_snake_case(&self, name: &str) -> String {
         let mut result = String::new();
-        let mut chars = name.chars().peekable();
 
-        while let Some(ch) = chars.next() {
-            if ch.is_uppercase() && !result.is_empty() {
+        for ch in name.chars() {
+            if ch == '_' {
+                // Underscore becomes double underscore
+                result.push_str("__");
+            } else if ch.is_uppercase() {
+                // Uppercase becomes underscore + lowercase
                 result.push('_');
+                result.push(ch.to_lowercase().next().unwrap_or(ch));
+            } else {
+                // Lowercase stays as is
+                result.push(ch);
             }
-            result.push(ch.to_lowercase().next().unwrap_or(ch));
         }
 
         result

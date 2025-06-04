@@ -1,6 +1,6 @@
 fn main() {
-    let immutable_var: &str = "Hello";
-    println!("{}", immutable_var);
+    let immutable__var: &str = "Hello";
+    println!("{}", immutable__var);
     let inferred = "World";
     println!("{}", inferred);
     let number: i64 = 42;

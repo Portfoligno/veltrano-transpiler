@@ -70,7 +70,7 @@ Veltrano is designed with these core principles:
 
 - **Familiar Syntax**: Kotlin-like keywords (`fun`, `val`, `if`, `while`)
 - **Type Safety**: Full type annotations and inference
-- **Automatic Conversions**: camelCase to snake_case naming
+- **Automatic Conversions**: Systematic identifier conversion (uppercase→underscore+lowercase, underscore→double)
 - **Comment Preservation**: Optional comment preservation in generated code
 - **Clear Semantics**: Direct mapping to idiomatic Rust patterns
 
@@ -261,14 +261,20 @@ fun infiniteLoop(): Nothing {
 
 ### Naming Conventions
 
-Veltrano automatically converts Kotlin's camelCase to Rust's snake_case:
+Veltrano automatically converts identifiers using these rules:
+- Uppercase letters → underscore + lowercase
+- Underscores → double underscores
 
 | Veltrano (Input) | Rust (Output) |
 |-----------------|---------------|
 | `calculateSum` | `calculate_sum` |
 | `firstName` | `first_name` |
-| `HTTPSConnection` | `h_t_t_p_s_connection` |
+| `HTTPSConnection` | `_h_t_t_p_s_connection` |
 | `getValue` | `get_value` |
+| `CamelCase` | `_camel_case` |
+| `XMLParser` | `_x_m_l_parser` |
+| `var_name` | `var__name` |
+| `mixed_Case` | `mixed___case` |
 
 This applies to all identifiers: functions, variables, and parameters.
 

@@ -90,7 +90,7 @@ fn test_camel_to_snake_case() {
     let codegen = CodeGenerator::with_config(Config::default());
 
     assert_eq!(codegen.camel_to_snake_case("camelCase"), "camel_case");
-    assert_eq!(codegen.camel_to_snake_case("CamelCase"), "camel_case");
+    assert_eq!(codegen.camel_to_snake_case("CamelCase"), "_camel_case");
     assert_eq!(codegen.camel_to_snake_case("simpleVar"), "simple_var");
     assert_eq!(
         codegen.camel_to_snake_case("veryLongCamelCaseVariableName"),
@@ -99,13 +99,15 @@ fn test_camel_to_snake_case() {
     assert_eq!(codegen.camel_to_snake_case("a"), "a");
     assert_eq!(codegen.camel_to_snake_case("aB"), "a_b");
     assert_eq!(codegen.camel_to_snake_case("aBc"), "a_bc");
-    assert_eq!(codegen.camel_to_snake_case("XMLParser"), "x_m_l_parser");
+    assert_eq!(codegen.camel_to_snake_case("XMLParser"), "_x_m_l_parser");
     assert_eq!(
         codegen.camel_to_snake_case("httpURLConnection"),
         "http_u_r_l_connection"
     );
     assert_eq!(codegen.camel_to_snake_case("main"), "main");
     assert_eq!(codegen.camel_to_snake_case("calculateSum"), "calculate_sum");
+    assert_eq!(codegen.camel_to_snake_case("calculate_sum"), "calculate__sum");
+    assert_eq!(codegen.camel_to_snake_case("calculate_Sum"), "calculate___sum");
 }
 
 #[test]
@@ -1197,7 +1199,7 @@ fun main() {
     assert!(rust_code.contains("let negative = -42"));
     assert!(rust_code.contains("let expr = -(2 + 3)"));
     assert!(rust_code.contains("let spaced = -15")); // Space allowed
-    assert!(rust_code.contains("let var_neg = -negative"));
+    assert!(rust_code.contains("let var__neg = -negative"));
     assert!(rust_code.contains("let parens = -(-20)")); // OK with parentheses
 }
 
