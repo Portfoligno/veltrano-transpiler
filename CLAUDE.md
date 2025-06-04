@@ -62,7 +62,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 1. **Automatic TODO Updates**
    - When starting a task: Mark as "IN PROGRESS"
-   - When completing a task: Mark with `[x]` immediately
+   - When completing a task: Remove it from the list
    - When discovering issues: Add new TODOs right away
    - When finding blockers: Document them with the TODO
 
@@ -70,9 +70,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    ```markdown
    ## TODO
    ### Category Name
-   - [x] Completed task
-   - [ ] Pending task - IN PROGRESS (if actively working)
-   - [ ] Future task (with context/reason)
+   - Pending task - IN PROGRESS (if actively working)
+   - Future task (with context/reason)
    ```
 
 3. **Best Practices**
@@ -85,7 +84,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 4. **Continuous Maintenance**
    - Don't wait for user to ask about TODOs
    - Update immediately as work progresses
-   - Remove completed work only if no longer relevant
+   - Remove completed tasks from the list
    - Preserve context for future sessions
 
 ### Value-Driven Update Strategy
