@@ -30,17 +30,17 @@ val str3: Own<Str> = str1.own()  // ✓ Veltrano: OK after explicit conversion
 
 ### 2. Lifetime Scope Validation
 ```veltrano
-fun createPerson(@caller name: Str): Person {
+fun<@caller> createPerson(name: Str@caller): Person@caller {
     val person: Own<Person> = Person(name = name, age = 30)
     return person.ref()  // ✓ Veltrano: lifetime @caller flows correctly
 }
 
-fun invalidLifetime(@local name: Str): Person {
+fun invalidLifetime(name: Str): Person@invalidLifetime {
     val person: Own<Person> = Person(name = name, age = 30)
-    return person.ref()  // ✗ Veltrano: Error - @local cannot escape function
+    return person.ref()  // ✗ Veltrano: Error - @invalidLifetime cannot escape function
 }
 
-fun returnOwned(@caller name: Str): Own<Person> {
+fun<@caller> returnOwned(name: Str@caller): Own<Person> {
     val person = Person(name = name, age = 30)
     return person  // ✓ Veltrano: returning owned value is always safe
 }
@@ -48,14 +48,14 @@ fun returnOwned(@caller name: Str): Own<Person> {
 
 ### 3. Bump Allocation Constraints
 ```veltrano
-fun processData(@caller data: Str): Ref<ProcessedData> {
+fun<@caller> processData(data: Str@caller): Ref<ProcessedData@caller> {
     val processed: Own<ProcessedData> = ProcessedData(content = data)
     return processed.bumpRef()  // ✓ Veltrano: bump allocation in @caller lifetime
 }
 
-fun invalidBump(data: Str): Ref<ProcessedData> {
+fun invalidBump(data: Str): Ref<ProcessedData@invalidBump> {
     val processed: Own<ProcessedData> = ProcessedData(content = data)
-    return processed.bumpRef()  // ✗ Veltrano: Error - no lifetime context for bump
+    return processed.bumpRef()  // ✗ Veltrano: Error - @invalidBump cannot escape
 }
 ```
 
@@ -106,9 +106,16 @@ impl VeltranoTypeChecker {
 pub struct VeltranoType {
     pub base: BaseType,
     pub reference_depth: u32,
-    pub lifetime: Option<String>,
+    pub lifetime: Option<String>,      // Lifetime label (e.g., "@caller", "@a")
     pub mutability: Mutability,
     pub source_location: SourceLocation,
+}
+
+// For nested reference types like Ref@a<Str@b>
+#[derive(Debug, Clone)]
+pub struct NestedReferenceType {
+    pub outer_lifetime: Option<String>,  // @a in Ref@a<...>
+    pub inner_type: VeltranoType,       // Str@b
 }
 
 // Data class constructors always return Own<T>
@@ -121,6 +128,11 @@ impl VeltranoType {
             mutability: Mutability::Owned,
             source_location: SourceLocation::default(),
         }
+    }
+    
+    pub fn with_lifetime(mut self, lifetime: String) -> Self {
+        self.lifetime = Some(lifetime);
+        self
     }
 }
 
@@ -181,10 +193,10 @@ pub enum TypeCheckError {
 4. **Add depth-aware method availability** checking
 
 ### Phase 3: Lifetime Validation
-1. **Parse @lifetime syntax** in function signatures and types
-2. **Track lifetime scopes** and validate escape constraints
-3. **Integrate with bump allocation** lifetime requirements
-4. **Validate lifetime flow** through function calls and returns
+1. **Parse lifetime syntax** - `fun<@a, @b>` declarations and `Type@lifetime` annotations
+2. **Track lifetime scopes** including implicit function lifetimes (e.g., `@functionName`)
+3. **Integrate with bump allocation** - each lifetime has associated bump allocator
+4. **Validate lifetime flow** and prevent function-local lifetimes from escaping
 
 ### Phase 4: Advanced Validation
 1. **Data class field validation** for complete initialization
@@ -196,18 +208,18 @@ pub enum TypeCheckError {
 
 ### Input Veltrano Code
 ```veltrano
-fun processName(@caller input: Str): Ref<Str> {
+fun<@caller> processName(input: Str@caller): Ref<Str@caller> {
     val processed = input.toUpperCase()
     return processed.bumpRef()
 }
 ```
 
 ### Veltrano Type Checking Steps
-1. **Parse @caller lifetime** on input parameter
+1. **Parse lifetime parameter** `<@caller>` in function declaration
 2. **Validate toUpperCase() method** exists for Str type  
-3. **Check bumpRef() availability** for Str type (✓ allowed)
+3. **Check bumpRef() availability** for String type (✓ allowed)
 4. **Validate lifetime flow** @caller → processed → return (✓ valid)
-5. **Verify return type** matches function signature (✓ Ref<Str>)
+5. **Verify return type** matches function signature (✓ Ref<Str@caller>)
 
 ### Generated Rust Code (if validation passes)
 ```rust
@@ -219,8 +231,8 @@ fn process_name<'a>(bump: &'a bumpalo::Bump, input: &'a str) -> &'a str {
 
 ### What Rust Alone Would Allow (but Veltrano Prevents)
 ```veltrano
-fun invalidExample(input: Str): Ref<Str> {
-    return input.bumpRef()  // ✗ Veltrano: No lifetime context for bump
+fun invalidExample(input: Str): Ref<Str@invalidExample> {
+    return input.bumpRef()  // ✗ Veltrano: @invalidExample cannot escape function
 }
 // Rust would generate code that compiles but violates Veltrano's safety model
 ```
