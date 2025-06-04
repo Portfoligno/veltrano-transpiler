@@ -31,25 +31,30 @@ val str3: Own<Str> = str1.own()  // ✓ Veltrano: OK after explicit conversion
 ### 2. Lifetime Scope Validation
 ```veltrano
 fun createPerson(@caller name: Str): Person {
-    val person = Person(name = name, age = 30)
-    return person  // ✓ Veltrano: lifetime @caller flows correctly
+    val person: Own<Person> = Person(name = name, age = 30)
+    return person.ref()  // ✓ Veltrano: lifetime @caller flows correctly
 }
 
 fun invalidLifetime(@local name: Str): Person {
+    val person: Own<Person> = Person(name = name, age = 30)
+    return person.ref()  // ✗ Veltrano: Error - @local cannot escape function
+}
+
+fun returnOwned(@caller name: Str): Own<Person> {
     val person = Person(name = name, age = 30)
-    return person  // ✗ Veltrano: Error - @local cannot escape function
+    return person  // ✓ Veltrano: returning owned value is always safe
 }
 ```
 
 ### 3. Bump Allocation Constraints
 ```veltrano
 fun processData(@caller data: Str): Ref<ProcessedData> {
-    val processed = ProcessedData(content = data)
+    val processed: Own<ProcessedData> = ProcessedData(content = data)
     return processed.bumpRef()  // ✓ Veltrano: bump allocation in @caller lifetime
 }
 
 fun invalidBump(data: Str): Ref<ProcessedData> {
-    val processed = ProcessedData(content = data)
+    val processed: Own<ProcessedData> = ProcessedData(content = data)
     return processed.bumpRef()  // ✗ Veltrano: Error - no lifetime context for bump
 }
 ```
@@ -69,9 +74,13 @@ val strBump = str.bumpRef() // ✓ Veltrano: Str supports bump allocation
 ```veltrano
 data class Person(val name: Str, val age: Int)
 
-val person1 = Person(name = "Alice", age = 30)    // ✓ All fields provided
-val person2 = Person(name = "Bob")                // ✗ Veltrano: Missing required field 'age'
-val person3 = Person(name = "Charlie", extra = 1) // ✗ Veltrano: Unknown field 'extra'
+val person1: Own<Person> = Person(name = "Alice", age = 30)    // ✓ All fields provided
+val person2: Own<Person> = Person(name = "Bob")                // ✗ Veltrano: Missing required field 'age'
+val person3: Own<Person> = Person(name = "Charlie", extra = 1) // ✗ Veltrano: Unknown field 'extra'
+
+// Type inference understands constructor returns Own<T>
+val person4 = Person(name = "David", age = 40)  // Inferred as Own<Person>
+val personRef: Person = person4.ref()           // Convert to reference type
 ```
 
 ## Core Components
@@ -100,6 +109,19 @@ pub struct VeltranoType {
     pub lifetime: Option<String>,
     pub mutability: Mutability,
     pub source_location: SourceLocation,
+}
+
+// Data class constructors always return Own<T>
+impl VeltranoType {
+    pub fn data_class_constructor(class_name: &str) -> Self {
+        VeltranoType {
+            base: BaseType::Custom(class_name.to_string()),
+            reference_depth: 0,  // Own<T> has depth 0
+            lifetime: None,
+            mutability: Mutability::Owned,
+            source_location: SourceLocation::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
