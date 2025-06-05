@@ -3,6 +3,7 @@ mod codegen;
 mod config;
 mod lexer;
 mod parser;
+mod type_checker;
 
 use std::env;
 use std::fs;
@@ -12,6 +13,119 @@ use codegen::CodeGenerator;
 use config::Config;
 use lexer::Lexer;
 use parser::Parser;
+use type_checker::{ErrorAnalyzer, TypeCheckError, VeltranoTypeChecker};
+
+fn format_type_error(error: &TypeCheckError) -> String {
+    match error {
+        TypeCheckError::TypeMismatch {
+            expected,
+            actual,
+            location,
+        } => {
+            format!(
+                "Type mismatch at {}:{}: expected {:?}, found {:?}",
+                location.file, location.line, expected, actual
+            )
+        }
+        TypeCheckError::TypeMismatchWithSuggestion {
+            expected,
+            actual,
+            location,
+            suggestion,
+        } => {
+            format!(
+                "Type mismatch at {}:{}: expected {:?}, found {:?}. Try: {}",
+                location.file, location.line, expected, actual, suggestion
+            )
+        }
+        TypeCheckError::MethodNotFound {
+            receiver_type,
+            method,
+            location,
+        } => {
+            format!(
+                "Method '{}' not found on type {:?} at {}:{}",
+                method, receiver_type, location.file, location.line
+            )
+        }
+        TypeCheckError::MethodNotFoundWithSuggestion {
+            receiver_type,
+            method,
+            location,
+            suggestion,
+        } => {
+            format!(
+                "Method '{}' not found on type {:?} at {}:{}. {}",
+                method, receiver_type, location.file, location.line, suggestion
+            )
+        }
+        TypeCheckError::FieldNotFound {
+            object_type,
+            field,
+            location,
+        } => {
+            format!(
+                "Field '{}' not found on type {:?} at {}:{}",
+                field, object_type, location.file, location.line
+            )
+        }
+        TypeCheckError::FieldNotFoundWithSuggestion {
+            object_type,
+            field,
+            location,
+            suggestion,
+        } => {
+            format!(
+                "Field '{}' not found on type {:?} at {}:{}. {}",
+                field, object_type, location.file, location.line, suggestion
+            )
+        }
+        TypeCheckError::ArgumentCountMismatch {
+            function,
+            expected,
+            actual,
+            location,
+        } => {
+            format!(
+                "Function '{}' expects {} arguments, but {} were provided at {}:{}",
+                function, expected, actual, location.file, location.line
+            )
+        }
+        TypeCheckError::IndexingNotSupported {
+            object_type,
+            index_type,
+            location,
+        } => {
+            format!(
+                "Indexing not supported: cannot index type {:?} with type {:?} at {}:{}",
+                object_type, index_type, location.file, location.line
+            )
+        }
+        TypeCheckError::BinaryOperatorNotSupported {
+            operator,
+            left_type,
+            right_type,
+            location,
+        } => {
+            format!(
+                "Binary operator {:?} not supported for types {:?} and {:?} at {}:{}",
+                operator, left_type, right_type, location.file, location.line
+            )
+        }
+        TypeCheckError::VariableNotFound { name, location } => {
+            format!(
+                "Variable '{}' not found at {}:{}",
+                name, location.file, location.line
+            )
+        }
+        TypeCheckError::FunctionNotFound { name, location } => {
+            format!(
+                "Function '{}' not found at {}:{}",
+                name, location.file, location.line
+            )
+        }
+    }
+}
 
 fn print_help(program_name: &str) {
     println!("Veltrano Transpiler {}", env!("CARGO_PKG_VERSION"));
@@ -105,6 +219,19 @@ fn main() {
             process::exit(1);
         }
     };
+
+    // Type checking phase
+    let mut type_checker = VeltranoTypeChecker::new();
+    if let Err(errors) = type_checker.check_program(&program) {
+        eprintln!("Type checking failed with {} error(s):", errors.len());
+
+        let analyzer = ErrorAnalyzer;
+        for error in errors {
+            let enhanced_error = analyzer.enhance_error(error);
+            eprintln!("  {}", format_type_error(&enhanced_error));
+        }
+        process::exit(1);
+    }
 
     let mut codegen = CodeGenerator::with_config(config);
     let rust_code = codegen.generate(&program);
