@@ -1,0 +1,209 @@
+use veltrano::*;
+
+#[test]
+fn test_basic_type_checking() {
+    let code = r#"
+    fun main() {
+        val x: Int = 42
+        val y: Bool = true
+    }
+    "#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(code.to_string(), config);
+    let tokens = lexer.tokenize();
+
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut type_checker = VeltranoTypeChecker::new();
+    let result = type_checker.check_program(&program);
+
+    assert!(
+        result.is_ok(),
+        "Type checking should succeed for basic program"
+    );
+}
+
+#[test]
+fn test_type_mismatch_detection() {
+    let code = r#"
+    fun processInt(x: Int): Bool {
+        return true
+    }
+    
+    fun main() {
+        val result = processInt(true)  // Should cause type error
+    }
+    "#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(code.to_string(), config);
+    let tokens = lexer.tokenize();
+
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut type_checker = VeltranoTypeChecker::new();
+    let result = type_checker.check_program(&program);
+
+    assert!(
+        result.is_err(),
+        "Type checking should fail for type mismatch"
+    );
+
+    if let Err(errors) = result {
+        assert!(!errors.is_empty(), "Should have at least one type error");
+
+        // Check that we have a type mismatch error
+        let has_type_mismatch = errors.iter().any(|err| {
+            matches!(
+                err,
+                TypeCheckError::TypeMismatch { .. }
+                    | TypeCheckError::TypeMismatchWithSuggestion { .. }
+            )
+        });
+        assert!(has_type_mismatch, "Should have a type mismatch error");
+    }
+}
+
+#[test]
+fn test_variable_not_found() {
+    let code = r#"
+    fun main() {
+        val x = undefinedVariable
+    }
+    "#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(code.to_string(), config);
+    let tokens = lexer.tokenize();
+
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut type_checker = VeltranoTypeChecker::new();
+    let result = type_checker.check_program(&program);
+
+    assert!(
+        result.is_err(),
+        "Type checking should fail for undefined variable"
+    );
+
+    if let Err(errors) = result {
+        let has_var_not_found = errors
+            .iter()
+            .any(|err| matches!(err, TypeCheckError::VariableNotFound { .. }));
+        assert!(has_var_not_found, "Should have a variable not found error");
+    }
+}
+
+#[test]
+fn test_ref_method_conversion() {
+    let code = r#"
+    fun takeString(s: String): Int {
+        return 42
+    }
+    
+    fun main() {
+        val owned: Own<String> = "hello".toString()
+        val result = takeString(owned.ref())  // Should work with explicit conversion
+    }
+    "#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(code.to_string(), config);
+    let tokens = lexer.tokenize();
+
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut type_checker = VeltranoTypeChecker::new();
+    let result = type_checker.check_program(&program);
+
+    if let Err(errors) = &result {
+        for error in errors {
+            eprintln!("Type check error: {:?}", error);
+        }
+    }
+    assert!(
+        result.is_ok(),
+        "Type checking should succeed with explicit .ref() conversion"
+    );
+}
+
+#[test]
+fn test_strict_type_checking_prevents_implicit_conversion() {
+    let code = r#"
+    fun takeString(s: String): Int {
+        return 42
+    }
+    
+    fun main() {
+        val owned: Own<String> = "hello".toString()
+        val result = takeString(owned)  // Should fail without explicit conversion
+    }
+    "#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let mut lexer = Lexer::with_config(code.to_string(), config);
+    let tokens = lexer.tokenize();
+
+    let mut parser = Parser::new(tokens);
+    let program = parser.parse().expect("Parse should succeed");
+
+    let mut type_checker = VeltranoTypeChecker::new();
+    let result = type_checker.check_program(&program);
+
+    assert!(
+        result.is_err(),
+        "Type checking should fail without explicit conversion"
+    );
+}
+
+#[test]
+fn test_error_analyzer_suggestions() {
+    use veltrano::*;
+
+    let error = TypeCheckError::TypeMismatch {
+        expected: VeltranoType {
+            base: VeltranoBaseType::String,
+            ownership: Ownership::Borrowed,
+            mutability: Mutability::Immutable,
+        },
+        actual: VeltranoType {
+            base: VeltranoBaseType::String,
+            ownership: Ownership::Owned,
+            mutability: Mutability::Immutable,
+        },
+        location: SourceLocation {
+            file: "test.vl".to_string(),
+            line: 1,
+            column: 1,
+            source_line: "test".to_string(),
+        },
+    };
+
+    let analyzer = ErrorAnalyzer;
+    let enhanced = analyzer.enhance_error(error);
+
+    match enhanced {
+        TypeCheckError::TypeMismatchWithSuggestion { suggestion, .. } => {
+            assert!(
+                suggestion.contains(".ref()"),
+                "Should suggest .ref() conversion"
+            );
+        }
+        _ => panic!("Should have been enhanced with suggestion"),
+    }
+}
