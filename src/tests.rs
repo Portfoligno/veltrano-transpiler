@@ -106,8 +106,14 @@ fn test_camel_to_snake_case() {
     );
     assert_eq!(codegen.camel_to_snake_case("main"), "main");
     assert_eq!(codegen.camel_to_snake_case("calculateSum"), "calculate_sum");
-    assert_eq!(codegen.camel_to_snake_case("calculate_sum"), "calculate__sum");
-    assert_eq!(codegen.camel_to_snake_case("calculate_Sum"), "calculate___sum");
+    assert_eq!(
+        codegen.camel_to_snake_case("calculate_sum"),
+        "calculate__sum"
+    );
+    assert_eq!(
+        codegen.camel_to_snake_case("calculate_Sum"),
+        "calculate___sum"
+    );
 }
 
 #[test]
