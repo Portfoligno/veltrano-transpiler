@@ -1,9 +1,42 @@
-use crate::codegen::CodeGenerator;
-use crate::config::Config;
-use crate::lexer::Lexer;
-use crate::parser::Parser;
+use veltrano::codegen::CodeGenerator;
+use veltrano::config::Config;
+use veltrano::lexer::Lexer;
+use veltrano::parser::Parser;
 use std::fs;
 use std::process::Command;
+
+mod config_test_utils;
+
+#[test]
+fn test_camel_to_snake_case() {
+    let codegen = CodeGenerator::with_config(Config::default());
+
+    assert_eq!(codegen.camel_to_snake_case("camelCase"), "camel_case");
+    assert_eq!(codegen.camel_to_snake_case("CamelCase"), "_camel_case");
+    assert_eq!(codegen.camel_to_snake_case("simpleVar"), "simple_var");
+    assert_eq!(
+        codegen.camel_to_snake_case("veryLongCamelCaseVariableName"),
+        "very_long_camel_case_variable_name"
+    );
+    assert_eq!(codegen.camel_to_snake_case("a"), "a");
+    assert_eq!(codegen.camel_to_snake_case("aB"), "a_b");
+    assert_eq!(codegen.camel_to_snake_case("aBc"), "a_bc");
+    assert_eq!(codegen.camel_to_snake_case("XMLParser"), "_x_m_l_parser");
+    assert_eq!(
+        codegen.camel_to_snake_case("httpURLConnection"),
+        "http_u_r_l_connection"
+    );
+    assert_eq!(codegen.camel_to_snake_case("main"), "main");
+    assert_eq!(codegen.camel_to_snake_case("calculateSum"), "calculate_sum");
+    assert_eq!(
+        codegen.camel_to_snake_case("calculate_sum"),
+        "calculate__sum"
+    );
+    assert_eq!(
+        codegen.camel_to_snake_case("calculate_Sum"),
+        "calculate___sum"
+    );
+}
 
 // Helper function to separate imports from code
 fn separate_imports_and_code(rust_code: &str) -> (String, String) {
@@ -83,37 +116,6 @@ bumpalo = "3.0"
     }
 
     Ok(())
-}
-
-#[test]
-fn test_camel_to_snake_case() {
-    let codegen = CodeGenerator::with_config(Config::default());
-
-    assert_eq!(codegen.camel_to_snake_case("camelCase"), "camel_case");
-    assert_eq!(codegen.camel_to_snake_case("CamelCase"), "_camel_case");
-    assert_eq!(codegen.camel_to_snake_case("simpleVar"), "simple_var");
-    assert_eq!(
-        codegen.camel_to_snake_case("veryLongCamelCaseVariableName"),
-        "very_long_camel_case_variable_name"
-    );
-    assert_eq!(codegen.camel_to_snake_case("a"), "a");
-    assert_eq!(codegen.camel_to_snake_case("aB"), "a_b");
-    assert_eq!(codegen.camel_to_snake_case("aBc"), "a_bc");
-    assert_eq!(codegen.camel_to_snake_case("XMLParser"), "_x_m_l_parser");
-    assert_eq!(
-        codegen.camel_to_snake_case("httpURLConnection"),
-        "http_u_r_l_connection"
-    );
-    assert_eq!(codegen.camel_to_snake_case("main"), "main");
-    assert_eq!(codegen.camel_to_snake_case("calculateSum"), "calculate_sum");
-    assert_eq!(
-        codegen.camel_to_snake_case("calculate_sum"),
-        "calculate__sum"
-    );
-    assert_eq!(
-        codegen.camel_to_snake_case("calculate_Sum"),
-        "calculate___sum"
-    );
 }
 
 #[test]
@@ -1880,7 +1882,7 @@ fun main() {
 #[test]
 fn test_expected_outputs() {
     // Get predefined config mappings
-    let configs = Config::test_configs();
+    let configs = config_test_utils::test_configs();
 
     // Find all expected output files
     let examples_dir = std::path::Path::new("examples");
@@ -2006,3 +2008,4 @@ fn test_expected_outputs() {
         println!("Validated {} expected output files", expected_files_count);
     }
 }
+

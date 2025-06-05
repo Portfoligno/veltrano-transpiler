@@ -3,8 +3,7 @@ pub mod codegen;
 pub mod config;
 pub mod lexer;
 pub mod parser;
-#[cfg(test)]
-mod tests;
+pub mod rust_interop;
 
 pub use ast::*;
 pub use codegen::*;
