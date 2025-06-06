@@ -407,7 +407,7 @@ fn test_while_true_to_loop_conversion() {
     let config = Config {
         preserve_comments: false,
     };
-    let actual_rust = transpile(veltrano_code, config, true) // skip_type_check for Nothing return type
+    let actual_rust = transpile(veltrano_code, config, false) // enable type checking
         .expect("Transpilation should succeed");
 
     // Check that the output contains "loop" instead of "while true"
@@ -564,7 +564,7 @@ fn test_own_value_type_validation() {
     transpile(
         r#"fun main() { val text: Own<String> = "hello".toString() }"#,
         config.clone(),
-        true, // skip_type_check
+        false,
     )
     .expect("Own<String> should be accepted");
 
@@ -662,7 +662,7 @@ fn test_clone_ufcs_generation() {
         preserve_comments: false,
     };
     let rust_code =
-        transpile(veltrano_code, config, true).expect("Clone UFCS test should parse and generate");
+        transpile(veltrano_code, config, false).expect("Clone UFCS test should parse and generate");
 
     // Check UFCS generation for clone
     assert!(
@@ -790,7 +790,7 @@ fn test_readme_table_examples() {
             example,
             config.clone(),
             &format!("table_{}", index),
-            true, // skip_type_check - table examples may use undefined things
+            false,
             &variable_injections,
         );
 
@@ -806,7 +806,7 @@ fn test_readme_table_examples() {
                     &wrapped_example,
                     config,
                     &format!("table_{}_wrapped", index),
-                    true, // skip_type_check
+                    false,
                     &variable_injections,
                 ) {
                     Ok(_) => {
@@ -930,8 +930,7 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(source, config, true) // skip_type_check for preimported methods
-        .expect("Transpilation should succeed");
+    let rust_code = transpile(source, config, false).expect("Transpilation should succeed");
 
     // Check pre-imported methods
     assert!(rust_code.contains("Clone::clone(text)"));
@@ -953,7 +952,7 @@ fun main() {
         preserve_comments: false,
     };
     let rust_code =
-        transpile(source, config, true).expect("Import priority test should parse and generate");
+        transpile(source, config, false).expect("Import priority test should parse and generate");
 
     // Debug: print the generated code
     if rust_code.contains("Clone::clone") {
@@ -1021,8 +1020,8 @@ data class Point(val x: Int, val y: Int)
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(source1, config.clone(), true) // skip_type_check for data classes
-        .expect("Transpilation should succeed");
+    let rust_code =
+        transpile(source1, config.clone(), false).expect("Transpilation should succeed");
 
     // Check struct generation without lifetime
     assert!(rust_code.contains("#[derive(Debug, Clone)]"));
@@ -1039,8 +1038,8 @@ data class Point(val x: Int, val y: Int)
 data class Person(val name: String, val age: Int)
 "#;
 
-    let rust_code2 = transpile(source2, config.clone(), true) // skip_type_check for data classes
-        .expect("Transpilation should succeed");
+    let rust_code2 =
+        transpile(source2, config.clone(), false).expect("Transpilation should succeed");
 
     // Check struct generation with lifetime
     assert!(rust_code2.contains("#[derive(Debug, Clone)]"));
@@ -1053,8 +1052,7 @@ data class Person(val name: String, val age: Int)
 data class Container(val item: MyType, val count: Int)
 "#;
 
-    let rust_code3 = transpile(source3, config, true) // skip_type_check for data classes
-        .expect("Transpilation should succeed");
+    let rust_code3 = transpile(source3, config, false).expect("Transpilation should succeed");
 
     // Check struct generation with custom type (needs lifetime)
     assert!(rust_code3.contains("pub struct Container<'a> {"));
@@ -1219,7 +1217,7 @@ fun main() {
     let config = Config {
         preserve_comments: true,
     };
-    let rust_code = transpile(veltrano_code, config, true) // preserve_comments=true, skip_type_check for println
+    let rust_code = transpile(veltrano_code, config, false)
         .expect("Failed to transpile contextual indentation test");
 
     // Check that comments have proper indentation without double indentation
