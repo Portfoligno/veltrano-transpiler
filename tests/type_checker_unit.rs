@@ -143,16 +143,8 @@ fn test_error_analyzer_suggestions() {
     use veltrano::*;
 
     let error = TypeCheckError::TypeMismatch {
-        expected: VeltranoType {
-            base: VeltranoBaseType::String,
-            ownership: Ownership::Borrowed,
-            mutability: Mutability::Immutable,
-        },
-        actual: VeltranoType {
-            base: VeltranoBaseType::String,
-            ownership: Ownership::Owned,
-            mutability: Mutability::Immutable,
-        },
+        expected: VeltranoType::string(), // String is naturally referenced in Veltrano
+        actual: VeltranoType::own(VeltranoType::string()), // Own<String>
         location: SourceLocation {
             file: "test.vl".to_string(),
             line: 1,

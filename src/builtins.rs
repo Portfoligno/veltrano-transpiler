@@ -1,9 +1,7 @@
 /// Centralized built-in functions and methods for Veltrano
 /// This module consolidates all built-in function definitions that were previously
 /// scattered across codegen.rs, rust_interop.rs, and implicit in type checking
-use crate::type_checker::{
-    FunctionSignature, MethodSignature, Mutability, Ownership, VeltranoBaseType, VeltranoType,
-};
+use crate::type_checker::{FunctionSignature, MethodSignature, TypeConstructor, VeltranoType};
 use std::collections::HashMap;
 
 /// Categories of built-in functions
@@ -28,13 +26,6 @@ pub enum BuiltinMethodKind {
         required_trait: String,
         parameters: Vec<VeltranoType>,
         return_type_fn: fn(&VeltranoType) -> VeltranoType, // Function to compute return type based on receiver
-    },
-    /// Ownership conversion methods (always available on owned types)
-    OwnershipConversion {
-        method_name: String,
-        source_ownership: Ownership,
-        target_ownership: Ownership,
-        return_type_fn: fn(&VeltranoType) -> VeltranoType,
     },
     /// Special methods with custom logic
     SpecialMethod {
@@ -82,16 +73,8 @@ impl BuiltinRegistry {
             "MutRef".to_string(),
             BuiltinFunctionKind::SpecialFunction {
                 function_name: "MutRef".to_string(),
-                parameters: vec![VeltranoType {
-                    base: VeltranoBaseType::Custom("T".to_string()), // Generic parameter
-                    ownership: Ownership::Owned,
-                    mutability: Mutability::Immutable,
-                }],
-                return_type: VeltranoType {
-                    base: VeltranoBaseType::Custom("T".to_string()),
-                    ownership: Ownership::MutBorrowed,
-                    mutability: Mutability::Mutable,
-                },
+                parameters: vec![VeltranoType::custom("T".to_string())], // Generic parameter
+                return_type: VeltranoType::mut_ref(VeltranoType::custom("T".to_string())),
             },
         );
     }
@@ -107,10 +90,11 @@ impl BuiltinRegistry {
                 parameters: vec![],
                 return_type_fn: |receiver| {
                     // clone() returns an owned version of the type
-                    VeltranoType {
-                        base: receiver.base.clone(),
-                        ownership: Ownership::Owned,
-                        mutability: Mutability::Immutable,
+                    // If it's a naturally referenced type, wrap in Own<>
+                    if receiver.is_naturally_referenced() {
+                        VeltranoType::own(receiver.clone())
+                    } else {
+                        receiver.clone() // Already owned for value types
                     }
                 },
             },
@@ -122,11 +106,7 @@ impl BuiltinRegistry {
                 method_name: "toString".to_string(),
                 required_trait: "ToString".to_string(),
                 parameters: vec![],
-                return_type_fn: |_| VeltranoType {
-                    base: VeltranoBaseType::String,
-                    ownership: Ownership::Owned,
-                    mutability: Mutability::Immutable,
-                },
+                return_type_fn: |_| VeltranoType::own(VeltranoType::string()),
             },
         );
 
@@ -138,32 +118,8 @@ impl BuiltinRegistry {
                 receiver_type_filter: |_| true, // Available on all types
                 parameters: vec![],
                 return_type_fn: |receiver| {
-                    match &receiver.ownership {
-                        Ownership::Owned => {
-                            // Own<T> → T (borrowing the owned value)
-                            VeltranoType {
-                                base: receiver.base.clone(),
-                                ownership: Ownership::Borrowed,
-                                mutability: Mutability::Immutable,
-                            }
-                        }
-                        Ownership::Borrowed => {
-                            // T → Ref<T> (taking reference of borrowed value)
-                            VeltranoType {
-                                base: receiver.base.clone(),
-                                ownership: Ownership::Borrowed,
-                                mutability: Mutability::Immutable,
-                            }
-                        }
-                        Ownership::MutBorrowed => {
-                            // MutRef<T> → Ref<MutRef<T>> (immutable reference to mutable reference)
-                            VeltranoType {
-                                base: receiver.base.clone(),
-                                ownership: Ownership::Borrowed,
-                                mutability: Mutability::Immutable,
-                            }
-                        }
-                    }
+                    // ref() creates an immutable reference
+                    VeltranoType::ref_type(receiver.clone())
                 },
             },
         );
@@ -175,34 +131,14 @@ impl BuiltinRegistry {
                 receiver_type_filter: |receiver| {
                     // Available on owned types and mutable references
                     matches!(
-                        receiver.ownership,
-                        Ownership::Owned | Ownership::MutBorrowed
+                        receiver.constructor,
+                        TypeConstructor::Own | TypeConstructor::MutRef
                     )
                 },
                 parameters: vec![],
                 return_type_fn: |receiver| {
-                    match &receiver.ownership {
-                        Ownership::Owned => {
-                            // Own<T> → MutRef<Own<T>> (mutable reference to owned value)
-                            VeltranoType {
-                                base: receiver.base.clone(),
-                                ownership: Ownership::MutBorrowed,
-                                mutability: Mutability::Mutable,
-                            }
-                        }
-                        Ownership::MutBorrowed => {
-                            // MutRef<T> → MutRef<MutRef<T>> (mutable reference to mutable reference)
-                            VeltranoType {
-                                base: receiver.base.clone(),
-                                ownership: Ownership::MutBorrowed,
-                                mutability: Mutability::Mutable,
-                            }
-                        }
-                        Ownership::Borrowed => {
-                            // This case is filtered out, but included for completeness
-                            receiver.clone()
-                        }
-                    }
+                    // mutRef() creates a mutable reference
+                    VeltranoType::mut_ref(receiver.clone())
                 },
             },
         );
@@ -213,16 +149,18 @@ impl BuiltinRegistry {
             BuiltinMethodKind::SpecialMethod {
                 method_name: "toSlice".to_string(),
                 receiver_type_filter: |receiver| {
-                    // toSlice is available on Vec types
-                    matches!(receiver.base, VeltranoBaseType::Vec(_))
+                    // toSlice is available on Vec<T> types
+                    matches!(receiver.constructor, TypeConstructor::Vec)
                 },
                 parameters: vec![],
                 return_type_fn: |receiver| {
-                    if let VeltranoBaseType::Vec(element_type) = &receiver.base {
-                        VeltranoType {
-                            base: VeltranoBaseType::Slice(element_type.clone()),
-                            ownership: Ownership::Borrowed,
-                            mutability: Mutability::Immutable,
+                    if let TypeConstructor::Vec = receiver.constructor {
+                        // Vec<T> → Ref<Slice<T>> (slice is naturally a reference type)
+                        if let Some(inner) = receiver.inner() {
+                            VeltranoType::ref_type(inner.clone())
+                        } else {
+                            // Fallback
+                            receiver.clone()
                         }
                     } else {
                         // Fallback (should not happen due to filter)
@@ -240,33 +178,8 @@ impl BuiltinRegistry {
                 receiver_type_filter: |_| true, // Available on all types for bump allocation
                 parameters: vec![],
                 return_type_fn: |receiver| {
-                    // bumpRef creates a bump-allocated reference with same ownership pattern as ref()
-                    match &receiver.ownership {
-                        Ownership::Owned => {
-                            // Own<T> → T (bump-allocated borrowing)
-                            VeltranoType {
-                                base: receiver.base.clone(),
-                                ownership: Ownership::Borrowed,
-                                mutability: Mutability::Immutable,
-                            }
-                        }
-                        Ownership::Borrowed => {
-                            // T → Ref<T> (bump-allocated reference)
-                            VeltranoType {
-                                base: receiver.base.clone(),
-                                ownership: Ownership::Borrowed,
-                                mutability: Mutability::Immutable,
-                            }
-                        }
-                        Ownership::MutBorrowed => {
-                            // MutRef<T> → Ref<MutRef<T>> (bump-allocated immutable reference)
-                            VeltranoType {
-                                base: receiver.base.clone(),
-                                ownership: Ownership::Borrowed,
-                                mutability: Mutability::Immutable,
-                            }
-                        }
-                    }
+                    // bumpRef creates a bump-allocated reference, same as ref()
+                    VeltranoType::ref_type(receiver.clone())
                 },
             },
         );
@@ -313,7 +226,7 @@ impl BuiltinRegistry {
     pub fn get_function_signatures(&self) -> Vec<FunctionSignature> {
         let mut signatures = Vec::new();
 
-        for (name, kind) in &self.functions {
+        for (_name, kind) in &self.functions {
             match kind {
                 BuiltinFunctionKind::RustMacro { .. } => {
                     // Skip macros - they don't participate in type checking
@@ -342,7 +255,7 @@ impl BuiltinRegistry {
     ) -> Vec<MethodSignature> {
         let mut signatures = Vec::new();
 
-        for (method_name, method_variants) in &self.methods {
+        for (_method_name, method_variants) in &self.methods {
             for method_kind in method_variants {
                 match method_kind {
                     BuiltinMethodKind::TraitMethod {
@@ -358,22 +271,6 @@ impl BuiltinRegistry {
                             parameters: parameters.clone(),
                             return_type: return_type_fn(receiver_type),
                         });
-                    }
-                    BuiltinMethodKind::OwnershipConversion {
-                        method_name,
-                        source_ownership,
-                        return_type_fn,
-                        ..
-                    } => {
-                        // Only include if the receiver has the required ownership
-                        if receiver_type.ownership == *source_ownership {
-                            signatures.push(MethodSignature {
-                                name: method_name.clone(),
-                                receiver_type: receiver_type.clone(),
-                                parameters: vec![],
-                                return_type: return_type_fn(receiver_type),
-                            });
-                        }
                     }
                     BuiltinMethodKind::SpecialMethod {
                         method_name,

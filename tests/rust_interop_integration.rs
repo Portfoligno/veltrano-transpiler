@@ -98,7 +98,7 @@ fn test_real_rust_type_parsing_and_conversion() {
         );
 
         let vt = veltrano_type.unwrap();
-        println!("{} -> {:?} (depth: {})", input, vt.base, vt.reference_depth);
+        println!("{} -> {:?}", input, vt.constructor);
     }
 }
 
@@ -123,10 +123,7 @@ fn test_complex_rust_signatures() {
                 // Try to convert to Veltrano type
                 match rust_type.to_veltrano_type() {
                     Ok(veltrano_type) => {
-                        println!(
-                            "  Converted to Veltrano: {:?} (depth: {})",
-                            veltrano_type.base, veltrano_type.reference_depth
-                        );
+                        println!("  Converted to Veltrano: {:?}", veltrano_type.constructor);
                     }
                     Err(e) => {
                         println!("  Conversion failed: {}", e);
@@ -536,42 +533,36 @@ fn test_stdlib_type_extraction() {
 
 #[test]
 fn test_integration_with_veltrano_type_system() {
-    use veltrano::ast::BaseType;
+    use veltrano::type_checker::{TypeConstructor, VeltranoType};
 
     // Test that extracted Rust types integrate properly with the Veltrano type system
     let rust_types_to_test = vec![
-        (RustType::I32, BaseType::Int, 0),
-        (RustType::Bool, BaseType::Bool, 0),
-        (RustType::Unit, BaseType::Unit, 0),
-        (RustType::String, BaseType::String, 1),
-        (RustType::Str, BaseType::Str, 1),
+        (RustType::I32, VeltranoType::int()),
+        (RustType::Bool, VeltranoType::bool()),
+        (RustType::Unit, VeltranoType::unit()),
+        (RustType::String, VeltranoType::string()),
+        (RustType::Str, VeltranoType::str()),
         (
             RustType::Ref {
                 lifetime: None,
                 inner: Box::new(RustType::I32),
             },
-            BaseType::Int,
-            1,
+            VeltranoType::ref_type(VeltranoType::int()),
         ),
         (
             RustType::Custom {
                 name: "MyType".to_string(),
                 generics: vec![],
             },
-            BaseType::Custom("MyType".to_string()),
-            1,
+            VeltranoType::custom("MyType".to_string()),
         ),
     ];
 
-    for (rust_type, expected_base, expected_depth) in rust_types_to_test {
+    for (rust_type, expected_veltrano_type) in rust_types_to_test {
         match rust_type.to_veltrano_type() {
             Ok(veltrano_type) => {
-                assert_eq!(veltrano_type.base, expected_base);
-                assert_eq!(veltrano_type.reference_depth, expected_depth);
-                println!(
-                    "✓ {:?} -> {:?} (depth: {})",
-                    rust_type, expected_base, expected_depth
-                );
+                assert_eq!(veltrano_type, expected_veltrano_type);
+                println!("✓ {:?} -> {:?}", rust_type, veltrano_type);
             }
             Err(e) => {
                 panic!("Failed to convert {:?} to Veltrano type: {}", rust_type, e);

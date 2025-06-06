@@ -548,7 +548,7 @@ fn test_own_value_type_validation() {
     assert_parse_error(
         r#"fun main() { val x: Own<Int> = 42 }"#,
         config.clone(),
-        Some("Cannot use Own<Int>. Int is already owned"),
+        Some("Cannot use Own<Int>. This type is already owned."),
     )
     .expect("Own<Int> should be rejected");
 
@@ -556,7 +556,7 @@ fn test_own_value_type_validation() {
     assert_parse_error(
         r#"fun main() { val flag: Own<Bool> = true }"#,
         config.clone(),
-        Some("Bool is already owned"),
+        Some("This type is already owned"),
     )
     .expect("Own<Bool> should be rejected");
 
@@ -588,7 +588,7 @@ fn test_own_value_type_validation() {
     assert_parse_error(
         r#"fun main() { val x: Own<Own<String>> = something }"#,
         config,
-        Some("Cannot use Own<> on already owned type"),
+        Some("Cannot use Own<Own<T>>. This creates double ownership."),
     )
     .expect("Own<Own<T>> should be rejected");
 }
@@ -919,7 +919,7 @@ fun main() {
 fn test_preimported_methods() {
     let source = r#"
 fun main() {
-    val text: Own<String> = "Hello"
+    val text: Own<String> = "Hello".toString()
     val cloned = text.clone()
     val string = text.toString()
     val reference = text.ref()

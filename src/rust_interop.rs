@@ -4,7 +4,7 @@
 /// 2. Parse Rust type signatures
 /// 3. Convert between Rust and Veltrano type representations
 /// 4. Dynamically query Rust toolchain for type information
-use crate::ast::{BaseType, Type};
+use crate::type_checker::VeltranoType;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -99,7 +99,7 @@ pub enum RustType {
 
 impl RustType {
     /// Convert a Rust type to a Veltrano type
-    pub fn to_veltrano_type(&self) -> Result<Type, String> {
+    pub fn to_veltrano_type(&self) -> Result<VeltranoType, String> {
         match self {
             // Primitives
             RustType::I32
@@ -107,83 +107,51 @@ impl RustType {
             | RustType::ISize
             | RustType::U32
             | RustType::U64
-            | RustType::USize => Ok(Type {
-                base: BaseType::Int,
-                reference_depth: 0,
-            }),
-            RustType::Bool => Ok(Type {
-                base: BaseType::Bool,
-                reference_depth: 0,
-            }),
-            RustType::Unit => Ok(Type {
-                base: BaseType::Unit,
-                reference_depth: 0,
-            }),
-            RustType::Never => Ok(Type {
-                base: BaseType::Nothing,
-                reference_depth: 0,
-            }),
+            | RustType::USize => Ok(VeltranoType::int()),
+            RustType::Bool => Ok(VeltranoType::bool()),
+            RustType::Unit => Ok(VeltranoType::unit()),
+            RustType::Never => Ok(VeltranoType::nothing()),
 
             // String types
-            RustType::Str => Ok(Type {
-                base: BaseType::Str,
-                reference_depth: 1, // Str is always a reference in Veltrano
-            }),
-            RustType::String => Ok(Type {
-                base: BaseType::String,
-                reference_depth: 1,
-            }),
+            RustType::Str => Ok(VeltranoType::str()),
+            RustType::String => Ok(VeltranoType::string()),
 
             // References
             RustType::Ref { inner, .. } => {
                 let inner_type = inner.to_veltrano_type()?;
-                Ok(Type {
-                    base: inner_type.base,
-                    reference_depth: inner_type.reference_depth + 1,
-                })
+                Ok(VeltranoType::ref_type(inner_type))
             }
             RustType::MutRef { inner, .. } => {
                 let inner_type = inner.to_veltrano_type()?;
-                Ok(Type {
-                    base: BaseType::MutRef(Box::new(inner_type)),
-                    reference_depth: 1,
-                })
+                Ok(VeltranoType::mut_ref(inner_type))
             }
 
             // Smart pointers
             RustType::Box(inner) => {
                 let inner_type = inner.to_veltrano_type()?;
-                Ok(Type {
-                    base: BaseType::Box(Box::new(inner_type)),
-                    reference_depth: 0,
-                })
+                Ok(VeltranoType::boxed(inner_type))
             }
 
             // Generic types
-            RustType::Vec(_) => Ok(Type {
-                base: BaseType::Custom("Vec".to_string()),
-                reference_depth: 1,
-            }),
-            RustType::Option(_) => Ok(Type {
-                base: BaseType::Custom("Option".to_string()),
-                reference_depth: 1,
-            }),
-            RustType::Result { .. } => Ok(Type {
-                base: BaseType::Custom("Result".to_string()),
-                reference_depth: 1,
-            }),
+            RustType::Vec(inner) => {
+                let inner_type = inner.to_veltrano_type()?;
+                Ok(VeltranoType::vec(inner_type))
+            }
+            RustType::Option(inner) => {
+                let inner_type = inner.to_veltrano_type()?;
+                Ok(VeltranoType::option(inner_type))
+            }
+            RustType::Result { ok, err } => {
+                let ok_type = ok.to_veltrano_type()?;
+                let err_type = err.to_veltrano_type()?;
+                Ok(VeltranoType::result(ok_type, err_type))
+            }
 
             // Custom types
-            RustType::Custom { name, .. } => Ok(Type {
-                base: BaseType::Custom(name.clone()),
-                reference_depth: 1,
-            }),
+            RustType::Custom { name, .. } => Ok(VeltranoType::custom(name.clone())),
 
             // Generic parameters
-            RustType::Generic(name) => Ok(Type {
-                base: BaseType::Custom(format!("${}", name)), // Prefix with $ to indicate generic
-                reference_depth: 1,
-            }),
+            RustType::Generic(name) => Ok(VeltranoType::custom(format!("${}", name))), // Prefix with $ to indicate generic
 
             _ => Err(format!("Unsupported Rust type for conversion: {:?}", self)),
         }

@@ -6,13 +6,18 @@ use common::parse_and_type_check;
 #[test]
 fn test_chained_ref_conversions() {
     let code = r#"
-    fun takeStr(s: Str): Int {
+    fun takeString(s: String): Int {
         return 42
+    }
+    
+    fun takeRefString(s: Ref<String>): Int {
+        return 43
     }
     
     fun main() {
         val owned: Own<String> = "hello".toString()
-        val result = takeStr(owned.ref().ref())  // Own<String> → String → Str
+        val result1 = takeString(owned.ref())        // Own<String> → String
+        val result2 = takeRefString(owned.ref().ref()) // Own<String> → String → Ref<String>
     }
     "#;
 
@@ -20,19 +25,26 @@ fn test_chained_ref_conversions() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config).map(|_| ());
+
+    if let Err(errors) = &result {
+        for error in errors {
+            eprintln!("Type check error: {:?}", error);
+        }
+    }
+
     assert!(result.is_ok(), "Chained .ref() conversions should work");
 }
 
 #[test]
 fn test_mutref_conversion() {
     let code = r#"
-    fun takeMutRef(s: MutRef<String>): Int {
+    fun takeMutRefOwned(s: MutRef<Own<String>>): Int {
         return 42
     }
     
     fun main() {
         val owned: Own<String> = "hello".toString()
-        val result = takeMutRef(owned.mutRef())  // Own<String> → MutRef<String>
+        val result = takeMutRefOwned(owned.mutRef())  // Own<String> → MutRef<Own<String>>
     }
     "#;
 
@@ -40,20 +52,27 @@ fn test_mutref_conversion() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config).map(|_| ());
+
+    if let Err(errors) = &result {
+        for error in errors {
+            eprintln!("Type check error: {:?}", error);
+        }
+    }
+
     assert!(result.is_ok(), "MutRef conversion should work");
 }
 
 #[test]
 fn test_mutref_to_immutable_conversion() {
     let code = r#"
-    fun takeString(s: String): Int {
+    fun takeRefMutRef(s: Ref<MutRef<Own<String>>>): Int {
         return 42
     }
     
     fun main() {
         val owned: Own<String> = "hello".toString()
-        val mutRef: MutRef<String> = owned.mutRef()
-        val result = takeString(mutRef.ref())  // MutRef<String> → String
+        val mutRef: MutRef<Own<String>> = owned.mutRef()
+        val result = takeRefMutRef(mutRef.ref())  // MutRef<Own<String>> → Ref<MutRef<Own<String>>>
     }
     "#;
 
@@ -61,6 +80,13 @@ fn test_mutref_to_immutable_conversion() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config).map(|_| ());
+
+    if let Err(errors) = &result {
+        for error in errors {
+            eprintln!("Type check error: {:?}", error);
+        }
+    }
+
     assert!(result.is_ok(), "MutRef to immutable conversion should work");
 }
 
@@ -81,12 +107,17 @@ fn test_clone_preserves_type() {
 }
 
 #[test]
-fn test_invalid_double_ref_on_borrowed_int() {
+fn test_double_ref_on_int_is_allowed() {
     let code = r#"
+    fun takeRefRefInt(x: Ref<Ref<Int>>): Int {
+        return 42
+    }
+    
     fun main() {
         val x: Int = 42
-        val borrowed = x.ref()  // This should work: Int → Int (borrowed)
-        val invalid = borrowed.ref()  // This should fail - Int doesn't support String→Str conversion
+        val borrowed = x.ref()        // Int → Ref<Int>
+        val doubleBorrowed = borrowed.ref()  // Ref<Int> → Ref<Ref<Int>>
+        val result = takeRefRefInt(doubleBorrowed)
     }
     "#;
 
@@ -95,8 +126,8 @@ fn test_invalid_double_ref_on_borrowed_int() {
     };
     let result = parse_and_type_check(code, config).map(|_| ());
     assert!(
-        result.is_err(),
-        "Should fail when trying to .ref() a borrowed Int (not String→Str conversion)"
+        result.is_ok(),
+        "Double ref on Int should be allowed: Int → Ref<Int> → Ref<Ref<Int>>"
     );
 }
 
@@ -122,22 +153,24 @@ fn test_invalid_mutref_on_borrowed_type() {
 #[test]
 fn test_comprehensive_type_combinations() {
     let code = r#"
-    fun processStr(s: Str): Int { return 1 }
     fun processString(s: String): Int { return 2 }
-    fun processMutRef(s: MutRef<String>): Int { return 3 }
+    fun processRefString(s: Ref<String>): Int { return 1 }
+    fun processMutRefOwned(s: MutRef<Own<String>>): Int { return 3 }
+    fun processRefMutRefOwned(s: Ref<MutRef<Own<String>>>): Int { return 4 }
+    fun processRefRefMutRefOwned(s: Ref<Ref<MutRef<Own<String>>>>): Int { return 5 }
     
     fun main() {
         val owned: Own<String> = "hello".toString()
         
         // All these should work with proper conversions
-        val result1 = processStr(owned.ref().ref())        // Own<String> → Str
-        val result2 = processString(owned.ref())           // Own<String> → String  
-        val result3 = processMutRef(owned.mutRef())        // Own<String> → MutRef<String>
+        val result1 = processRefString(owned.ref().ref())        // Own<String> → String → Ref<String>
+        val result2 = processString(owned.ref())                 // Own<String> → String  
+        val result3 = processMutRefOwned(owned.mutRef())         // Own<String> → MutRef<Own<String>>
         
-        // Test mutRef conversion to immutable
-        val mutRef: MutRef<String> = owned.mutRef()
-        val result4 = processString(mutRef.ref())          // MutRef<String> → String
-        val result5 = processStr(mutRef.ref().ref())       // MutRef<String> → Str
+        // Test mutRef conversion to immutable  
+        val mutRef: MutRef<Own<String>> = owned.mutRef()
+        val result4 = processRefMutRefOwned(mutRef.ref())        // MutRef<Own<String>> → Ref<MutRef<Own<String>>>
+        val result5 = processRefRefMutRefOwned(mutRef.ref().ref()) // MutRef<Own<String>> → Ref<MutRef<Own<String>>> → Ref<Ref<MutRef<Own<String>>>>
     }
     "#;
 

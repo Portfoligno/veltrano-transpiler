@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use veltrano::ast::{BaseType, Type};
 use veltrano::rust_interop::*;
+use veltrano::type_checker::VeltranoType;
 
 /// Unit tests for the Rust interop system
 /// These tests use mocks and don't require external toolchain components
@@ -349,43 +349,28 @@ fn test_rust_type_to_veltrano_conversion() {
     // Test basic types
     assert_eq!(
         RustType::I32.to_veltrano_type().unwrap(),
-        Type {
-            base: BaseType::Int,
-            reference_depth: 0
-        }
+        VeltranoType::int()
     );
 
     assert_eq!(
         RustType::Bool.to_veltrano_type().unwrap(),
-        Type {
-            base: BaseType::Bool,
-            reference_depth: 0
-        }
+        VeltranoType::bool()
     );
 
     assert_eq!(
         RustType::Unit.to_veltrano_type().unwrap(),
-        Type {
-            base: BaseType::Unit,
-            reference_depth: 0
-        }
+        VeltranoType::unit()
     );
 
     // Test string types
     assert_eq!(
         RustType::Str.to_veltrano_type().unwrap(),
-        Type {
-            base: BaseType::Str,
-            reference_depth: 1
-        }
+        VeltranoType::str()
     );
 
     assert_eq!(
         RustType::String.to_veltrano_type().unwrap(),
-        Type {
-            base: BaseType::String,
-            reference_depth: 1
-        }
+        VeltranoType::string()
     );
 
     // Test references
@@ -395,10 +380,7 @@ fn test_rust_type_to_veltrano_conversion() {
     };
     assert_eq!(
         rust_ref.to_veltrano_type().unwrap(),
-        Type {
-            base: BaseType::Int,
-            reference_depth: 1
-        }
+        VeltranoType::ref_type(VeltranoType::int())
     );
 
     // Test mutable references
@@ -408,26 +390,14 @@ fn test_rust_type_to_veltrano_conversion() {
     };
     assert_eq!(
         rust_mut_ref.to_veltrano_type().unwrap(),
-        Type {
-            base: BaseType::MutRef(Box::new(Type {
-                base: BaseType::String,
-                reference_depth: 1
-            })),
-            reference_depth: 1
-        }
+        VeltranoType::mut_ref(VeltranoType::string())
     );
 
     // Test Box
     let rust_box = RustType::Box(Box::new(RustType::I32));
     assert_eq!(
         rust_box.to_veltrano_type().unwrap(),
-        Type {
-            base: BaseType::Box(Box::new(Type {
-                base: BaseType::Int,
-                reference_depth: 0
-            })),
-            reference_depth: 0
-        }
+        VeltranoType::boxed(VeltranoType::int())
     );
 
     // Test custom types
@@ -437,20 +407,14 @@ fn test_rust_type_to_veltrano_conversion() {
     };
     assert_eq!(
         rust_custom.to_veltrano_type().unwrap(),
-        Type {
-            base: BaseType::Custom("MyType".to_string()),
-            reference_depth: 1
-        }
+        VeltranoType::custom("MyType".to_string())
     );
 
     // Test generic parameters
     let rust_generic = RustType::Generic("T".to_string());
     assert_eq!(
         rust_generic.to_veltrano_type().unwrap(),
-        Type {
-            base: BaseType::Custom("$T".to_string()),
-            reference_depth: 1
-        }
+        VeltranoType::custom("$T".to_string())
     );
 }
 

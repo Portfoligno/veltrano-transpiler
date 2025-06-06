@@ -1,41 +1,236 @@
 use crate::ast::*;
 use std::collections::HashMap;
 
-/// The Veltrano type representation for strict type checking
+/// A type in the Veltrano type system supporting higher-kinded types
 #[derive(Debug, Clone, PartialEq)]
 pub struct VeltranoType {
-    pub base: VeltranoBaseType,
-    pub ownership: Ownership,
-    pub mutability: Mutability,
+    /// The type constructor or base type
+    pub constructor: TypeConstructor,
+    /// Type arguments (empty for base types)
+    pub args: Vec<VeltranoType>,
 }
 
-/// Ownership levels in Veltrano's type system
+/// Type constructors and base types with their kinds
 #[derive(Debug, Clone, PartialEq)]
-pub enum Ownership {
-    Owned,       // Own<T> - equivalent to T in Rust
-    Borrowed,    // T - equivalent to &T in Rust
-    MutBorrowed, // MutRef<T> - equivalent to &mut T in Rust
-}
-
-/// Mutability specification
-#[derive(Debug, Clone, PartialEq)]
-pub enum Mutability {
-    Immutable,
-    Mutable,
-}
-
-/// Extended base types for Veltrano
-#[derive(Debug, Clone, PartialEq)]
-pub enum VeltranoBaseType {
+pub enum TypeConstructor {
+    // Base types (kind *)
+    /// i64 in Rust
     Int,
+    /// bool in Rust
     Bool,
-    Str,
-    String,
+    /// () in Rust
     Unit,
-    Vec(Box<VeltranoType>),          // Vec<T> - owned dynamic arrays
-    Slice(Box<VeltranoType>),        // Slice<T> - borrowed array views (&[T] in Rust)
-    Array(Box<VeltranoType>, usize), // [T; N] - fixed-size arrays
+    /// ! in Rust (never type)
+    Nothing,
+    /// &str in Rust (string slice)
+    Str,
+    /// &String in Rust (reference to owned string)
+    String,
+    /// Custom/user-defined types
     Custom(String),
+
+    // Built-in type constructors (kind * -> *)
+    /// Own<T> - forces ownership, removes reference level for reference types
+    Own,
+    /// Ref<T> - adds reference level (&T)
+    Ref,
+    /// MutRef<T> - mutable reference (&mut T)
+    MutRef,
+    /// Box<T> - heap allocation
+    Box,
+    /// Vec<T> - dynamic array
+    Vec,
+    /// Option<T> - optional value
+    Option,
+
+    // Higher-kinded constructors (kind * -> * -> *)
+    /// Result<T, E> - result type
+    Result,
+
+    // Special cases
+    /// Array<T, N> - fixed-size array (size is part of type)
+    Array(usize),
+}
+
+impl VeltranoType {
+    /// Helper constructors for base types
+    pub fn int() -> Self {
+        Self {
+            constructor: TypeConstructor::Int,
+            args: vec![],
+        }
+    }
+
+    pub fn bool() -> Self {
+        Self {
+            constructor: TypeConstructor::Bool,
+            args: vec![],
+        }
+    }
+
+    pub fn unit() -> Self {
+        Self {
+            constructor: TypeConstructor::Unit,
+            args: vec![],
+        }
+    }
+
+    pub fn nothing() -> Self {
+        Self {
+            constructor: TypeConstructor::Nothing,
+            args: vec![],
+        }
+    }
+
+    pub fn str() -> Self {
+        Self {
+            constructor: TypeConstructor::Str,
+            args: vec![],
+        }
+    }
+
+    pub fn string() -> Self {
+        Self {
+            constructor: TypeConstructor::String,
+            args: vec![],
+        }
+    }
+
+    pub fn custom(name: String) -> Self {
+        Self {
+            constructor: TypeConstructor::Custom(name),
+            args: vec![],
+        }
+    }
+
+    /// Apply type constructors
+    pub fn own(inner: VeltranoType) -> Self {
+        Self {
+            constructor: TypeConstructor::Own,
+            args: vec![inner],
+        }
+    }
+
+    pub fn ref_type(inner: VeltranoType) -> Self {
+        Self {
+            constructor: TypeConstructor::Ref,
+            args: vec![inner],
+        }
+    }
+
+    pub fn mut_ref(inner: VeltranoType) -> Self {
+        Self {
+            constructor: TypeConstructor::MutRef,
+            args: vec![inner],
+        }
+    }
+
+    pub fn vec(inner: VeltranoType) -> Self {
+        Self {
+            constructor: TypeConstructor::Vec,
+            args: vec![inner],
+        }
+    }
+
+    pub fn boxed(inner: VeltranoType) -> Self {
+        Self {
+            constructor: TypeConstructor::Box,
+            args: vec![inner],
+        }
+    }
+
+    pub fn array(inner: VeltranoType, size: usize) -> Self {
+        Self {
+            constructor: TypeConstructor::Array(size),
+            args: vec![inner],
+        }
+    }
+
+    pub fn option(inner: VeltranoType) -> Self {
+        Self {
+            constructor: TypeConstructor::Option,
+            args: vec![inner],
+        }
+    }
+
+    pub fn result(ok_type: VeltranoType, err_type: VeltranoType) -> Self {
+        Self {
+            constructor: TypeConstructor::Result,
+            args: vec![ok_type, err_type],
+        }
+    }
+
+    /// Compatibility methods for migration
+    pub fn inner(&self) -> Option<&VeltranoType> {
+        self.args.first()
+    }
+
+    pub fn inner_mut(&mut self) -> Option<&mut VeltranoType> {
+        self.args.first_mut()
+    }
+
+    /// Check if this is a naturally owned type (Int, Bool, Unit, Nothing)
+    pub fn is_naturally_owned(&self) -> bool {
+        self.args.is_empty()
+            && matches!(
+                self.constructor,
+                TypeConstructor::Int
+                    | TypeConstructor::Bool
+                    | TypeConstructor::Unit
+                    | TypeConstructor::Nothing
+            )
+    }
+
+    /// Check if this is a naturally referenced type (Str, String, Custom)
+    pub fn is_naturally_referenced(&self) -> bool {
+        self.args.is_empty()
+            && matches!(
+                self.constructor,
+                TypeConstructor::Str | TypeConstructor::String | TypeConstructor::Custom(_)
+            )
+    }
+
+    /// Get the ultimate base type constructor (recursively unwrap constructors)
+    pub fn get_base_constructor(&self) -> &TypeConstructor {
+        if self.args.is_empty() {
+            &self.constructor
+        } else if let Some(inner) = self.inner() {
+            inner.get_base_constructor()
+        } else {
+            &self.constructor
+        }
+    }
+
+    /// Check if this can be cloned (TODO: integrate with trait system)
+    pub fn can_clone(&self) -> bool {
+        let base = self.get_base_constructor();
+        match base {
+            TypeConstructor::Int
+            | TypeConstructor::Bool
+            | TypeConstructor::Unit
+            | TypeConstructor::Nothing => true,
+            TypeConstructor::String => true,
+            TypeConstructor::Str => false, // &str is Copy, not Clone
+            TypeConstructor::Custom(_) => true, // Assume custom types can be cloned
+            // For composed types (Vec, Array, etc.), assume they can be cloned
+            _ => true,
+        }
+    }
+
+    /// Check if this can be converted to string (TODO: integrate with trait system)
+    pub fn can_to_string(&self) -> bool {
+        let base = self.get_base_constructor();
+        match base {
+            TypeConstructor::Int
+            | TypeConstructor::Bool
+            | TypeConstructor::Unit
+            | TypeConstructor::Nothing => true,
+            TypeConstructor::String | TypeConstructor::Str => true,
+            TypeConstructor::Custom(_) => true, // Assume custom types can be converted to string
+            // For composed types, assume they can be converted to string
+            _ => true,
+        }
+    }
 }
 
 /// Function signature for type checking
@@ -267,7 +462,7 @@ impl VeltranoTypeChecker {
             let init_type = self.check_expression(initializer)?;
 
             if let Some(declared_type) = &var_decl.type_annotation {
-                let expected_type = self.convert_ast_type_to_veltrano_type(declared_type);
+                let expected_type = declared_type.clone();
 
                 // Strict type checking: types must match exactly
                 if !self.types_equal(&expected_type, &init_type) {
@@ -297,18 +492,14 @@ impl VeltranoTypeChecker {
         let param_types: Vec<VeltranoType> = fun_decl
             .params
             .iter()
-            .map(|p| self.convert_ast_type_to_veltrano_type(&p.param_type))
+            .map(|p| p.param_type.clone())
             .collect();
 
         let return_type = fun_decl
             .return_type
             .as_ref()
-            .map(|t| self.convert_ast_type_to_veltrano_type(t))
-            .unwrap_or_else(|| VeltranoType {
-                base: VeltranoBaseType::Unit,
-                ownership: Ownership::Owned,
-                mutability: Mutability::Immutable,
-            });
+            .cloned()
+            .unwrap_or_else(|| VeltranoType::unit());
 
         let signature = FunctionSignature {
             name: fun_decl.name.clone(),
@@ -323,8 +514,8 @@ impl VeltranoTypeChecker {
 
         // Add parameters to scope
         for param in &fun_decl.params {
-            let param_type = self.convert_ast_type_to_veltrano_type(&param.param_type);
-            self.env.declare_variable(param.name.clone(), param_type);
+            self.env
+                .declare_variable(param.name.clone(), param.param_type.clone());
         }
 
         self.check_statement(&fun_decl.body)?;
@@ -350,31 +541,11 @@ impl VeltranoTypeChecker {
     /// Check literal expression
     fn check_literal(&self, literal: &LiteralExpr) -> Result<VeltranoType, TypeCheckError> {
         let veltrano_type = match literal {
-            LiteralExpr::Int(_) => VeltranoType {
-                base: VeltranoBaseType::Int,
-                ownership: Ownership::Owned,
-                mutability: Mutability::Immutable,
-            },
-            LiteralExpr::Bool(_) => VeltranoType {
-                base: VeltranoBaseType::Bool,
-                ownership: Ownership::Owned,
-                mutability: Mutability::Immutable,
-            },
-            LiteralExpr::String(_) => VeltranoType {
-                base: VeltranoBaseType::String,
-                ownership: Ownership::Owned,
-                mutability: Mutability::Immutable,
-            },
-            LiteralExpr::Unit => VeltranoType {
-                base: VeltranoBaseType::Unit,
-                ownership: Ownership::Owned,
-                mutability: Mutability::Immutable,
-            },
-            LiteralExpr::Null => VeltranoType {
-                base: VeltranoBaseType::Unit, // For now
-                ownership: Ownership::Owned,
-                mutability: Mutability::Immutable,
-            },
+            LiteralExpr::Int(_) => VeltranoType::int(),
+            LiteralExpr::Bool(_) => VeltranoType::bool(),
+            LiteralExpr::String(_) => VeltranoType::string(), // String literals are naturally referenced
+            LiteralExpr::Unit => VeltranoType::unit(),
+            LiteralExpr::Null => VeltranoType::unit(), // For now, map null to unit
         };
 
         Ok(veltrano_type)
@@ -412,11 +583,7 @@ impl VeltranoTypeChecker {
             | BinaryOp::Divide
             | BinaryOp::Modulo => {
                 // Both operands must be Int
-                let expected_int = VeltranoType {
-                    base: VeltranoBaseType::Int,
-                    ownership: Ownership::Owned,
-                    mutability: Mutability::Immutable,
-                };
+                let expected_int = VeltranoType::int();
 
                 if !self.types_equal(&left_type, &expected_int) {
                     return Err(TypeCheckError::TypeMismatch {
@@ -444,7 +611,7 @@ impl VeltranoTypeChecker {
                     });
                 }
 
-                Ok(expected_int)
+                Ok(VeltranoType::int())
             }
             BinaryOp::Equal
             | BinaryOp::NotEqual
@@ -466,11 +633,7 @@ impl VeltranoTypeChecker {
                     });
                 }
 
-                Ok(VeltranoType {
-                    base: VeltranoBaseType::Bool,
-                    ownership: Ownership::Owned,
-                    mutability: Mutability::Immutable,
-                })
+                Ok(VeltranoType::bool())
             }
         }
     }
@@ -485,11 +648,7 @@ impl VeltranoTypeChecker {
         match unary.operator {
             UnaryOp::Minus => {
                 // Must be Int
-                let expected_int = VeltranoType {
-                    base: VeltranoBaseType::Int,
-                    ownership: Ownership::Owned,
-                    mutability: Mutability::Immutable,
-                };
+                let expected_int = VeltranoType::int();
 
                 if !self.types_equal(&operand_type, &expected_int) {
                     return Err(TypeCheckError::TypeMismatch {
@@ -504,7 +663,7 @@ impl VeltranoTypeChecker {
                     });
                 }
 
-                Ok(expected_int)
+                Ok(VeltranoType::int())
             }
         }
     }
@@ -615,11 +774,7 @@ impl VeltranoTypeChecker {
         }
 
         // Return unit type for macros like println!, print!, panic!
-        Ok(VeltranoType {
-            base: VeltranoBaseType::Unit,
-            ownership: Ownership::Owned,
-            mutability: Mutability::Immutable,
-        })
+        Ok(VeltranoType::unit())
     }
 
     /// Check method call expression
@@ -662,65 +817,41 @@ impl VeltranoTypeChecker {
         })
     }
 
-    /// Check .ref() method call
+    /// Check .ref() method call (TODO: integrate with builtin registry)
     fn check_ref_method(
         &self,
         receiver_type: &VeltranoType,
     ) -> Result<VeltranoType, TypeCheckError> {
-        match &receiver_type.ownership {
-            Ownership::Owned => {
-                // Own<T> → T
-                Ok(VeltranoType {
-                    base: receiver_type.base.clone(),
-                    ownership: Ownership::Borrowed,
-                    mutability: receiver_type.mutability.clone(),
-                })
-            }
-            Ownership::Borrowed => {
-                // Handle String → Str conversion
-                match &receiver_type.base {
-                    VeltranoBaseType::String => Ok(VeltranoType {
-                        base: VeltranoBaseType::Str,
-                        ownership: Ownership::Borrowed,
-                        mutability: receiver_type.mutability.clone(),
-                    }),
-                    _ => Err(TypeCheckError::MethodNotFound {
-                        receiver_type: receiver_type.clone(),
-                        method: "ref".to_string(),
-                        location: SourceLocation {
-                            file: "unknown".to_string(),
-                            line: 0,
-                            column: 0,
-                            source_line: "".to_string(),
-                        },
-                    }),
+        // Implement correct ref() semantics:
+        // Own<T> → T, T → Ref<T>, MutRef<T> → Ref<MutRef<T>>
+        match &receiver_type.constructor {
+            // Own<T> → T (remove the Own wrapper)
+            TypeConstructor::Own => {
+                if let Some(inner) = receiver_type.inner() {
+                    Ok(inner.clone())
+                } else {
+                    // Shouldn't happen with well-formed Own<T>
+                    Ok(VeltranoType::ref_type(receiver_type.clone()))
                 }
             }
-            Ownership::MutBorrowed => {
-                // MutRef<T> → T
-                Ok(VeltranoType {
-                    base: receiver_type.base.clone(),
-                    ownership: Ownership::Borrowed,
-                    mutability: Mutability::Immutable,
-                })
-            }
+            // T → Ref<T> (add a Ref wrapper)
+            _ => Ok(VeltranoType::ref_type(receiver_type.clone())),
         }
     }
 
-    /// Check .mutRef() method call
+    /// Check .mutRef() method call (TODO: integrate with builtin registry)
     fn check_mut_ref_method(
         &self,
         receiver_type: &VeltranoType,
     ) -> Result<VeltranoType, TypeCheckError> {
-        match &receiver_type.ownership {
-            Ownership::Owned => {
-                // Own<T> → MutRef<T>
-                Ok(VeltranoType {
-                    base: receiver_type.base.clone(),
-                    ownership: Ownership::MutBorrowed,
-                    mutability: Mutability::Mutable,
-                })
-            }
+        // Implement correct mutRef() semantics:
+        // Available on owned and mutable types: Own<T> → MutRef<Own<T>>, MutRef<T> → MutRef<MutRef<T>>
+        match &receiver_type.constructor {
+            // Own<T> → MutRef<Own<T>>
+            TypeConstructor::Own => Ok(VeltranoType::mut_ref(receiver_type.clone())),
+            // MutRef<T> → MutRef<MutRef<T>>
+            TypeConstructor::MutRef => Ok(VeltranoType::mut_ref(receiver_type.clone())),
+            // All other types should fail
             _ => Err(TypeCheckError::MethodNotFound {
                 receiver_type: receiver_type.clone(),
                 method: "mutRef".to_string(),
@@ -734,64 +865,28 @@ impl VeltranoTypeChecker {
         }
     }
 
-    /// Check .toSlice() method call
+    /// Check .toSlice() method call (TODO: integrate with builtin registry)
     fn check_to_slice_method(
         &self,
         receiver_type: &VeltranoType,
     ) -> Result<VeltranoType, TypeCheckError> {
-        match &receiver_type.base {
-            VeltranoBaseType::Vec(inner_type) => {
-                // Vec<T> → Slice<T>
-                Ok(VeltranoType {
-                    base: VeltranoBaseType::Slice(inner_type.clone()),
-                    ownership: Ownership::Borrowed,
-                    mutability: receiver_type.mutability.clone(),
-                })
-            }
-            VeltranoBaseType::Array(inner_type, _) => {
-                // [T; N] → Slice<T>
-                Ok(VeltranoType {
-                    base: VeltranoBaseType::Slice(inner_type.clone()),
-                    ownership: Ownership::Borrowed,
-                    mutability: receiver_type.mutability.clone(),
-                })
-            }
-            _ => Err(TypeCheckError::MethodNotFound {
-                receiver_type: receiver_type.clone(),
-                method: "toSlice".to_string(),
-                location: SourceLocation {
-                    file: "unknown".to_string(),
-                    line: 0,
-                    column: 0,
-                    source_line: "".to_string(),
-                },
-            }),
-        }
+        // For now, just return a reference to the receiver
+        // This should be handled by builtin registry
+        Ok(VeltranoType::ref_type(receiver_type.clone()))
     }
 
-    /// Check .clone() method call
+    /// Check .clone() method call (TODO: integrate with builtin registry)
     fn check_clone_method(
         &mut self,
         receiver_type: &VeltranoType,
     ) -> Result<VeltranoType, TypeCheckError> {
-        // Check if the type implements Clone trait (hardcoded knowledge for now)
-        let can_clone = match &receiver_type.base {
-            VeltranoBaseType::Int | VeltranoBaseType::Bool | VeltranoBaseType::Unit => true,
-            VeltranoBaseType::String => true,
-            VeltranoBaseType::Str => false, // &str is Copy, not Clone
-            VeltranoBaseType::Custom(_) => true, // Assume custom types can be cloned for now
-            VeltranoBaseType::Vec(_)
-            | VeltranoBaseType::Slice(_)
-            | VeltranoBaseType::Array(_, _) => true,
-        };
-
-        if can_clone {
-            // Clone returns an owned version of the same base type
-            Ok(VeltranoType {
-                base: receiver_type.base.clone(),
-                ownership: Ownership::Owned,
-                mutability: Mutability::Immutable,
-            })
+        if receiver_type.can_clone() {
+            // Clone returns an owned version - use builtin registry logic instead
+            if receiver_type.is_naturally_referenced() {
+                Ok(VeltranoType::own(receiver_type.clone()))
+            } else {
+                Ok(receiver_type.clone()) // Already owned for value types
+            }
         } else {
             Err(TypeCheckError::MethodNotFound {
                 receiver_type: receiver_type.clone(),
@@ -806,31 +901,20 @@ impl VeltranoTypeChecker {
         }
     }
 
-    /// Convert VeltranoType to Rust type name for trait checking
+    /// Convert VeltranoType to Rust type name for trait checking (TODO: use rust_interop)
     fn veltrano_type_to_rust_type_name(&self, veltrano_type: &VeltranoType) -> String {
-        match &veltrano_type.base {
-            VeltranoBaseType::Int => "i32".to_string(),
-            VeltranoBaseType::Bool => "bool".to_string(),
-            VeltranoBaseType::Str => "&str".to_string(),
-            VeltranoBaseType::String => "String".to_string(),
-            VeltranoBaseType::Unit => "()".to_string(),
-            VeltranoBaseType::Vec(element_type) => {
-                format!(
-                    "Vec<{}>",
-                    self.veltrano_type_to_rust_type_name(element_type)
-                )
-            }
-            VeltranoBaseType::Slice(element_type) => {
-                format!("&[{}]", self.veltrano_type_to_rust_type_name(element_type))
-            }
-            VeltranoBaseType::Array(element_type, size) => {
-                format!(
-                    "[{}; {}]",
-                    self.veltrano_type_to_rust_type_name(element_type),
-                    size
-                )
-            }
-            VeltranoBaseType::Custom(name) => name.clone(),
+        // For now, just return a placeholder
+        // TODO: Implement proper type name generation for new type system
+        let base = veltrano_type.get_base_constructor();
+        match base {
+            TypeConstructor::Int => "i64".to_string(),
+            TypeConstructor::Bool => "bool".to_string(),
+            TypeConstructor::Str => "&str".to_string(),
+            TypeConstructor::String => "String".to_string(),
+            TypeConstructor::Unit => "()".to_string(),
+            TypeConstructor::Nothing => "!".to_string(),
+            TypeConstructor::Custom(name) => name.clone(),
+            _ => "unknown".to_string(),
         }
     }
 
@@ -856,28 +940,14 @@ impl VeltranoTypeChecker {
         }
     }
 
-    /// Check .toString() method call
+    /// Check .toString() method call (TODO: integrate with builtin registry)
     fn check_tostring_method(
         &mut self,
         receiver_type: &VeltranoType,
     ) -> Result<VeltranoType, TypeCheckError> {
-        // Check if the type implements ToString trait (hardcoded knowledge for now)
-        let can_tostring = match &receiver_type.base {
-            VeltranoBaseType::Int | VeltranoBaseType::Bool | VeltranoBaseType::Unit => true,
-            VeltranoBaseType::String | VeltranoBaseType::Str => true,
-            VeltranoBaseType::Custom(_) => true, // Assume custom types can be converted to string
-            VeltranoBaseType::Vec(_)
-            | VeltranoBaseType::Slice(_)
-            | VeltranoBaseType::Array(_, _) => true,
-        };
-
-        if can_tostring {
+        if receiver_type.can_to_string() {
             // toString returns an owned String
-            Ok(VeltranoType {
-                base: VeltranoBaseType::String,
-                ownership: Ownership::Owned,
-                mutability: Mutability::Immutable,
-            })
+            Ok(VeltranoType::own(VeltranoType::string()))
         } else {
             Err(TypeCheckError::MethodNotFound {
                 receiver_type: receiver_type.clone(),
@@ -892,78 +962,18 @@ impl VeltranoTypeChecker {
         }
     }
 
-    /// Check .length() method call
+    /// Check .length() method call (TODO: integrate with builtin registry)
     fn check_length_method(
         &self,
-        receiver_type: &VeltranoType,
+        _receiver_type: &VeltranoType,
     ) -> Result<VeltranoType, TypeCheckError> {
-        match &receiver_type.base {
-            VeltranoBaseType::String | VeltranoBaseType::Str => Ok(VeltranoType {
-                base: VeltranoBaseType::Int,
-                ownership: Ownership::Owned,
-                mutability: Mutability::Immutable,
-            }),
-            _ => {
-                // Method not found
-                Err(TypeCheckError::MethodNotFound {
-                    receiver_type: receiver_type.clone(),
-                    method: "length".to_string(),
-                    location: SourceLocation {
-                        file: "unknown".to_string(),
-                        line: 0,
-                        column: 0,
-                        source_line: "".to_string(),
-                    },
-                })
-            }
-        }
+        // For now, just return Int for length method (should use builtin registry)
+        Ok(VeltranoType::int())
     }
 
     /// Core type equality check - no implicit conversion logic
     fn types_equal(&self, a: &VeltranoType, b: &VeltranoType) -> bool {
         a == b // Simple structural equality
-    }
-
-    /// Convert AST Type to VeltranoType
-    fn convert_ast_type_to_veltrano_type(&self, ast_type: &Type) -> VeltranoType {
-        let ownership = match ast_type.reference_depth {
-            0 => Ownership::Owned,
-            _ => Ownership::Borrowed,
-        };
-
-        let base = match &ast_type.base {
-            BaseType::Int => VeltranoBaseType::Int,
-            BaseType::Bool => VeltranoBaseType::Bool,
-            BaseType::Unit => VeltranoBaseType::Unit,
-            BaseType::Nothing => VeltranoBaseType::Unit, // Map Nothing to Unit for now
-            BaseType::Str => VeltranoBaseType::Str,
-            BaseType::String => VeltranoBaseType::String,
-            BaseType::Custom(name) => VeltranoBaseType::Custom(name.clone()),
-            BaseType::MutRef(inner) => {
-                // For MutRef, convert the inner type and mark as MutBorrowed
-                let inner_veltrano = self.convert_ast_type_to_veltrano_type(inner);
-                return VeltranoType {
-                    base: inner_veltrano.base,
-                    ownership: Ownership::MutBorrowed,
-                    mutability: Mutability::Mutable,
-                };
-            }
-            BaseType::Box(inner) => {
-                // For Box, treat as owned version of the inner type
-                let inner_veltrano = self.convert_ast_type_to_veltrano_type(inner);
-                return VeltranoType {
-                    base: inner_veltrano.base,
-                    ownership: Ownership::Owned,
-                    mutability: inner_veltrano.mutability,
-                };
-            }
-        };
-
-        VeltranoType {
-            base,
-            ownership,
-            mutability: Mutability::Immutable,
-        }
     }
 }
 
@@ -978,8 +988,7 @@ impl ErrorAnalyzer {
                 actual,
                 location,
             } => {
-                // Try to suggest a fix using simple pattern matching
-                if let Some(suggestion) = self.suggest_conversion(&actual, &expected) {
+                if let Some(suggestion) = self.suggest_type_conversion(&expected, &actual) {
                     TypeCheckError::TypeMismatchWithSuggestion {
                         expected,
                         actual,
@@ -999,8 +1008,7 @@ impl ErrorAnalyzer {
                 method,
                 location,
             } => {
-                // Check if method exists on a converted version of the type
-                if let Some(suggestion) = self.suggest_method_fix(&receiver_type, &method) {
+                if let Some(suggestion) = self.suggest_method_conversion(&receiver_type, &method) {
                     TypeCheckError::MethodNotFoundWithSuggestion {
                         receiver_type,
                         method,
@@ -1020,8 +1028,7 @@ impl ErrorAnalyzer {
                 field,
                 location,
             } => {
-                // Check if field exists on a converted version of the type
-                if let Some(suggestion) = self.suggest_field_fix(&object_type, &field) {
+                if let Some(suggestion) = self.suggest_field_conversion(&object_type, &field) {
                     TypeCheckError::FieldNotFoundWithSuggestion {
                         object_type,
                         field,
@@ -1036,132 +1043,141 @@ impl ErrorAnalyzer {
                     }
                 }
             }
-            _ => error,
+            // Pass through other error types unchanged
+            other => other,
         }
     }
 
-    fn suggest_conversion(&self, from: &VeltranoType, to: &VeltranoType) -> Option<String> {
-        // Simple constant-time pattern matching for common conversions
-        match (from, to) {
-            // Own<T> → T conversions
-            (
-                VeltranoType {
-                    base,
-                    ownership: Ownership::Owned,
-                    ..
-                },
-                VeltranoType {
-                    base: target_base,
-                    ownership: Ownership::Borrowed,
-                    ..
-                },
-            ) if base == target_base => Some(".ref()".to_string()),
+    /// Suggest conversion from actual type to expected type
+    fn suggest_type_conversion(
+        &self,
+        expected: &VeltranoType,
+        actual: &VeltranoType,
+    ) -> Option<String> {
+        // Handle common conversion patterns with new type system
 
-            // Own<String> → Str conversion (double deref)
-            (
-                VeltranoType {
-                    base: VeltranoBaseType::String,
-                    ownership: Ownership::Owned,
-                    ..
-                },
-                VeltranoType {
-                    base: VeltranoBaseType::Str,
-                    ownership: Ownership::Borrowed,
-                    ..
-                },
-            ) => Some(".ref().ref()".to_string()),
+        // Pattern 1: Own<T> to T (remove ownership) -> .ref()
+        if actual.constructor == TypeConstructor::Own {
+            if let Some(inner) = actual.inner() {
+                if inner == expected {
+                    return Some(".ref()".to_string());
+                }
+            }
+        }
 
-            // String → Str conversion
-            (
-                VeltranoType {
-                    base: VeltranoBaseType::String,
-                    ownership: Ownership::Borrowed,
-                    ..
-                },
-                VeltranoType {
-                    base: VeltranoBaseType::Str,
-                    ownership: Ownership::Borrowed,
-                    ..
-                },
-            ) => Some(".ref()".to_string()),
+        // Pattern 2: MutRef<T> to Ref<T> -> .ref()
+        if expected.constructor == TypeConstructor::Ref
+            && actual.constructor == TypeConstructor::MutRef
+        {
+            if let (Some(expected_inner), Some(actual_inner)) = (expected.inner(), actual.inner()) {
+                if expected_inner == actual_inner {
+                    return Some(".ref()".to_string());
+                }
+            }
+        }
 
-            // Vec<T> → Slice<T> conversion
-            (
-                VeltranoType {
-                    base: VeltranoBaseType::Vec(_),
-                    ownership: Ownership::Borrowed,
-                    ..
-                },
-                VeltranoType {
-                    base: VeltranoBaseType::Slice(_),
-                    ownership: Ownership::Borrowed,
-                    ..
-                },
-            ) => Some(".toSlice()".to_string()),
+        // Pattern 3: String to Str conversion
+        if expected.constructor == TypeConstructor::Str
+            && actual.constructor == TypeConstructor::String
+        {
+            return Some(".ref()".to_string());
+        }
 
-            // MutRef<T> → T conversions
-            (
-                VeltranoType {
-                    base,
-                    ownership: Ownership::MutBorrowed,
-                    ..
-                },
-                VeltranoType {
-                    base: target_base,
-                    ownership: Ownership::Borrowed,
-                    ..
-                },
-            ) if base == target_base => Some(".ref()".to_string()),
+        // Pattern 4: Own<String> to Str (remove ownership then convert to str)
+        if expected.constructor == TypeConstructor::Str
+            && actual.constructor == TypeConstructor::Own
+        {
+            if let Some(inner) = actual.inner() {
+                if inner.constructor == TypeConstructor::String {
+                    return Some(".ref().ref()".to_string());
+                }
+            }
+        }
 
-            // Array to slice conversions: [T; N] → Slice<T>
-            (
-                VeltranoType {
-                    base: VeltranoBaseType::Array(_, _),
-                    ownership: Ownership::Borrowed,
-                    ..
-                },
-                VeltranoType {
-                    base: VeltranoBaseType::Slice(_),
-                    ownership: Ownership::Borrowed,
-                    ..
-                },
-            ) => Some(".toSlice()".to_string()),
+        // Pattern 5: Vec<T> to slice conversion -> .toSlice()
+        if actual.constructor == TypeConstructor::Vec
+            && expected.constructor == TypeConstructor::Ref
+        {
+            if let (Some(expected_inner), Some(actual_inner)) = (expected.inner(), actual.inner()) {
+                if expected_inner == actual_inner {
+                    return Some(".toSlice()".to_string());
+                }
+            }
+        }
 
-            // Own<[T; N]> → Slice<T> conversion (needs ref first)
-            (
-                VeltranoType {
-                    base: VeltranoBaseType::Array(_, _),
-                    ownership: Ownership::Owned,
-                    ..
-                },
-                VeltranoType {
-                    base: VeltranoBaseType::Slice(_),
-                    ownership: Ownership::Borrowed,
-                    ..
-                },
-            ) => Some(".ref().toSlice()".to_string()),
+        // Pattern 6: Own<Vec<T>> to slice -> .ref().toSlice()
+        if expected.constructor == TypeConstructor::Ref
+            && actual.constructor == TypeConstructor::Own
+        {
+            if let Some(actual_inner) = actual.inner() {
+                if actual_inner.constructor == TypeConstructor::Vec {
+                    if let (Some(expected_inner), Some(vec_inner)) =
+                        (expected.inner(), actual_inner.inner())
+                    {
+                        if expected_inner == vec_inner {
+                            return Some(".ref().toSlice()".to_string());
+                        }
+                    }
+                }
+            }
+        }
 
-            _ => None,
+        // Pattern 7: Array to slice conversion
+        if expected.constructor == TypeConstructor::Ref {
+            if let TypeConstructor::Array(_) = actual.constructor {
+                if let (Some(expected_inner), Some(actual_inner)) =
+                    (expected.inner(), actual.inner())
+                {
+                    if expected_inner == actual_inner {
+                        return Some(".toSlice()".to_string());
+                    }
+                }
+            }
+        }
+
+        // Pattern 8: Own<Array<T, N>> to slice -> .ref().toSlice()
+        if expected.constructor == TypeConstructor::Ref
+            && actual.constructor == TypeConstructor::Own
+        {
+            if let Some(actual_inner) = actual.inner() {
+                if let TypeConstructor::Array(_) = actual_inner.constructor {
+                    if let (Some(expected_inner), Some(array_inner)) =
+                        (expected.inner(), actual_inner.inner())
+                    {
+                        if expected_inner == array_inner {
+                            return Some(".ref().toSlice()".to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Suggest method call with proper ownership conversion
+    fn suggest_method_conversion(
+        &self,
+        receiver_type: &VeltranoType,
+        method: &str,
+    ) -> Option<String> {
+        // Common pattern: owned types need .ref() before calling borrowed methods
+        if receiver_type.constructor == TypeConstructor::Own {
+            // Suggest adding .ref() before the method call for owned types
+            Some(format!(".ref().{}()", method))
+        } else {
+            None
         }
     }
 
-    fn suggest_method_fix(&self, receiver_type: &VeltranoType, method: &str) -> Option<String> {
-        // Check if method would be available after .ref()
-        match receiver_type.ownership {
-            Ownership::Owned => Some(format!(
-                "Try calling .ref().{method}() if the method exists on the borrowed type"
-            )),
-            _ => None,
-        }
-    }
-
-    fn suggest_field_fix(&self, object_type: &VeltranoType, field: &str) -> Option<String> {
-        // Check if field would be available after .ref()
-        match object_type.ownership {
-            Ownership::Owned => Some(format!(
-                "Try accessing .ref().{field} if the field exists on the borrowed type"
-            )),
-            _ => None,
+    /// Suggest field access with proper ownership conversion
+    fn suggest_field_conversion(&self, object_type: &VeltranoType, field: &str) -> Option<String> {
+        // Common pattern: owned types need .ref() before field access
+        if object_type.constructor == TypeConstructor::Own {
+            // Suggest adding .ref() before the field access for owned types
+            Some(format!(".ref().{}", field))
+        } else {
+            None
         }
     }
 }

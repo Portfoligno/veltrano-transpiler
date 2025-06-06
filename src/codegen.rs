@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::config::Config;
+use crate::type_checker::VeltranoType;
 use std::collections::{HashMap, HashSet};
 
 pub struct CodeGenerator {
@@ -45,10 +46,15 @@ impl CodeGenerator {
 
                     // Check if this data class needs lifetime parameters
                     let needs_lifetime = data_class.fields.iter().any(|field| {
+                        use crate::type_checker::TypeConstructor;
                         matches!(
-                            field.field_type.base,
-                            BaseType::Str | BaseType::String | BaseType::Custom(_)
-                        ) || field.field_type.reference_depth > 0
+                            field.field_type.constructor,
+                            TypeConstructor::Str
+                                | TypeConstructor::String
+                                | TypeConstructor::Custom(_)
+                                | TypeConstructor::Ref
+                                | TypeConstructor::MutRef
+                        )
                     });
                     if needs_lifetime {
                         self.data_classes_with_lifetime
@@ -291,12 +297,18 @@ impl CodeGenerator {
     }
 
     fn generate_data_class(&mut self, data_class: &DataClassStmt) {
+        use crate::type_checker::TypeConstructor;
+
         // Check if any fields are reference types
         let needs_lifetime = data_class.fields.iter().any(|field| {
             matches!(
-                field.field_type.base,
-                BaseType::Str | BaseType::String | BaseType::Custom(_)
-            ) || field.field_type.reference_depth > 0
+                field.field_type.constructor,
+                TypeConstructor::Str
+                    | TypeConstructor::String
+                    | TypeConstructor::Custom(_)
+                    | TypeConstructor::Ref
+                    | TypeConstructor::MutRef
+            )
         });
 
         self.indent();
@@ -320,20 +332,8 @@ impl CodeGenerator {
             self.output.push_str(": ");
 
             // Generate the field type with lifetime if needed
-            if needs_lifetime && field.field_type.reference_depth > 0 {
-                // For reference types that need lifetime annotations
-                for _ in 0..field.field_type.reference_depth {
-                    self.output.push_str("&'a ");
-                }
-                // Check if the base type is a custom type that needs lifetime
-                if let BaseType::Custom(name) = &field.field_type.base {
-                    self.output.push_str(name);
-                    if self.data_classes_with_lifetime.contains(name) {
-                        self.output.push_str("<'a>");
-                    }
-                } else {
-                    self.generate_base_type(&field.field_type.base);
-                }
+            if needs_lifetime {
+                self.generate_data_class_field_type(&field.field_type);
             } else {
                 self.generate_type(&field.field_type);
             }
@@ -436,44 +436,123 @@ impl CodeGenerator {
         self.output.push_str(op_str);
     }
 
-    fn generate_type(&mut self, type_annotation: &Type) {
-        // Generate reference prefix based on reference_depth
-        for _ in 0..type_annotation.reference_depth {
-            if self.generating_bump_function {
-                self.output.push_str("&'a ");
-            } else {
-                self.output.push('&');
-            }
-        }
+    fn generate_type(&mut self, type_annotation: &VeltranoType) {
+        use crate::type_checker::TypeConstructor;
 
-        // Generate the base type
-        self.generate_base_type(&type_annotation.base);
-    }
-
-    fn generate_base_type(&mut self, base_type: &BaseType) {
-        match base_type {
-            BaseType::Int => self.output.push_str("i64"),
-            BaseType::Bool => self.output.push_str("bool"),
-            BaseType::Unit => self.output.push_str("()"),
-            BaseType::Nothing => self.output.push_str("!"),
-            BaseType::Str => self.output.push_str("str"),
-            BaseType::String => self.output.push_str("String"),
-            BaseType::MutRef(inner) => {
-                self.output.push_str("&mut ");
-                self.generate_type(inner);
-            }
-            BaseType::Box(inner) => {
-                self.output.push_str("Box<");
-                self.generate_type(inner);
-                self.output.push('>');
-            }
-            BaseType::Custom(name) => {
+        match &type_annotation.constructor {
+            // Base types
+            TypeConstructor::Int => self.output.push_str("i64"),
+            TypeConstructor::Bool => self.output.push_str("bool"),
+            TypeConstructor::Unit => self.output.push_str("()"),
+            TypeConstructor::Nothing => self.output.push_str("!"),
+            TypeConstructor::Str => self.output.push_str("str"),
+            TypeConstructor::String => self.output.push_str("String"),
+            TypeConstructor::Custom(name) => {
                 self.output.push_str(name);
                 // Add lifetime parameter for custom types in bump functions if they need lifetime
                 if self.generating_bump_function && self.data_classes_with_lifetime.contains(name) {
                     self.output.push_str("<'a>");
                 }
             }
+
+            // Type constructors
+            TypeConstructor::Own => {
+                // Own<T> just generates T in Rust
+                if let Some(inner) = type_annotation.inner() {
+                    self.generate_type(inner);
+                }
+            }
+            TypeConstructor::Ref => {
+                if self.generating_bump_function {
+                    self.output.push_str("&'a ");
+                } else {
+                    self.output.push('&');
+                }
+                if let Some(inner) = type_annotation.inner() {
+                    self.generate_type(inner);
+                }
+            }
+            TypeConstructor::MutRef => {
+                if self.generating_bump_function {
+                    self.output.push_str("&'a mut ");
+                } else {
+                    self.output.push_str("&mut ");
+                }
+                if let Some(inner) = type_annotation.inner() {
+                    self.generate_type(inner);
+                }
+            }
+            TypeConstructor::Box => {
+                self.output.push_str("Box<");
+                if let Some(inner) = type_annotation.inner() {
+                    self.generate_type(inner);
+                }
+                self.output.push('>');
+            }
+            TypeConstructor::Vec => {
+                self.output.push_str("Vec<");
+                if let Some(inner) = type_annotation.inner() {
+                    self.generate_type(inner);
+                }
+                self.output.push('>');
+            }
+            TypeConstructor::Option => {
+                self.output.push_str("Option<");
+                if let Some(inner) = type_annotation.inner() {
+                    self.generate_type(inner);
+                }
+                self.output.push('>');
+            }
+            TypeConstructor::Result => {
+                self.output.push_str("Result<");
+                if type_annotation.args.len() == 2 {
+                    self.generate_type(&type_annotation.args[0]);
+                    self.output.push_str(", ");
+                    self.generate_type(&type_annotation.args[1]);
+                }
+                self.output.push('>');
+            }
+            TypeConstructor::Array(size) => {
+                self.output.push('[');
+                if let Some(inner) = type_annotation.inner() {
+                    self.generate_type(inner);
+                }
+                self.output.push_str(&format!("; {}]", size));
+            }
+        }
+    }
+
+    // Removed generate_base_type - now handled in generate_type
+
+    fn generate_data_class_field_type(&mut self, type_annotation: &VeltranoType) {
+        use crate::type_checker::TypeConstructor;
+
+        match &type_annotation.constructor {
+            // Reference types in data classes need lifetime annotations
+            TypeConstructor::Str => self.output.push_str("&'a str"),
+            TypeConstructor::String => self.output.push_str("&'a String"),
+            TypeConstructor::Custom(name) => {
+                self.output.push_str("&'a ");
+                self.output.push_str(name);
+                if self.data_classes_with_lifetime.contains(name) {
+                    self.output.push_str("<'a>");
+                }
+            }
+            // Type constructors that need special handling in data classes
+            TypeConstructor::Ref => {
+                self.output.push_str("&'a ");
+                if let Some(inner) = type_annotation.inner() {
+                    self.generate_type(inner);
+                }
+            }
+            TypeConstructor::MutRef => {
+                self.output.push_str("&'a mut ");
+                if let Some(inner) = type_annotation.inner() {
+                    self.generate_type(inner);
+                }
+            }
+            // For other types, use normal generation
+            _ => self.generate_type(type_annotation),
         }
     }
 

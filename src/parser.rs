@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::{Token, TokenType};
+use crate::type_checker::{TypeConstructor, VeltranoType};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -721,100 +722,120 @@ impl Parser {
         Err(format!("Unexpected token: {:?}", self.peek()))
     }
 
-    fn parse_type(&mut self) -> Result<Type, String> {
+    fn parse_type(&mut self) -> Result<VeltranoType, String> {
         if let TokenType::Identifier(type_name) = &self.peek().token_type {
             let type_name = type_name.clone();
             self.advance();
 
             match type_name.as_str() {
-                "Int" => Ok(Type::owned(BaseType::Int)),
-                "Str" => Ok(Type {
-                    base: BaseType::Str,
-                    reference_depth: 1,
-                }), // reference-by-default
-                "String" => Ok(Type {
-                    base: BaseType::String,
-                    reference_depth: 1,
-                }), // reference-by-default
-                "Bool" => Ok(Type::owned(BaseType::Bool)),
-                "Unit" => Ok(Type::owned(BaseType::Unit)),
-                "Nothing" => Ok(Type::owned(BaseType::Nothing)),
+                "Int" => Ok(VeltranoType::int()),
+                "Str" => Ok(VeltranoType::str()), // naturally referenced
+                "String" => Ok(VeltranoType::string()), // naturally referenced
+                "Bool" => Ok(VeltranoType::bool()),
+                "Unit" => Ok(VeltranoType::unit()),
+                "Nothing" => Ok(VeltranoType::nothing()),
                 "Ref" => self.parse_ref_type(),
                 "Own" => self.parse_own_type(),
                 "MutRef" => self.parse_mutref_type(),
                 "Box" => self.parse_box_type(),
-                _ => Ok(Type {
-                    base: BaseType::Custom(type_name),
-                    reference_depth: 1,
-                }), // reference-by-default
+                "Vec" => self.parse_vec_type(),
+                "Array" => self.parse_array_type(),
+                "Option" => self.parse_option_type(),
+                "Result" => self.parse_result_type(),
+                _ => Ok(VeltranoType::custom(type_name)), // naturally referenced
             }
         } else {
             Err("Expected type name".to_string())
         }
     }
 
-    fn parse_ref_type(&mut self) -> Result<Type, String> {
+    fn parse_ref_type(&mut self) -> Result<VeltranoType, String> {
         self.consume(&TokenType::Less, "Expected '<' after Ref")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
-        // Ref<T> adds one more reference level to T
-        Ok(Type {
-            base: inner_type.base,
-            reference_depth: inner_type.reference_depth + 1,
-        })
+        Ok(VeltranoType::ref_type(inner_type))
     }
 
-    fn parse_own_type(&mut self) -> Result<Type, String> {
+    fn parse_own_type(&mut self) -> Result<VeltranoType, String> {
         self.consume(&TokenType::Less, "Expected '<' after Own")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
 
         // Validate that Own<T> is not used with invalid types
-        match &inner_type.base {
-            BaseType::Int | BaseType::Bool | BaseType::Unit => {
-                return Err(format!(
-                    "Cannot use Own<{:?}>. {:?} is already owned.",
-                    inner_type.base, inner_type.base
-                ));
-            }
-            BaseType::MutRef(_) => {
+        if inner_type.is_naturally_owned() {
+            return Err(format!(
+                "Cannot use Own<{:?}>. This type is already owned.",
+                inner_type.constructor
+            ));
+        }
+
+        match &inner_type.constructor {
+            TypeConstructor::MutRef => {
                 return Err("Cannot use Own<MutRef<T>>. MutRef<T> is already owned.".to_string());
             }
-            BaseType::Box(_) => {
+            TypeConstructor::Box => {
                 return Err("Cannot use Own<Box<T>>. Box<T> is already owned.".to_string());
+            }
+            TypeConstructor::Own => {
+                return Err("Cannot use Own<Own<T>>. This creates double ownership.".to_string());
             }
             _ => {}
         }
 
-        // Own<T> subtracts 1 from reference_depth
-        if inner_type.reference_depth == 0 {
-            return Err("Cannot use Own<> on already owned type.".to_string());
-        }
-
-        Ok(Type {
-            base: inner_type.base,
-            reference_depth: inner_type.reference_depth - 1,
-        })
+        Ok(VeltranoType::own(inner_type))
     }
 
-    fn parse_mutref_type(&mut self) -> Result<Type, String> {
+    fn parse_mutref_type(&mut self) -> Result<VeltranoType, String> {
         self.consume(&TokenType::Less, "Expected '<' after MutRef")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
-        Ok(Type {
-            base: BaseType::MutRef(Box::new(inner_type)),
-            reference_depth: 0, // MutRef<T> is always owned
-        })
+        Ok(VeltranoType::mut_ref(inner_type))
     }
 
-    fn parse_box_type(&mut self) -> Result<Type, String> {
+    fn parse_box_type(&mut self) -> Result<VeltranoType, String> {
         self.consume(&TokenType::Less, "Expected '<' after Box")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
-        Ok(Type {
-            base: BaseType::Box(Box::new(inner_type)),
-            reference_depth: 0, // Box<T> is always owned
-        })
+        Ok(VeltranoType::boxed(inner_type))
+    }
+
+    fn parse_vec_type(&mut self) -> Result<VeltranoType, String> {
+        self.consume(&TokenType::Less, "Expected '<' after Vec")?;
+        let inner_type = self.parse_type()?;
+        self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
+        Ok(VeltranoType::vec(inner_type))
+    }
+
+    fn parse_array_type(&mut self) -> Result<VeltranoType, String> {
+        self.consume(&TokenType::Less, "Expected '<' after Array")?;
+        let inner_type = self.parse_type()?;
+        self.consume(&TokenType::Comma, "Expected ',' after array element type")?;
+
+        // Parse array size
+        if let TokenType::IntLiteral(size) = &self.peek().token_type {
+            let size = *size as usize;
+            self.advance();
+            self.consume(&TokenType::Greater, "Expected '>' after array size")?;
+            Ok(VeltranoType::array(inner_type, size))
+        } else {
+            Err("Expected integer literal for array size".to_string())
+        }
+    }
+
+    fn parse_option_type(&mut self) -> Result<VeltranoType, String> {
+        self.consume(&TokenType::Less, "Expected '<' after Option")?;
+        let inner_type = self.parse_type()?;
+        self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
+        Ok(VeltranoType::option(inner_type))
+    }
+
+    fn parse_result_type(&mut self) -> Result<VeltranoType, String> {
+        self.consume(&TokenType::Less, "Expected '<' after Result")?;
+        let ok_type = self.parse_type()?;
+        self.consume(&TokenType::Comma, "Expected ',' after Result ok type")?;
+        let err_type = self.parse_type()?;
+        self.consume(&TokenType::Greater, "Expected '>' after Result error type")?;
+        Ok(VeltranoType::result(ok_type, err_type))
     }
 
     fn consume_identifier(&mut self, message: &str) -> Result<String, String> {

@@ -1,30 +1,4 @@
-#[derive(Debug, Clone, PartialEq)]
-pub struct Type {
-    pub base: BaseType,
-    pub reference_depth: u32,
-}
-
-impl Type {
-    pub fn owned(base: BaseType) -> Self {
-        Type {
-            base,
-            reference_depth: 0,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum BaseType {
-    Int,
-    Bool,
-    Unit,
-    Nothing,
-    Str,
-    String,
-    MutRef(Box<Type>),
-    Box(Box<Type>),
-    Custom(String),
-}
+use crate::type_checker::VeltranoType;
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -131,7 +105,7 @@ pub struct CommentStmt {
 #[derive(Debug, Clone)]
 pub struct VarDeclStmt {
     pub name: String,
-    pub type_annotation: Option<Type>,
+    pub type_annotation: Option<VeltranoType>,
     pub initializer: Option<Expr>,
 }
 
@@ -139,7 +113,7 @@ pub struct VarDeclStmt {
 pub struct FunDeclStmt {
     pub name: String,
     pub params: Vec<Parameter>,
-    pub return_type: Option<Type>,
+    pub return_type: Option<VeltranoType>,
     pub body: Box<Stmt>,
     pub has_hidden_bump: bool, // Whether this function should receive a hidden bump parameter
 }
@@ -195,13 +169,34 @@ impl FunDeclStmt {
     }
 
     /// Checks if a type needs lifetime parameters
-    fn type_needs_lifetime(&self, type_: &Type) -> bool {
-        match &type_.base {
-            BaseType::Str | BaseType::String => true,
-            BaseType::Custom(_) => true, // Custom types might have lifetimes
-            BaseType::MutRef(inner) => self.type_needs_lifetime(inner),
-            BaseType::Box(inner) => self.type_needs_lifetime(inner),
-            BaseType::Int | BaseType::Bool | BaseType::Unit | BaseType::Nothing => false,
+    fn type_needs_lifetime(&self, type_: &VeltranoType) -> bool {
+        use crate::type_checker::TypeConstructor;
+
+        match &type_.constructor {
+            TypeConstructor::Str | TypeConstructor::String => true,
+            TypeConstructor::Custom(_) => true, // Custom types might have lifetimes
+            TypeConstructor::MutRef | TypeConstructor::Ref => {
+                // Check the inner type if it has args
+                if let Some(inner) = type_.inner() {
+                    self.type_needs_lifetime(inner)
+                } else {
+                    false
+                }
+            }
+            TypeConstructor::Box => {
+                // Check the inner type if it has args
+                if let Some(inner) = type_.inner() {
+                    self.type_needs_lifetime(inner)
+                } else {
+                    false
+                }
+            }
+            TypeConstructor::Int
+            | TypeConstructor::Bool
+            | TypeConstructor::Unit
+            | TypeConstructor::Nothing => false,
+            // For other constructors, conservatively assume they might need lifetimes
+            _ => type_.args.iter().any(|arg| self.type_needs_lifetime(arg)),
         }
     }
 }
@@ -287,7 +282,7 @@ mod bump_usage_analyzer {
 #[derive(Debug, Clone)]
 pub struct Parameter {
     pub name: String,
-    pub param_type: Type,
+    pub param_type: VeltranoType,
     pub inline_comment: Option<(String, String)>, // Optional inline comment after parameter
 }
 
@@ -320,7 +315,7 @@ pub struct DataClassStmt {
 #[derive(Debug, Clone)]
 pub struct DataClassField {
     pub name: String,
-    pub field_type: Type,
+    pub field_type: VeltranoType,
 }
 
 #[derive(Debug, Clone)]
