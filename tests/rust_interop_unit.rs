@@ -44,6 +44,7 @@ fn test_registry_caching() {
                 functions,
                 types: HashMap::new(),
                 traits: HashMap::new(),
+                trait_implementations: HashMap::new(),
             })
         }
 
@@ -123,6 +124,7 @@ fn test_error_handling_and_fallback() {
                 functions,
                 types: HashMap::new(),
                 traits: HashMap::new(),
+                trait_implementations: HashMap::new(),
             })
         }
         fn supports_crate(&self, _: &str) -> bool {
@@ -185,6 +187,7 @@ fn test_querier_priority_ordering() {
                 functions: HashMap::new(),
                 types: HashMap::new(),
                 traits: HashMap::new(),
+                trait_implementations: HashMap::new(),
             })
         }
         fn supports_crate(&self, _: &str) -> bool {
@@ -231,6 +234,7 @@ fn test_crate_info_serialization() {
         functions: HashMap::new(),
         types: HashMap::new(),
         traits: HashMap::new(),
+        trait_implementations: HashMap::new(),
     };
 
     // Test serialization and deserialization

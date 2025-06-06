@@ -6,7 +6,7 @@
 /// 4. Dynamically query Rust toolchain for type information
 use crate::ast::{BaseType, Type};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -397,6 +397,8 @@ pub struct CrateInfo {
     pub functions: HashMap<String, FunctionInfo>,
     pub types: HashMap<String, TypeInfo>,
     pub traits: HashMap<String, TraitInfo>,
+    /// Maps type name -> set of implemented trait names
+    pub trait_implementations: HashMap<String, HashSet<String>>,
 }
 
 /// Information about a Rust function
@@ -577,6 +579,7 @@ impl RustdocQuerier {
             functions: HashMap::new(),
             types: HashMap::new(),
             traits: HashMap::new(),
+            trait_implementations: HashMap::new(),
         })
     }
 }
@@ -687,6 +690,184 @@ impl DynamicRustRegistry {
         Ok(None)
     }
 
+    /// Check if a type implements a specific trait
+    pub fn type_implements_trait(
+        &mut self,
+        type_path: &str,
+        trait_name: &str,
+    ) -> Result<bool, RustInteropError> {
+        // For built-in types, we can have hardcoded knowledge
+        let implements = match type_path {
+            // Primitive types that implement Clone
+            "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64"
+            | "u128" | "usize" | "f32" | "f64" | "bool" | "char" => {
+                matches!(trait_name, "Clone" | "Copy" | "Debug")
+            }
+            // String types
+            "String" | "std::string::String" => {
+                matches!(trait_name, "Clone" | "Debug" | "Display" | "ToString")
+            }
+            "&str" | "str" => {
+                matches!(trait_name, "Debug" | "Display" | "ToString")
+            }
+            // Unit type
+            "()" => {
+                matches!(trait_name, "Clone" | "Copy" | "Debug")
+            }
+            // For other types, query the crate info
+            _ => {
+                // Try to determine which crate the type belongs to
+                let (crate_name, type_name) = if type_path.contains("::") {
+                    self.parse_path(type_path)?
+                } else {
+                    // Assume it's in the current crate
+                    ("self", type_path)
+                };
+
+                // Query the crate
+                let crate_name = crate_name.to_string();
+
+                // Try cache first
+                if let Some(cached) = self.cache.get(&crate_name) {
+                    return Ok(cached
+                        .trait_implementations
+                        .get(type_name)
+                        .map_or(false, |traits| traits.contains(trait_name)));
+                }
+
+                // Query dynamically
+                for querier in &mut self.queriers {
+                    if querier.supports_crate(&crate_name) {
+                        match querier.query_crate(&crate_name) {
+                            Ok(crate_info) => {
+                                let result = crate_info
+                                    .trait_implementations
+                                    .get(type_name)
+                                    .map_or(false, |traits| traits.contains(trait_name));
+                                // Cache the result
+                                self.cache.insert(crate_name, crate_info);
+                                return Ok(result);
+                            }
+                            Err(_) => continue, // Try next querier
+                        }
+                    }
+                }
+
+                false // Default to not implemented if we can't find info
+            }
+        };
+
+        Ok(implements)
+    }
+
+    /// Get all traits implemented by a type
+    pub fn get_implemented_traits(
+        &mut self,
+        type_path: &str,
+    ) -> Result<Vec<String>, RustInteropError> {
+        // For built-in types, return hardcoded list
+        let traits = match type_path {
+            // Primitive types
+            "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64"
+            | "u128" | "usize" | "f32" | "f64" | "bool" | "char" => vec![
+                "Clone",
+                "Copy",
+                "Debug",
+                "Default",
+                "PartialEq",
+                "Eq",
+                "PartialOrd",
+                "Ord",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+            // String types
+            "String" | "std::string::String" => vec![
+                "Clone",
+                "Debug",
+                "Display",
+                "Default",
+                "PartialEq",
+                "Eq",
+                "PartialOrd",
+                "Ord",
+                "ToString",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+            "&str" | "str" => vec![
+                "Debug",
+                "Display",
+                "PartialEq",
+                "Eq",
+                "PartialOrd",
+                "Ord",
+                "ToString",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+            // Unit type
+            "()" => vec![
+                "Clone",
+                "Copy",
+                "Debug",
+                "Default",
+                "PartialEq",
+                "Eq",
+                "PartialOrd",
+                "Ord",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+            // For other types, query the crate info
+            _ => {
+                let (crate_name, type_name) = if type_path.contains("::") {
+                    self.parse_path(type_path)?
+                } else {
+                    ("self", type_path)
+                };
+
+                let crate_name = crate_name.to_string();
+
+                // Try cache first
+                if let Some(cached) = self.cache.get(&crate_name) {
+                    return Ok(cached
+                        .trait_implementations
+                        .get(type_name)
+                        .map(|traits| traits.iter().cloned().collect())
+                        .unwrap_or_default());
+                }
+
+                // Query dynamically
+                for querier in &mut self.queriers {
+                    if querier.supports_crate(&crate_name) {
+                        match querier.query_crate(&crate_name) {
+                            Ok(crate_info) => {
+                                let result = crate_info
+                                    .trait_implementations
+                                    .get(type_name)
+                                    .map(|traits| traits.iter().cloned().collect())
+                                    .unwrap_or_default();
+                                // Cache the result
+                                self.cache.insert(crate_name, crate_info);
+                                return Ok(result);
+                            }
+                            Err(_) => continue, // Try next querier
+                        }
+                    }
+                }
+
+                Vec::new() // Default to empty if we can't find info
+            }
+        };
+
+        Ok(traits)
+    }
+
     pub fn parse_path<'a>(&self, path: &'a str) -> Result<(&'a str, &'a str), RustInteropError> {
         // Parse paths like "std::vec::Vec::new" -> ("std", "vec::Vec::new")
         let parts: Vec<&str> = path.splitn(2, "::").collect();
@@ -752,6 +933,7 @@ impl SynQuerier {
             functions: HashMap::new(),
             types: HashMap::new(),
             traits: HashMap::new(),
+            trait_implementations: HashMap::new(),
         };
 
         // Collect all paths to parse to avoid borrowing issues
@@ -1144,6 +1326,23 @@ impl SynQuerier {
         } else {
             return Ok(()); // Skip complex types for now
         };
+
+        // Check if this is a trait implementation
+        if let Some((_, trait_path, _)) = &item_impl.trait_ {
+            // Extract trait name
+            let trait_name = if let Some(segment) = trait_path.segments.last() {
+                segment.ident.to_string()
+            } else {
+                return Ok(());
+            };
+
+            // Track the trait implementation
+            crate_info
+                .trait_implementations
+                .entry(type_name.clone())
+                .or_insert_with(HashSet::new)
+                .insert(trait_name);
+        }
 
         // Parse methods in the impl block
         for item in &item_impl.items {

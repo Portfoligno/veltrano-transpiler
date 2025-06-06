@@ -362,6 +362,7 @@ fn test_trait_and_impl_extraction() {
                     functions: HashMap::new(),
                     types: HashMap::new(),
                     traits: HashMap::new(),
+                    trait_implementations: HashMap::new(),
                 };
 
                 // Add the Point type first
