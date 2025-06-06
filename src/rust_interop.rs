@@ -1367,5 +1367,3 @@ impl RustQuerier for SynQuerier {
         80 // Lower than rustdoc but higher than rust-analyzer
     }
 }
-
-

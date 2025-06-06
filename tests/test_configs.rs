@@ -1,5 +1,5 @@
-use veltrano::config::Config;
 use std::collections::HashMap;
+use veltrano::config::Config;
 
 /// Returns a HashMap of predefined config instances for testing.
 /// Keys are used in expected output filenames (e.g., "example.tuf.expected.rs").
@@ -19,4 +19,3 @@ pub fn test_configs() -> HashMap<&'static str, Config> {
     );
     configs
 }
-

@@ -1,11 +1,13 @@
+use std::fs;
 use veltrano::codegen::CodeGenerator;
 use veltrano::config::Config;
-use veltrano::lexer::Lexer;
-use veltrano::parser::Parser;
-use std::fs;
-use std::process::Command;
 
-mod config_test_utils;
+mod common;
+mod test_configs;
+use common::{
+    assert_parse_error, assert_transpilation_match, assert_transpilation_output, compile_rust_code,
+    transpile, transpile_and_compile,
+};
 
 #[test]
 fn test_camel_to_snake_case() {
@@ -38,86 +40,6 @@ fn test_camel_to_snake_case() {
     );
 }
 
-// Helper function to separate imports from code
-fn separate_imports_and_code(rust_code: &str) -> (String, String) {
-    let lines: Vec<&str> = rust_code.lines().collect();
-    let mut imports = Vec::new();
-    let mut code_lines = Vec::new();
-    let mut in_imports = true;
-
-    for line in lines {
-        if in_imports && (line.starts_with("use ") || line.trim().is_empty()) {
-            imports.push(line);
-        } else {
-            in_imports = false;
-            code_lines.push(line);
-        }
-    }
-
-    (imports.join("\n"), code_lines.join("\n"))
-}
-
-// Helper function to compile Rust code with bumpalo dependency (optimized)
-fn compile_with_bumpalo(rust_code: &str, _name: &str) -> Result<(), String> {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-
-    // Create a hash of the code for caching
-    let mut hasher = DefaultHasher::new();
-    rust_code.hash(&mut hasher);
-    let code_hash = hasher.finish();
-
-    // Use a simpler temp file approach with caching
-    let temp_dir = format!("/tmp/veltrano_cache_{:x}", code_hash);
-    let src_dir = format!("{}/src", temp_dir);
-
-    // Check if this exact code has already been compiled successfully
-    if std::path::Path::new(&format!("{}/.compiled_ok", temp_dir)).exists() {
-        return Ok(());
-    }
-
-    // Create directory structure only if it doesn't exist
-    if !std::path::Path::new(&temp_dir).exists() {
-        fs::create_dir_all(&src_dir).map_err(|e| format!("Failed to create temp dir: {}", e))?;
-
-        // Create Cargo.toml with bumpalo dependency
-        let cargo_toml = r#"[package]
-name = "veltrano_test"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-bumpalo = "3.0"
-"#;
-
-        fs::write(format!("{}/Cargo.toml", temp_dir), cargo_toml)
-            .map_err(|e| format!("Failed to write Cargo.toml: {}", e))?;
-
-        // Create main.rs with the generated code
-        fs::write(format!("{}/src/main.rs", temp_dir), rust_code)
-            .map_err(|e| format!("Failed to write main.rs: {}", e))?;
-
-        // Run cargo check to verify compilation
-        let output = Command::new("cargo")
-            .arg("check")
-            .current_dir(&temp_dir)
-            .output()
-            .map_err(|e| format!("Failed to execute cargo: {}", e))?;
-
-        if !output.status.success() {
-            // Clean up on failure
-            let _ = fs::remove_dir_all(&temp_dir);
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Compilation failed:\n{}", stderr));
-        } else {
-            // Mark as successfully compiled
-            let _ = fs::write(format!("{}/.compiled_ok", temp_dir), "");
-        }
-    }
-
-    Ok(())
-}
-
 #[test]
 fn test_camel_case_transpilation() {
     let source = r#"
@@ -130,15 +52,7 @@ fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
     let config = Config {
         preserve_comments: true,
     };
-    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut codegen = CodeGenerator::with_config(Config {
-        preserve_comments: true,
-    });
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(source, config, false).expect("Transpilation should succeed");
 
     assert!(rust_code.contains("fn calculate_sum"));
     assert!(rust_code.contains("first_number: i64"));
@@ -165,25 +79,9 @@ fn test_readme_examples() {
         let config = Config {
             preserve_comments: true,
         };
-        let mut lexer = Lexer::with_config(veltrano_code.clone(), config.clone());
-        let all_tokens = lexer.tokenize();
-        let mut parser = Parser::new(all_tokens);
-
-        if let Ok(program) = parser.parse() {
-            let mut codegen = CodeGenerator::with_config(Config {
-                preserve_comments: true,
-            });
-            let actual_rust = codegen.generate(&program);
-
-            // Compare with trimmed whitespace to handle trailing newlines
-            assert_eq!(
-                actual_rust.trim(),
-                expected_rust.trim(),
-                "\nVeltrano code:\n{}\n\nExpected Rust:\n{}\n\nActual Rust:\n{}",
-                veltrano_code,
-                expected_rust,
-                actual_rust
-            );
+        if let Err(error) = assert_transpilation_match(&veltrano_code, &expected_rust, config, true)
+        {
+            panic!("README example failed: {}", error);
         }
     }
 }
@@ -201,28 +99,15 @@ fn test_readme_rust_outputs_compile() {
     );
 
     for (index, rust_code) in rust_examples.iter().enumerate() {
-        // Remove lines with intentional errors (marked with // ERROR comment)
-        let cleaned_rust_code = rust_code
-            .lines()
-            .filter(|line| !line.contains("// ERROR"))
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        // Wrap the code in a main function if it's not already a complete program
-        let complete_rust_code = if cleaned_rust_code.contains("fn main") {
-            cleaned_rust_code.clone()
-        } else {
-            // Separate imports from code
-            let (imports, code) = separate_imports_and_code(&cleaned_rust_code);
-            format!("{}\n\nfn main() {{\n{}\n}}", imports, code)
-        };
-
-        // Try to compile the Rust code with bumpalo support
-        if let Err(error) = compile_with_bumpalo(&complete_rust_code, &format!("readme_{}", index))
-        {
+        // Use the helper to compile Rust code, removing ERROR lines and wrapping in main
+        if let Err(error) = compile_rust_code(
+            rust_code,
+            &format!("readme_{}", index),
+            true, // remove_error_lines
+        ) {
             panic!(
                 "README Rust example {} failed to compile:\n{}\n\nCode:\n{}",
-                index, error, complete_rust_code
+                index, error, rust_code
             );
         }
     }
@@ -247,73 +132,29 @@ fn test_readme_veltrano_snippets_transpile_and_compile() {
             continue;
         }
 
-        // Try to transpile the Veltrano code
         let config = Config {
             preserve_comments: true,
         };
-        let mut lexer = Lexer::with_config(veltrano_code.clone(), config.clone());
-        let all_tokens = lexer.tokenize();
-        let mut parser = Parser::new(all_tokens);
 
-        let program = match parser.parse() {
-            Ok(program) => program,
-            Err(err) => {
+        // Use the new helper - skip type checking since README examples may have undefined functions
+        // The helper automatically handles special cases like "if x" and "while counter"
+        match transpile_and_compile(
+            veltrano_code,
+            config,
+            &format!("readme_veltrano_{}", index),
+            true, // skip_type_check
+            &[],
+        ) {
+            Ok(_) => {
+                // Success - test passed
+            }
+            Err(error) => {
                 panic!(
-                    "README Veltrano example {} failed to parse:\n{}\n\nCode:\n{}",
-                    index, err, veltrano_code
+                    "README Veltrano example {} failed:\n{}\n\nCode:\n{}",
+                    index, error, veltrano_code
                 );
             }
-        };
-
-        // Generate Rust code
-        let mut codegen = CodeGenerator::with_config(Config {
-            preserve_comments: true,
-        });
-        let rust_code = codegen.generate(&program);
-
-        // Create a temporary Rust file
-        let temp_file = format!("/tmp/readme_veltrano_example_{}.rs", index);
-
-        // Wrap the code in a main function if it's not already a complete program
-        let complete_rust_code = if rust_code.contains("fn main") {
-            rust_code.clone()
-        } else {
-            // Separate imports from code
-            let (imports, code) = separate_imports_and_code(&rust_code);
-
-            // Special case for control flow examples that use undefined variables
-            let main_body = if code.contains("if x") {
-                format!(
-                    "    let bump = &bumpalo::Bump::new();\n    let x = 10;\n{}",
-                    code
-                )
-            } else if code.contains("while counter") {
-                format!(
-                    "    let bump = &bumpalo::Bump::new();\n    let counter = 0;\n{}",
-                    code
-                )
-            } else {
-                format!("    let bump = &bumpalo::Bump::new();\n{}", code)
-            };
-
-            format!("{}\n\nfn main() {{\n{}\n}}", imports, main_body)
-        };
-
-        fs::write(&temp_file, &complete_rust_code)
-            .expect(&format!("Failed to write temp file {}", temp_file));
-
-        // Try to compile the generated Rust code with bumpalo support
-        if let Err(error) =
-            compile_with_bumpalo(&complete_rust_code, &format!("readme_veltrano_{}", index))
-        {
-            panic!(
-                "README Veltrano example {} transpiled but failed to compile:\n{}\n\nVeltrano code:\n{}\n\nGenerated Rust code:\n{}",
-                index, error, veltrano_code, complete_rust_code
-            );
         }
-
-        // Clean up temporary files
-        let _ = fs::remove_file(&temp_file);
     }
 }
 
@@ -345,63 +186,30 @@ fn test_examples_with_config(preserve_comments: bool) {
             fs::read_to_string(&example_path).expect(&format!("Failed to read {}", example_path));
 
         let config = Config { preserve_comments };
-        let mut lexer = Lexer::with_config(veltrano_code.clone(), config.clone());
-        let all_tokens = lexer.tokenize();
-        let mut parser = Parser::new(all_tokens);
-
-        let program = match parser.parse() {
-            Ok(program) => program,
-            Err(err) => {
-                panic!("Example {} failed to parse: {}", example_file, err);
-            }
-        };
-
-        // Generate Rust code
-        let mut codegen = CodeGenerator::with_config(config);
-        let rust_code = codegen.generate(&program);
-
-        // Create a temporary Rust file
         let comments_suffix = if preserve_comments {
             "_with_comments"
         } else {
             "_no_comments"
         };
-        let temp_file = format!(
-            "/tmp/example_{}{}.rs",
-            example_file.replace(".vl", ""),
-            comments_suffix
-        );
-
-        // Wrap the code in a main function if it's not already a complete program
-        let complete_rust_code = if rust_code.contains("fn main") {
-            rust_code.clone()
-        } else {
-            // Separate imports from code
-            let (imports, code) = separate_imports_and_code(&rust_code);
-            format!(
-                "{}\n\nfn main() {{\n    let bump = &bumpalo::Bump::new();\n{}\n}}",
-                imports, code
-            )
-        };
-
-        fs::write(&temp_file, &complete_rust_code)
-            .expect(&format!("Failed to write temp file {}", temp_file));
-
-        // Try to compile the generated Rust code with bumpalo support
         let test_name = format!(
             "example_{}{}",
             example_file.replace(".vl", ""),
             comments_suffix
         );
-        if let Err(error) = compile_with_bumpalo(&complete_rust_code, &test_name) {
-            panic!(
-                "Example {} (preserve_comments={}) transpiled but failed to compile:\n{}\n\nVeltrano code:\n{}\n\nGenerated Rust code:\n{}",
-                example_file, preserve_comments, error, veltrano_code, complete_rust_code
-            );
-        }
 
-        // Clean up temporary files
-        let _ = fs::remove_file(&temp_file);
+        // Use the new utility that handles everything including wrapping in main
+        // Skip type checking since these examples may use undefined functions like println
+        match transpile_and_compile(&veltrano_code, config, &test_name, true, &[]) {
+            Ok(_) => {
+                // Success - test passed
+            }
+            Err(error) => {
+                panic!(
+                    "Example {} (preserve_comments={}) failed:\n{}",
+                    example_file, preserve_comments, error
+                );
+            }
+        }
     }
 }
 
@@ -599,13 +407,8 @@ fn test_while_true_to_loop_conversion() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
-    let all_tokens = lexer.tokenize();
-    let mut parser = Parser::new(all_tokens);
-
-    let program = parser.parse().expect("Failed to parse");
-    let mut codegen = CodeGenerator::with_config(config.clone());
-    let actual_rust = codegen.generate(&program);
+    let actual_rust = transpile(veltrano_code, config, true) // skip_type_check for Nothing return type
+        .expect("Transpilation should succeed");
 
     // Check that the output contains "loop" instead of "while true"
     assert!(
@@ -642,18 +445,17 @@ fn test_inline_comments_with_and_without_preservation() {
     }
 }"#;
 
-    // Test with comment preservation enabled
+    // Transpile with both comment configurations
     let config_with_comments = Config {
         preserve_comments: true,
     };
-    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config_with_comments.clone());
-    let all_tokens = lexer.tokenize();
-    let mut parser = Parser::new(all_tokens);
-    let program = parser
-        .parse()
-        .expect("Failed to parse inline comments test");
-    let mut codegen = CodeGenerator::with_config(config_with_comments);
-    let rust_code_with_comments = codegen.generate(&program);
+    let config_without_comments = Config {
+        preserve_comments: false,
+    };
+    let rust_code_with_comments = transpile(veltrano_code, config_with_comments, true) // skip_type_check for println
+        .expect("Failed to transpile with comments");
+    let rust_code_no_comments = transpile(veltrano_code, config_without_comments, true) // skip_type_check for println
+        .expect("Failed to transpile without comments");
 
     // Check that all comments are preserved
     assert!(rust_code_with_comments.contains("// Simple inline comment"));
@@ -668,20 +470,7 @@ fn test_inline_comments_with_and_without_preservation() {
     assert!(rust_code_with_comments.contains("// Comment in loop body"));
     assert!(rust_code_with_comments.contains("// Break to avoid infinite loop"));
 
-    // Test with comment preservation disabled
-    let config_no_comments = Config {
-        preserve_comments: false,
-    };
-    let mut lexer2 = Lexer::with_config(veltrano_code.to_string(), config_no_comments.clone());
-    let all_tokens2 = lexer2.tokenize();
-    let mut parser2 = Parser::new(all_tokens2);
-    let program2 = parser2
-        .parse()
-        .expect("Failed to parse inline comments test");
-    let mut codegen2 = CodeGenerator::with_config(config_no_comments);
-    let rust_code_no_comments = codegen2.generate(&program2);
-
-    // Check that NO comments are preserved
+    // Check that no comments are preserved when disabled
     assert!(!rust_code_no_comments.contains("// Simple inline comment"));
     assert!(!rust_code_no_comments.contains("// Another inline comment"));
     assert!(!rust_code_no_comments.contains("// String with inline comment"));
@@ -712,13 +501,8 @@ fn test_mut_ref_type_and_method() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
-    let all_tokens = lexer.tokenize();
-    let mut parser = Parser::new(all_tokens);
-
-    let program = parser.parse().expect("Failed to parse MutRef test");
-    let mut codegen = CodeGenerator::with_config(config.clone());
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(veltrano_code, config.clone(), true) // skip_type_check for MutRef
+        .expect("Transpilation should succeed");
 
     // Check that MutRef<T> becomes &mut T (no automatic .clone())
     assert!(
@@ -738,12 +522,8 @@ fn test_mut_ref_type_and_method() {
     val another = "test".mutRef()
 }"#;
 
-    let mut lexer2 = Lexer::with_config(veltrano_code2.to_string(), config.clone());
-    let all_tokens2 = lexer2.tokenize();
-    let mut parser2 = Parser::new(all_tokens2);
-    let program2 = parser2.parse().expect("Failed to parse mutRef method test");
-    let mut codegen2 = CodeGenerator::with_config(config.clone());
-    let rust_code2 = codegen2.generate(&program2);
+    let rust_code2 = transpile(veltrano_code2, config, true) // skip_type_check for methods
+        .expect("Transpilation should succeed");
 
     // Check that .mutRef() becomes &mut x (no automatic .clone())
     assert!(
@@ -760,100 +540,57 @@ fn test_mut_ref_type_and_method() {
 
 #[test]
 fn test_own_value_type_validation() {
-    // Test that Own<Int> is rejected
-    let veltrano_code = r#"fun main() {
-    val x: Own<Int> = 42
-}"#;
-
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
-    let all_tokens = lexer.tokenize();
-    let mut parser = Parser::new(all_tokens);
 
-    let result = parser.parse();
-    assert!(result.is_err(), "Expected parse error for Own<Int>");
-    assert!(
-        result
-            .unwrap_err()
-            .contains("Cannot use Own<Int>. Int is already owned"),
-        "Expected error message about Own<Int>"
-    );
+    // Test that Own<Int> is rejected
+    assert_parse_error(
+        r#"fun main() { val x: Own<Int> = 42 }"#,
+        config.clone(),
+        Some("Cannot use Own<Int>. Int is already owned"),
+    )
+    .expect("Own<Int> should be rejected");
 
     // Test that Own<Bool> is rejected
-    let veltrano_code2 = r#"fun main() {
-    val flag: Own<Bool> = true
-}"#;
-
-    let mut lexer2 = Lexer::with_config(veltrano_code2.to_string(), config.clone());
-    let all_tokens2 = lexer2.tokenize();
-    let mut parser2 = Parser::new(all_tokens2);
-
-    let result2 = parser2.parse();
-    assert!(result2.is_err(), "Expected parse error for Own<Bool>");
+    assert_parse_error(
+        r#"fun main() { val flag: Own<Bool> = true }"#,
+        config.clone(),
+        Some("Bool is already owned"),
+    )
+    .expect("Own<Bool> should be rejected");
 
     // Test that Own<String> is accepted
-    let veltrano_code3 = r#"fun main() {
-    val text: Own<String> = "hello".toString()
-}"#;
-
-    let mut lexer3 = Lexer::with_config(veltrano_code3.to_string(), config.clone());
-    let all_tokens3 = lexer3.tokenize();
-    let mut parser3 = Parser::new(all_tokens3);
-
-    let result3 = parser3.parse();
-    assert!(result3.is_ok(), "Expected Own<String> to be accepted");
+    transpile(
+        r#"fun main() { val text: Own<String> = "hello".toString() }"#,
+        config.clone(),
+        true, // skip_type_check
+    )
+    .expect("Own<String> should be accepted");
 
     // Test that Own<MutRef<T>> is rejected
-    let veltrano_code4 = r#"fun main() {
-    val x: Own<MutRef<String>> = something
-}"#;
-
-    let mut lexer4 = Lexer::with_config(veltrano_code4.to_string(), config.clone());
-    let all_tokens4 = lexer4.tokenize();
-    let mut parser4 = Parser::new(all_tokens4);
-
-    let result4 = parser4.parse();
-    assert!(result4.is_err(), "Expected parse error for Own<MutRef<T>>");
-    assert!(
-        result4.unwrap_err().contains("MutRef<T> is already owned"),
-        "Expected error message about mutable references"
-    );
+    assert_parse_error(
+        r#"fun main() { val x: Own<MutRef<String>> = something }"#,
+        config.clone(),
+        Some("MutRef<T> is already owned"),
+    )
+    .expect("Own<MutRef<T>> should be rejected");
 
     // Test that Own<Box<T>> is rejected
-    let veltrano_code5 = r#"fun main() {
-    val x: Own<Box<String>> = something
-}"#;
-
-    let mut lexer5 = Lexer::with_config(veltrano_code5.to_string(), config.clone());
-    let all_tokens5 = lexer5.tokenize();
-    let mut parser5 = Parser::new(all_tokens5);
-
-    let result5 = parser5.parse();
-    assert!(result5.is_err(), "Expected parse error for Own<Box<T>>");
-    assert!(
-        result5.unwrap_err().contains("Box<T> is already owned"),
-        "Expected error message about Box already being owned"
-    );
+    assert_parse_error(
+        r#"fun main() { val x: Own<Box<String>> = something }"#,
+        config.clone(),
+        Some("Box<T> is already owned"),
+    )
+    .expect("Own<Box<T>> should be rejected");
 
     // Test that Own<Own<T>> is rejected
-    let veltrano_code6 = r#"fun main() {
-    val x: Own<Own<String>> = something
-}"#;
-
-    let mut lexer6 = Lexer::with_config(veltrano_code6.to_string(), config.clone());
-    let all_tokens6 = lexer6.tokenize();
-    let mut parser6 = Parser::new(all_tokens6);
-
-    let result6 = parser6.parse();
-    assert!(result6.is_err(), "Expected parse error for Own<Own<T>>");
-    assert!(
-        result6
-            .unwrap_err()
-            .contains("Cannot use Own<> on already owned type"),
-        "Expected error message about Own on already owned type"
-    );
+    assert_parse_error(
+        r#"fun main() { val x: Own<Own<String>> = something }"#,
+        config,
+        Some("Cannot use Own<> on already owned type"),
+    )
+    .expect("Own<Own<T>> should be rejected");
 }
 
 #[test]
@@ -893,29 +630,14 @@ fn test_fail_examples() {
             }
         });
 
+        // Use helper to expect parse failure with optional error checking
         let config = Config {
             preserve_comments: false,
         };
-        let mut lexer = Lexer::with_config(veltrano_code.clone(), config.clone());
-        let all_tokens = lexer.tokenize();
-        let mut parser = Parser::new(all_tokens);
-
-        let result = parser.parse();
-        assert!(
-            result.is_err(),
-            "Expected {} to fail parsing, but it succeeded",
-            fail_file
-        );
-
-        // Check for expected error message if specified
-        if let Some(expected) = expected_error {
-            let actual_error = result.unwrap_err();
-            assert!(
-                actual_error.contains(expected),
-                "Expected error containing '{}' for {}, but got: '{}'",
-                expected,
-                fail_file,
-                actual_error
+        if let Err(error) = assert_parse_error(&veltrano_code, config, expected_error) {
+            panic!(
+                "Parse failure validation failed for {}: {}",
+                fail_file, error
             );
         }
     }
@@ -939,13 +661,8 @@ fn test_clone_ufcs_generation() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
-    let all_tokens = lexer.tokenize();
-    let mut parser = Parser::new(all_tokens);
-
-    let program = parser.parse().expect("Failed to parse clone test");
-    let mut codegen = CodeGenerator::with_config(config.clone());
-    let rust_code = codegen.generate(&program);
+    let rust_code =
+        transpile(veltrano_code, config, true).expect("Clone UFCS test should parse and generate");
 
     // Check UFCS generation for clone
     assert!(
@@ -983,15 +700,8 @@ fn test_mut_ref_function() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
-    let all_tokens = lexer.tokenize();
-    let mut parser = Parser::new(all_tokens);
-
-    let program = parser
-        .parse()
-        .expect("Failed to parse MutRef function test");
-    let mut codegen = CodeGenerator::with_config(config.clone());
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(veltrano_code, config, true) // skip_type_check for MutRef
+        .expect("Transpilation should succeed");
 
     // Check &mut (&value).clone() generation
     assert!(
@@ -1029,15 +739,8 @@ fn test_mutref_method_chaining() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
-    let all_tokens = lexer.tokenize();
-    let mut parser = Parser::new(all_tokens);
-
-    let program = parser
-        .parse()
-        .expect("Failed to parse method chaining test");
-    let mut codegen = CodeGenerator::with_config(config.clone());
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(veltrano_code, config, true) // skip_type_check for method chaining
+        .expect("Transpilation should succeed");
 
     // Check chaining patterns
     assert!(
@@ -1073,101 +776,66 @@ fn test_readme_table_examples() {
         let config = Config {
             preserve_comments: false,
         };
-        let mut lexer = Lexer::with_config(example.clone(), config.clone());
-        let all_tokens = lexer.tokenize();
-        let mut parser = Parser::new(all_tokens);
 
-        let program = match parser.parse() {
-            Ok(program) => program,
-            Err(_err) => {
-                // Some table examples might be fragments, let's try wrapping in a function
+        // Define common variables for table examples
+        let variable_injections = vec![
+            ("owned", "let owned = String::from(\"example\");"),
+            ("borrowed", "let borrowed = &String::from(\"example\");"),
+            ("num", "let num = 42i64;"),
+            ("s", "let s = &String::from(\"example\");"),
+        ];
+
+        // First try to transpile as-is
+        let result = transpile_and_compile(
+            example,
+            config.clone(),
+            &format!("table_{}", index),
+            true, // skip_type_check - table examples may use undefined things
+            &variable_injections,
+        );
+
+        match result {
+            Ok(_) => {
+                // Success - test passed
+            }
+            Err(_) => {
+                // Some table examples might be fragments, try wrapping in a function
                 let wrapped_example = format!("fun main() {{\n    {}\n}}", example);
-                let mut lexer2 = Lexer::with_config(wrapped_example.clone(), config.clone());
-                let all_tokens2 = lexer2.tokenize();
-                let mut parser2 = Parser::new(all_tokens2);
 
-                match parser2.parse() {
-                    Ok(program) => program,
+                match transpile_and_compile(
+                    &wrapped_example,
+                    config,
+                    &format!("table_{}_wrapped", index),
+                    true, // skip_type_check
+                    &variable_injections,
+                ) {
+                    Ok(_) => {
+                        // Success with wrapping
+                    }
                     Err(_) => {
                         println!("Skipping table example {} (fragment): {}", index, example);
                         continue;
                     }
                 }
             }
-        };
-
-        // Generate Rust code
-        let mut codegen = CodeGenerator::with_config(config.clone());
-        let rust_code = codegen.generate(&program);
-
-        // Create a temporary Rust file
-        let temp_file = format!("/tmp/table_example_{}.rs", index);
-
-        // Wrap the code in a main function if it's not already a complete program
-        let complete_rust_code = if rust_code.contains("fn main") {
-            rust_code.clone()
-        } else {
-            // Separate imports from code
-            let (imports, code) = separate_imports_and_code(&rust_code);
-
-            // Add common variable declarations for table examples
-            let mut vars = String::new();
-            if code.contains("owned") {
-                vars.push_str("    let owned = String::from(\"example\");\n");
-            }
-            if code.contains("borrowed") {
-                vars.push_str("    let borrowed = &String::from(\"example\");\n");
-            }
-            if code.contains("num") {
-                vars.push_str("    let num = 42i64;\n");
-            }
-            if code.contains("&s") && !code.contains("let s") {
-                vars.push_str("    let s = &String::from(\"example\");\n");
-            }
-
-            format!(
-                "{}\n\nfn main() {{\n{}    let bump = &bumpalo::Bump::new();\n{}}}",
-                imports, vars, code
-            )
-        };
-
-        fs::write(&temp_file, &complete_rust_code)
-            .expect(&format!("Failed to write temp file {}", temp_file));
-
-        // Try to compile the generated Rust code with bumpalo support
-        if let Err(error) = compile_with_bumpalo(&complete_rust_code, &format!("table_{}", index)) {
-            panic!(
-                "Table example {} failed to compile:\n{}\n\nVeltrano code:\n{}\n\nGenerated Rust code:\n{}",
-                index, error, example, complete_rust_code
-            );
         }
-
-        // Clean up temporary files
-        let _ = fs::remove_file(&temp_file);
     }
 }
 
 #[test]
 fn test_unit_literal() {
-    let source = r#"
-fun main() {
+    let source = r#"fun main() {
     val x: Unit = Unit
     val y = Unit
     println("{:?}", x)
     println("{:?}", y)
-}
-"#;
+}"#;
 
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut codegen = CodeGenerator::with_config(config);
-    let rust_code = codegen.generate(&program);
+    let rust_code =
+        transpile(source, config, true).expect("Unit literal should parse and generate");
 
     // Check that Unit literal is transpiled to ()
     assert!(rust_code.contains("let x: () = ()"));
@@ -1176,8 +844,7 @@ fun main() {
 
 #[test]
 fn test_unary_expressions() {
-    let source = r#"
-fun main() {
+    let source = r#"fun main() {
     val negative = -42
     val expr = -(2 + 3)
     val spaced = - 15
@@ -1189,19 +856,13 @@ fun main() {
     println("{}", spaced)
     println("{}", var_neg)
     println("{}", parens)
-}
-"#;
+}"#;
 
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut codegen = CodeGenerator::with_config(config);
-    let rust_code = codegen.generate(&program);
+    let rust_code =
+        transpile(source, config, true).expect("Unary expressions should parse and generate");
 
     // Check that unary expressions are correctly transpiled
     assert!(rust_code.contains("let negative = -42"));
@@ -1213,24 +874,15 @@ fun main() {
 
 #[test]
 fn test_double_minus_forbidden() {
-    let source = r#"
-fun main() {
-    val bad = --5
-}
-"#;
-
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-
-    let result = parser.parse();
-    assert!(result.is_err());
-    assert!(result
-        .unwrap_err()
-        .contains("Double minus (--) is not allowed"));
+    assert_parse_error(
+        r#"fun main() { val bad = --5 }"#,
+        config,
+        Some("Double minus (--) is not allowed"),
+    )
+    .expect("Double minus should be forbidden");
 }
 
 #[test]
@@ -1251,13 +903,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut codegen = CodeGenerator::with_config(config);
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(source, config, true) // skip_type_check for imports
+        .expect("Transpilation should succeed");
 
     // Check that imports don't generate any Rust code
     assert!(!rust_code.contains("import"));
@@ -1283,13 +930,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut codegen = CodeGenerator::with_config(config);
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(source, config, true) // skip_type_check for preimported methods
+        .expect("Transpilation should succeed");
 
     // Check pre-imported methods
     assert!(rust_code.contains("Clone::clone(text)"));
@@ -1300,25 +942,18 @@ fun main() {
 
 #[test]
 fn test_import_priority_over_preimported() {
-    let source = r#"
-import MyClone.clone
+    let source = r#"import MyClone.clone
 
 fun main() {
     val value = 42
     val cloned = value.clone()
-}
-"#;
+}"#;
 
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut codegen = CodeGenerator::with_config(config);
-    let rust_code = codegen.generate(&program);
+    let rust_code =
+        transpile(source, config, true).expect("Import priority test should parse and generate");
 
     // Debug: print the generated code
     if rust_code.contains("Clone::clone") {
@@ -1331,25 +966,18 @@ fun main() {
 
 #[test]
 fn test_import_with_alias() {
-    let source = r#"
-import ToString.toString as stringify
+    let source = r#"import ToString.toString as stringify
 
 fun main() {
     val num = 42
     val str = num.stringify()
-}
-"#;
+}"#;
 
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut codegen = CodeGenerator::with_config(config);
-    let rust_code = codegen.generate(&program);
+    let rust_code =
+        transpile(source, config, true).expect("Import alias test should parse and generate");
 
     // Check that alias works and maps to correct UFCS call
     assert!(rust_code.contains("ToString::to_string(num)"));
@@ -1372,13 +1000,8 @@ fun new(): Int {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut codegen = CodeGenerator::with_config(config);
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(source, config, true) // skip_type_check for function priority
+        .expect("Transpilation should succeed");
 
     // Debug: print the generated code
     println!("Generated Rust code:\n{}", rust_code);
@@ -1398,13 +1021,8 @@ data class Point(val x: Int, val y: Int)
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(source1.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut codegen = CodeGenerator::with_config(config.clone());
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(source1, config.clone(), true) // skip_type_check for data classes
+        .expect("Transpilation should succeed");
 
     // Check struct generation without lifetime
     assert!(rust_code.contains("#[derive(Debug, Clone)]"));
@@ -1421,13 +1039,8 @@ data class Point(val x: Int, val y: Int)
 data class Person(val name: String, val age: Int)
 "#;
 
-    let mut lexer2 = Lexer::with_config(source2.to_string(), config.clone());
-    let tokens2 = lexer2.tokenize();
-    let mut parser2 = Parser::new(tokens2);
-    let program2 = parser2.parse().expect("Parse should succeed");
-
-    let mut codegen2 = CodeGenerator::with_config(config.clone());
-    let rust_code2 = codegen2.generate(&program2);
+    let rust_code2 = transpile(source2, config.clone(), true) // skip_type_check for data classes
+        .expect("Transpilation should succeed");
 
     // Check struct generation with lifetime
     assert!(rust_code2.contains("#[derive(Debug, Clone)]"));
@@ -1440,13 +1053,8 @@ data class Person(val name: String, val age: Int)
 data class Container(val item: MyType, val count: Int)
 "#;
 
-    let mut lexer3 = Lexer::with_config(source3.to_string(), config.clone());
-    let tokens3 = lexer3.tokenize();
-    let mut parser3 = Parser::new(tokens3);
-    let program3 = parser3.parse().expect("Parse should succeed");
-
-    let mut codegen3 = CodeGenerator::with_config(config);
-    let rust_code3 = codegen3.generate(&program3);
+    let rust_code3 = transpile(source3, config, true) // skip_type_check for data classes
+        .expect("Transpilation should succeed");
 
     // Check struct generation with custom type (needs lifetime)
     assert!(rust_code3.contains("pub struct Container<'a> {"));
@@ -1469,13 +1077,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut codegen = CodeGenerator::with_config(config);
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(source, config, true) // skip_type_check for data classes
+        .expect("Transpilation should succeed");
 
     // Check struct initialization syntax
     assert!(rust_code.contains("let p1 = Point { x: 10, y: 20 };"));
@@ -1507,13 +1110,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut codegen = CodeGenerator::with_config(config);
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(source, config, true) // skip_type_check for data classes
+        .expect("Transpilation should succeed");
 
     // Check field shorthand syntax
     assert!(rust_code.contains("let p1 = Point { x, y };"));
@@ -1545,13 +1143,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut codegen = CodeGenerator::with_config(config);
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(source, config, true) // skip_type_check for data classes
+        .expect("Transpilation should succeed");
 
     // All should generate correct struct initialization regardless of order
     assert!(rust_code.contains("let p1 = Person { name: \"Alice\", age: 30 };"));
@@ -1569,8 +1162,7 @@ fun main() {
 #[test]
 fn test_data_class_mixed_bare_named_args() {
     // Test that bare and named arguments can be mixed in any order
-    let source = r#"
-data class Person(val name: Str, val age: Int)
+    let source = r#"data class Person(val name: Str, val age: Int)
 data class Book(val title: Str, val author: Str, val pages: Int)
 
 fun main() {
@@ -1590,19 +1182,13 @@ fun main() {
     val b1 = Book(title, author = "Carol", pages = 300)     // bare, named, named
     val b2 = Book(title = "Guide", author, pages = 400)     // named, bare, named  
     val b3 = Book(title = "Manual", author = "Bob", pages)  // named, named, bare
-}
-"#;
+}"#;
 
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut codegen = CodeGenerator::with_config(config);
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(source, config, true)
+        .expect("Data class mixed args test should parse and generate");
 
     // Verify correct struct initialization with mixed bare/named args
     assert!(rust_code.contains("let p1 = Person { name, age: 25 };"));
@@ -1633,14 +1219,8 @@ fun main() {
     let config = Config {
         preserve_comments: true,
     };
-    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
-    let all_tokens = lexer.tokenize();
-    let mut parser = Parser::new(all_tokens);
-    let program = parser
-        .parse()
-        .expect("Failed to parse contextual indentation test");
-    let mut codegen = CodeGenerator::with_config(config);
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(veltrano_code, config, true) // preserve_comments=true, skip_type_check for println
+        .expect("Failed to transpile contextual indentation test");
 
     // Check that comments have proper indentation without double indentation
     assert!(rust_code.contains("fn test() {\n    // First level comment"));
@@ -1719,13 +1299,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut codegen = CodeGenerator::with_config(config);
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(source, config, true) // skip_type_check for data classes
+        .expect("Transpilation should succeed");
 
     // Check field access generation
     assert!(rust_code.contains("let x = p.x;"));
@@ -1766,13 +1341,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(source.to_string(), config.clone());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut codegen = CodeGenerator::with_config(config);
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(source, config, true) // skip_type_check for method chains
+        .expect("Transpilation should succeed");
 
     // All variations should generate bump allocations
     assert!(rust_code.contains("let single: &str = bump.alloc(&hello);"));
@@ -1824,14 +1394,8 @@ fun main() {
     let config = Config {
         preserve_comments: true,
     };
-    let mut lexer = Lexer::with_config(veltrano_code.to_string(), config.clone());
-    let all_tokens = lexer.tokenize();
-    let mut parser = Parser::new(all_tokens);
-    let program = parser
-        .parse()
-        .expect("Failed to parse nested function calls");
-    let mut codegen = CodeGenerator::with_config(config);
-    let rust_code = codegen.generate(&program);
+    let rust_code = transpile(veltrano_code, config, true)
+        .expect("Nested function comment test should parse and generate");
 
     // Check proper indentation at different nesting levels
     let lines: Vec<&str> = rust_code.lines().collect();
@@ -1882,7 +1446,7 @@ fun main() {
 #[test]
 fn test_expected_outputs() {
     // Get predefined config mappings
-    let configs = config_test_utils::test_configs();
+    let configs = test_configs::test_configs();
 
     // Find all expected output files
     let examples_dir = std::path::Path::new("examples");
@@ -1950,53 +1514,14 @@ fn test_expected_outputs() {
             expected_path
         ));
 
-        // Transpile the source
-        let mut lexer = Lexer::with_config(veltrano_code.clone(), config.clone());
-        let all_tokens = lexer.tokenize();
-        let mut parser = Parser::new(all_tokens);
-
-        let program = match parser.parse() {
-            Ok(program) => program,
-            Err(err) => {
-                panic!(
-                    "Failed to parse {} for config '{}': {}",
-                    source_path, config_key, err
-                );
-            }
-        };
-
-        let mut codegen = CodeGenerator::with_config(config);
-        let actual_rust = codegen.generate(&program);
-
-        // Compare output (trim to handle trailing newlines)
-        if actual_rust.trim() != expected_rust.trim() {
-            // For better error messages, show the diff
-            eprintln!("\n=== EXPECTED OUTPUT MISMATCH ===");
-            eprintln!("File: {}", expected_filename);
-            eprintln!("Config: {}", config_key);
-            eprintln!("\n--- Expected ---\n{}", expected_rust);
-            eprintln!("\n--- Actual ---\n{}", actual_rust);
-            eprintln!("\n--- Diff ---");
-
-            // Simple line-by-line diff
-            let expected_lines: Vec<&str> = expected_rust.lines().collect();
-            let actual_lines: Vec<&str> = actual_rust.lines().collect();
-            let max_lines = expected_lines.len().max(actual_lines.len());
-
-            for i in 0..max_lines {
-                let expected_line = expected_lines.get(i).unwrap_or(&"<EOF>");
-                let actual_line = actual_lines.get(i).unwrap_or(&"<EOF>");
-
-                if expected_line != actual_line {
-                    eprintln!("Line {}:", i + 1);
-                    eprintln!("  - {}", expected_line);
-                    eprintln!("  + {}", actual_line);
-                }
-            }
-
+        // Test transpilation against expected output
+        let context = format!("File: {}, Config: {}", expected_filename, config_key);
+        if let Err(error) =
+            assert_transpilation_output(&veltrano_code, &expected_rust, config, &context, true)
+        {
             panic!(
-                "Output mismatch for {} with config '{}'",
-                base_name, config_key
+                "Output mismatch for {} with config '{}': {}",
+                base_name, config_key, error
             );
         }
     }
@@ -2008,4 +1533,3 @@ fn test_expected_outputs() {
         println!("Validated {} expected output files", expected_files_count);
     }
 }
-

@@ -10,4 +10,3 @@ impl Default for Config {
         }
     }
 }
-

@@ -1,4 +1,7 @@
-use veltrano::*;
+use veltrano::config::Config;
+
+mod common;
+use common::parse_and_type_check;
 
 #[test]
 fn test_chained_ref_conversions() {
@@ -16,15 +19,7 @@ fn test_chained_ref_conversions() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(code.to_string(), config);
-    let tokens = lexer.tokenize();
-
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut type_checker = VeltranoTypeChecker::new();
-    let result = type_checker.check_program(&program);
-
+    let result = parse_and_type_check(code, config).map(|_| ());
     assert!(result.is_ok(), "Chained .ref() conversions should work");
 }
 
@@ -44,15 +39,7 @@ fn test_mutref_conversion() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(code.to_string(), config);
-    let tokens = lexer.tokenize();
-
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut type_checker = VeltranoTypeChecker::new();
-    let result = type_checker.check_program(&program);
-
+    let result = parse_and_type_check(code, config).map(|_| ());
     assert!(result.is_ok(), "MutRef conversion should work");
 }
 
@@ -73,15 +60,7 @@ fn test_mutref_to_immutable_conversion() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(code.to_string(), config);
-    let tokens = lexer.tokenize();
-
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut type_checker = VeltranoTypeChecker::new();
-    let result = type_checker.check_program(&program);
-
+    let result = parse_and_type_check(code, config).map(|_| ());
     assert!(result.is_ok(), "MutRef to immutable conversion should work");
 }
 
@@ -97,15 +76,7 @@ fn test_clone_preserves_type() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(code.to_string(), config);
-    let tokens = lexer.tokenize();
-
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut type_checker = VeltranoTypeChecker::new();
-    let result = type_checker.check_program(&program);
-
+    let result = parse_and_type_check(code, config).map(|_| ());
     assert!(result.is_ok(), "Clone should preserve the exact type");
 }
 
@@ -122,15 +93,7 @@ fn test_invalid_double_ref_on_borrowed_int() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(code.to_string(), config);
-    let tokens = lexer.tokenize();
-
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut type_checker = VeltranoTypeChecker::new();
-    let result = type_checker.check_program(&program);
-
+    let result = parse_and_type_check(code, config).map(|_| ());
     assert!(
         result.is_err(),
         "Should fail when trying to .ref() a borrowed Int (not String→Str conversion)"
@@ -149,15 +112,7 @@ fn test_invalid_mutref_on_borrowed_type() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(code.to_string(), config);
-    let tokens = lexer.tokenize();
-
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut type_checker = VeltranoTypeChecker::new();
-    let result = type_checker.check_program(&program);
-
+    let result = parse_and_type_check(code, config).map(|_| ());
     assert!(
         result.is_err(),
         "Should fail when trying to .mutRef() a borrowed type"
@@ -189,14 +144,7 @@ fn test_comprehensive_type_combinations() {
     let config = Config {
         preserve_comments: false,
     };
-    let mut lexer = Lexer::with_config(code.to_string(), config);
-    let tokens = lexer.tokenize();
-
-    let mut parser = Parser::new(tokens);
-    let program = parser.parse().expect("Parse should succeed");
-
-    let mut type_checker = VeltranoTypeChecker::new();
-    let result = type_checker.check_program(&program);
+    let result = parse_and_type_check(code, config).map(|_| ());
 
     if let Err(errors) = &result {
         for error in errors {
