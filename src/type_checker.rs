@@ -197,9 +197,8 @@ impl VeltranoTypeChecker {
     }
 
     fn init_builtin_functions(&mut self) {
-        // Add built-in String methods
-        // Note: These would normally be looked up via method resolution
-        // For now, we'll handle them in check_method_call
+        // TODO: Register built-in function signatures from the builtin registry
+        // For now, we'll just handle built-ins in the call checking logic
     }
 
     /// Main entry point for type checking a program
@@ -513,6 +512,12 @@ impl VeltranoTypeChecker {
     /// Check function call expression
     fn check_call_expression(&mut self, call: &CallExpr) -> Result<VeltranoType, TypeCheckError> {
         if let Expr::Identifier(func_name) = call.callee.as_ref() {
+            // Check if this is a built-in function first
+            if self.is_rust_macro(func_name) {
+                return self.check_rust_macro_call(func_name, call);
+            }
+
+            // Check user-defined functions
             let func_sig = self
                 .env
                 .lookup_function(func_name)
@@ -579,6 +584,42 @@ impl VeltranoTypeChecker {
                 },
             })
         }
+    }
+
+    /// Check if a function is a Rust macro
+    fn is_rust_macro(&self, name: &str) -> bool {
+        matches!(
+            name,
+            "println" | "print" | "panic" | "assert" | "debug_assert"
+        )
+    }
+
+    /// Check Rust macro call (skip type checking)
+    fn check_rust_macro_call(
+        &mut self,
+        _func_name: &str,
+        call: &CallExpr,
+    ) -> Result<VeltranoType, TypeCheckError> {
+        // Rust macros skip type checking - they accept any arguments
+        // Just validate that arguments are syntactically correct expressions
+        for arg in &call.args {
+            match arg {
+                Argument::Bare(expr, _) => {
+                    self.check_expression(expr)?; // Ensure expression is valid
+                }
+                Argument::Named(_, expr, _) => {
+                    self.check_expression(expr)?; // Ensure expression is valid
+                }
+                Argument::StandaloneComment(_, _) => continue, // Skip comments
+            }
+        }
+
+        // Return unit type for macros like println!, print!, panic!
+        Ok(VeltranoType {
+            base: VeltranoBaseType::Unit,
+            ownership: Ownership::Owned,
+            mutability: Mutability::Immutable,
+        })
     }
 
     /// Check method call expression
@@ -730,32 +771,134 @@ impl VeltranoTypeChecker {
 
     /// Check .clone() method call
     fn check_clone_method(
-        &self,
+        &mut self,
         receiver_type: &VeltranoType,
     ) -> Result<VeltranoType, TypeCheckError> {
-        // Clone returns the same type
-        Ok(receiver_type.clone())
+        // Check if the type implements Clone trait (hardcoded knowledge for now)
+        let can_clone = match &receiver_type.base {
+            VeltranoBaseType::Int | VeltranoBaseType::Bool | VeltranoBaseType::Unit => true,
+            VeltranoBaseType::String => true,
+            VeltranoBaseType::Str => false, // &str is Copy, not Clone
+            VeltranoBaseType::Custom(_) => true, // Assume custom types can be cloned for now
+            VeltranoBaseType::Vec(_)
+            | VeltranoBaseType::Slice(_)
+            | VeltranoBaseType::Array(_, _) => true,
+        };
+
+        if can_clone {
+            // Clone returns an owned version of the same base type
+            Ok(VeltranoType {
+                base: receiver_type.base.clone(),
+                ownership: Ownership::Owned,
+                mutability: Mutability::Immutable,
+            })
+        } else {
+            Err(TypeCheckError::MethodNotFound {
+                receiver_type: receiver_type.clone(),
+                method: "clone".to_string(),
+                location: SourceLocation {
+                    file: "unknown".to_string(),
+                    line: 0,
+                    column: 0,
+                    source_line: "".to_string(),
+                },
+            })
+        }
+    }
+
+    /// Convert VeltranoType to Rust type name for trait checking
+    fn veltrano_type_to_rust_type_name(&self, veltrano_type: &VeltranoType) -> String {
+        match &veltrano_type.base {
+            VeltranoBaseType::Int => "i32".to_string(),
+            VeltranoBaseType::Bool => "bool".to_string(),
+            VeltranoBaseType::Str => "&str".to_string(),
+            VeltranoBaseType::String => "String".to_string(),
+            VeltranoBaseType::Unit => "()".to_string(),
+            VeltranoBaseType::Vec(element_type) => {
+                format!(
+                    "Vec<{}>",
+                    self.veltrano_type_to_rust_type_name(element_type)
+                )
+            }
+            VeltranoBaseType::Slice(element_type) => {
+                format!("&[{}]", self.veltrano_type_to_rust_type_name(element_type))
+            }
+            VeltranoBaseType::Array(element_type, size) => {
+                format!(
+                    "[{}; {}]",
+                    self.veltrano_type_to_rust_type_name(element_type),
+                    size
+                )
+            }
+            VeltranoBaseType::Custom(name) => name.clone(),
+        }
     }
 
     /// Check built-in methods on types
     fn check_builtin_method(
-        &self,
+        &mut self,
         receiver_type: &VeltranoType,
         method: &str,
     ) -> Result<VeltranoType, TypeCheckError> {
-        match (&receiver_type.base, &receiver_type.ownership, method) {
-            // String literal methods
-            (VeltranoBaseType::String, Ownership::Owned, "toString") => Ok(VeltranoType {
+        match method {
+            "toString" => self.check_tostring_method(receiver_type),
+            "length" => self.check_length_method(receiver_type),
+            _ => Err(TypeCheckError::MethodNotFound {
+                receiver_type: receiver_type.clone(),
+                method: method.to_string(),
+                location: SourceLocation {
+                    file: "unknown".to_string(),
+                    line: 0,
+                    column: 0,
+                    source_line: "".to_string(),
+                },
+            }),
+        }
+    }
+
+    /// Check .toString() method call
+    fn check_tostring_method(
+        &mut self,
+        receiver_type: &VeltranoType,
+    ) -> Result<VeltranoType, TypeCheckError> {
+        // Check if the type implements ToString trait (hardcoded knowledge for now)
+        let can_tostring = match &receiver_type.base {
+            VeltranoBaseType::Int | VeltranoBaseType::Bool | VeltranoBaseType::Unit => true,
+            VeltranoBaseType::String | VeltranoBaseType::Str => true,
+            VeltranoBaseType::Custom(_) => true, // Assume custom types can be converted to string
+            VeltranoBaseType::Vec(_)
+            | VeltranoBaseType::Slice(_)
+            | VeltranoBaseType::Array(_, _) => true,
+        };
+
+        if can_tostring {
+            // toString returns an owned String
+            Ok(VeltranoType {
                 base: VeltranoBaseType::String,
                 ownership: Ownership::Owned,
                 mutability: Mutability::Immutable,
-            }),
-            (VeltranoBaseType::String, _, "length") => Ok(VeltranoType {
-                base: VeltranoBaseType::Int,
-                ownership: Ownership::Owned,
-                mutability: Mutability::Immutable,
-            }),
-            (VeltranoBaseType::Str, _, "length") => Ok(VeltranoType {
+            })
+        } else {
+            Err(TypeCheckError::MethodNotFound {
+                receiver_type: receiver_type.clone(),
+                method: "toString".to_string(),
+                location: SourceLocation {
+                    file: "unknown".to_string(),
+                    line: 0,
+                    column: 0,
+                    source_line: "".to_string(),
+                },
+            })
+        }
+    }
+
+    /// Check .length() method call
+    fn check_length_method(
+        &self,
+        receiver_type: &VeltranoType,
+    ) -> Result<VeltranoType, TypeCheckError> {
+        match &receiver_type.base {
+            VeltranoBaseType::String | VeltranoBaseType::Str => Ok(VeltranoType {
                 base: VeltranoBaseType::Int,
                 ownership: Ownership::Owned,
                 mutability: Mutability::Immutable,
@@ -764,7 +907,7 @@ impl VeltranoTypeChecker {
                 // Method not found
                 Err(TypeCheckError::MethodNotFound {
                     receiver_type: receiver_type.clone(),
-                    method: method.to_string(),
+                    method: "length".to_string(),
                     location: SourceLocation {
                         file: "unknown".to_string(),
                         line: 0,
