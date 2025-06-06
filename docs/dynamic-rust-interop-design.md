@@ -302,4 +302,95 @@ The implemented system can now:
 - Provide fallback between multiple querying strategies
 - Extract comprehensive information about functions, types, traits, and methods
 
+## Missing Functionality
+
+### Trait Implementation Queries
+
+❌ **NOT IMPLEMENTED** - Critical missing feature for type checking:
+
+The current system cannot query which types implement which traits. This is essential for validating method calls like `.clone()` and `.toString()`.
+
+**What we need:**
+```rust
+impl DynamicRustRegistry {
+    /// Check if a type implements a specific trait
+    pub fn type_implements_trait(
+        &mut self, 
+        type_path: &str,      // e.g., "i32", "std::string::String"
+        trait_path: &str      // e.g., "Clone", "std::fmt::Display"
+    ) -> Result<bool, RustInteropError>;
+    
+    /// Get all traits implemented by a type
+    pub fn get_implemented_traits(
+        &mut self,
+        type_path: &str
+    ) -> Result<Vec<String>, RustInteropError>;
+}
+```
+
+**Implementation approaches:**
+
+1. **Enhance SynQuerier** to parse `impl Trait for Type` blocks:
+   ```rust
+   // Currently parse_impl_block only adds methods to types
+   // Need to also track: impl Clone for MyType { ... }
+   ```
+
+2. **Use rustdoc JSON** which includes trait implementations in its output
+
+3. **Query rust-analyzer** via LSP for trait implementation information
+
+**Impact:**
+- Cannot properly type-check `.clone()` calls (must assume all types are cloneable)
+- Cannot validate `.toString()` calls 
+- Must skip type checking for Rust macros like `println!`
+
+### Built-in Functions and Type Checker Integration
+
+⚠️ **PARTIALLY IMPLEMENTED** - Built-ins exist but aren't accessible to type checker:
+
+**Current state:**
+- Built-in functions (println, print, panic, etc.) are defined in multiple places:
+  - `codegen.rs`: `is_rust_macro()` for code generation
+  - `rust_interop.rs`: Registry has `println` with signature
+  - `type_checker.rs`: No access to built-in definitions
+
+**Proposed solution:**
+```rust
+// Create a centralized built-ins module
+pub mod builtins {
+    pub struct BuiltinRegistry {
+        functions: HashMap<String, BuiltinFunction>,
+        methods: HashMap<String, BuiltinMethod>,
+    }
+    
+    pub enum BuiltinFunction {
+        // Rust macros (skip type checking)
+        Println { /* variadic args */ },
+        Print { /* variadic args */ },
+        Panic { message: Option<VeltranoType> },
+        
+        // Special functions
+        MutRef { value: VeltranoType }, // Generates &mut (&value).clone()
+    }
+    
+    pub enum BuiltinMethod {
+        // Universal methods (need trait checking)
+        Clone,      // Requires: Clone trait
+        ToString,   // Requires: ToString/Display trait
+        
+        // Ownership conversion methods (always available on owned types)
+        Ref,        // Own<T> → T
+        MutRef,     // Own<T> → MutRef<T>
+        BumpRef,    // T → Str (bump allocated)
+    }
+}
+```
+
+**Integration approach:**
+1. Type checker queries built-ins before checking user-defined functions
+2. For macros: Skip type checking (as they're variadic)
+3. For methods: Check trait implementations when available
+4. Share definitions between type checker and codegen
+
 This foundation makes Veltrano much more powerful by automatically understanding Rust crate APIs without manual registration.
