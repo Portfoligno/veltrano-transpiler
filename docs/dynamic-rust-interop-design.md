@@ -301,16 +301,19 @@ The implemented system can now:
 - Cache results for performance
 - Provide fallback between multiple querying strategies
 - Extract comprehensive information about functions, types, traits, and methods
+- **Query trait implementations** to validate method calls (e.g., Clone, ToString)
+- Track trait implementations from `impl Trait for Type` blocks
+- Provide built-in knowledge of standard library trait implementations
 
 ## Missing Functionality
 
 ### Trait Implementation Queries
 
-❌ **NOT IMPLEMENTED** - Critical missing feature for type checking:
+✅ **IMPLEMENTED** - Critical feature for type checking:
 
-The current system cannot query which types implement which traits. This is essential for validating method calls like `.clone()` and `.toString()`.
+The system can now query which types implement which traits, enabling proper validation of method calls like `.clone()` and `.toString()`.
 
-**What we need:**
+**Available API:**
 ```rust
 impl DynamicRustRegistry {
     /// Check if a type implements a specific trait
@@ -328,22 +331,27 @@ impl DynamicRustRegistry {
 }
 ```
 
-**Implementation approaches:**
+**Implementation details:**
 
-1. **Enhance SynQuerier** to parse `impl Trait for Type` blocks:
-   ```rust
-   // Currently parse_impl_block only adds methods to types
-   // Need to also track: impl Clone for MyType { ... }
-   ```
+1. **SynQuerier Enhancement** ✅
+   - `parse_impl_block` now detects `impl Trait for Type` blocks
+   - Tracks implementations in `CrateInfo.trait_implementations`
+   - Maps type names to sets of implemented traits
 
-2. **Use rustdoc JSON** which includes trait implementations in its output
+2. **Built-in Type Knowledge** ✅
+   - Hardcoded trait implementations for primitives (i32, bool, etc.)
+   - String types (String, &str) with appropriate traits
+   - Proper handling of Copy vs Clone distinction
 
-3. **Query rust-analyzer** via LSP for trait implementation information
+3. **Dynamic Querying** ✅
+   - Falls back to querying crate info for custom types
+   - Caches results for performance
+   - Supports multiple querier backends
 
-**Impact:**
-- Cannot properly type-check `.clone()` calls (must assume all types are cloneable)
-- Cannot validate `.toString()` calls 
-- Must skip type checking for Rust macros like `println!`
+**Resolved Issues:**
+- Can now properly type-check `.clone()` calls with trait validation
+- Can validate `.toString()` calls based on Display/ToString traits
+- Foundation ready for type-checking method calls on custom types
 
 ### Built-in Functions and Type Checker Integration
 
