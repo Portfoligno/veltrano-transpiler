@@ -228,10 +228,6 @@ impl VeltranoType {
         self.args.first()
     }
 
-    pub fn inner_mut(&mut self) -> Option<&mut VeltranoType> {
-        self.args.first_mut()
-    }
-
     /// Convert this VeltranoType to its corresponding Rust type name
     pub fn to_rust_type_name(&self) -> String {
         // Only handle base types (no type arguments) for trait checking
@@ -286,16 +282,6 @@ impl VeltranoType {
         trait_checker: &mut rust_interop::RustInteropRegistry,
     ) -> bool {
         !self.is_naturally_owned(trait_checker) && self.args.is_empty()
-    }
-
-    /// Temporary backward compatibility method for builtins.rs
-    /// TODO: Remove once builtins.rs is updated to use trait checker
-    pub fn is_naturally_referenced_legacy(&self) -> bool {
-        self.args.is_empty()
-            && matches!(
-                self.constructor,
-                TypeConstructor::Str | TypeConstructor::String | TypeConstructor::Custom(_)
-            )
     }
 
     /// Validate if Own<T> type constructor is valid with the given inner type
@@ -1114,29 +1100,6 @@ impl VeltranoTypeChecker {
                     source_line: "".to_string(),
                 },
             })
-        }
-    }
-
-    /// Convert VeltranoType to Rust type name for trait checking (TODO: use rust_interop)
-    fn veltrano_type_to_rust_type_name(&self, veltrano_type: &VeltranoType) -> String {
-        // For now, just return a placeholder
-        // TODO: Implement proper type name generation for new type system
-        let base = veltrano_type.get_base_constructor();
-        match base {
-            TypeConstructor::I32 => "i32".to_string(),
-            TypeConstructor::I64 => "i64".to_string(),
-            TypeConstructor::ISize => "isize".to_string(),
-            TypeConstructor::U32 => "u32".to_string(),
-            TypeConstructor::U64 => "u64".to_string(),
-            TypeConstructor::USize => "usize".to_string(),
-            TypeConstructor::Bool => "bool".to_string(),
-            TypeConstructor::Char => "char".to_string(),
-            TypeConstructor::Str => "&str".to_string(),
-            TypeConstructor::String => "String".to_string(),
-            TypeConstructor::Unit => "()".to_string(),
-            TypeConstructor::Nothing => "!".to_string(),
-            TypeConstructor::Custom(name) => name.clone(),
-            _ => "unknown".to_string(),
         }
     }
 

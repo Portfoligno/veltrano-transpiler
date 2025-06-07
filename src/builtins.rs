@@ -25,15 +25,43 @@ pub enum BuiltinMethodKind {
         method_name: String,
         required_trait: String,
         parameters: Vec<VeltranoType>,
-        return_type_fn: fn(&VeltranoType) -> VeltranoType, // Function to compute return type based on receiver
+        return_type_strategy: MethodReturnTypeStrategy,
     },
     /// Special methods with custom logic
     SpecialMethod {
         method_name: String,
-        receiver_type_filter: fn(&VeltranoType) -> bool, // Whether this method applies to the receiver type
+        receiver_type_filter: TypeFilter,
         parameters: Vec<VeltranoType>,
-        return_type_fn: fn(&VeltranoType) -> VeltranoType,
+        return_type_strategy: MethodReturnTypeStrategy,
     },
+}
+
+/// Strategy for determining method return types
+#[derive(Debug, Clone, PartialEq)]
+pub enum MethodReturnTypeStrategy {
+    /// Return the receiver type unchanged
+    SameAsReceiver,
+    /// Return a reference to the receiver type
+    RefToReceiver,
+    /// Return a mutable reference to the receiver type
+    MutRefToReceiver,
+    /// Return an owned version (Own<T> for naturally referenced types, T for value types)
+    OwnedVersion,
+    /// Return a specific type regardless of receiver
+    FixedType(VeltranoType),
+    /// For clone: return owned version based on trait checking
+    CloneSemantics,
+}
+
+/// Filter for determining if a method applies to a receiver type
+#[derive(Debug, Clone, PartialEq)]
+pub enum TypeFilter {
+    /// Method applies to all types
+    All,
+    /// Method applies only to specific type constructors
+    TypeConstructors(Vec<TypeConstructor>),
+    /// Method applies only to types that implement a specific trait
+    HasTrait(String),
 }
 
 /// Registry for all built-in functions and methods
@@ -88,15 +116,7 @@ impl BuiltinRegistry {
                 method_name: "clone".to_string(),
                 required_trait: "Clone".to_string(),
                 parameters: vec![],
-                return_type_fn: |receiver| {
-                    // clone() returns an owned version of the type
-                    // If it's a naturally referenced type, wrap in Own<>
-                    if receiver.is_naturally_referenced_legacy() {
-                        VeltranoType::own(receiver.clone())
-                    } else {
-                        receiver.clone() // Already owned for value types
-                    }
-                },
+                return_type_strategy: MethodReturnTypeStrategy::CloneSemantics,
             },
         );
 
@@ -106,7 +126,9 @@ impl BuiltinRegistry {
                 method_name: "toString".to_string(),
                 required_trait: "ToString".to_string(),
                 parameters: vec![],
-                return_type_fn: |_| VeltranoType::own(VeltranoType::string()),
+                return_type_strategy: MethodReturnTypeStrategy::FixedType(VeltranoType::own(
+                    VeltranoType::string(),
+                )),
             },
         );
 
@@ -115,12 +137,9 @@ impl BuiltinRegistry {
             "ref",
             BuiltinMethodKind::SpecialMethod {
                 method_name: "ref".to_string(),
-                receiver_type_filter: |_| true, // Available on all types
+                receiver_type_filter: TypeFilter::All,
                 parameters: vec![],
-                return_type_fn: |receiver| {
-                    // ref() creates an immutable reference
-                    VeltranoType::ref_(receiver.clone())
-                },
+                return_type_strategy: MethodReturnTypeStrategy::RefToReceiver,
             },
         );
 
@@ -128,18 +147,12 @@ impl BuiltinRegistry {
             "mutRef",
             BuiltinMethodKind::SpecialMethod {
                 method_name: "mutRef".to_string(),
-                receiver_type_filter: |receiver| {
-                    // Available on owned types and mutable references
-                    matches!(
-                        receiver.constructor,
-                        TypeConstructor::Own | TypeConstructor::MutRef
-                    )
-                },
+                receiver_type_filter: TypeFilter::TypeConstructors(vec![
+                    TypeConstructor::Own,
+                    TypeConstructor::MutRef,
+                ]),
                 parameters: vec![],
-                return_type_fn: |receiver| {
-                    // mutRef() creates a mutable reference
-                    VeltranoType::mut_ref(receiver.clone())
-                },
+                return_type_strategy: MethodReturnTypeStrategy::MutRefToReceiver,
             },
         );
 
@@ -148,25 +161,9 @@ impl BuiltinRegistry {
             "toSlice",
             BuiltinMethodKind::SpecialMethod {
                 method_name: "toSlice".to_string(),
-                receiver_type_filter: |receiver| {
-                    // toSlice is available on Vec<T> types
-                    matches!(receiver.constructor, TypeConstructor::Vec)
-                },
+                receiver_type_filter: TypeFilter::TypeConstructors(vec![TypeConstructor::Vec]),
                 parameters: vec![],
-                return_type_fn: |receiver| {
-                    if let TypeConstructor::Vec = receiver.constructor {
-                        // Vec<T> → Ref<Slice<T>> (slice is naturally a reference type)
-                        if let Some(inner) = receiver.inner() {
-                            VeltranoType::ref_(inner.clone())
-                        } else {
-                            // Fallback
-                            receiver.clone()
-                        }
-                    } else {
-                        // Fallback (should not happen due to filter)
-                        receiver.clone()
-                    }
-                },
+                return_type_strategy: MethodReturnTypeStrategy::RefToReceiver,
             },
         );
 
@@ -175,12 +172,9 @@ impl BuiltinRegistry {
             "bumpRef",
             BuiltinMethodKind::SpecialMethod {
                 method_name: "bumpRef".to_string(),
-                receiver_type_filter: |_| true, // Available on all types for bump allocation
+                receiver_type_filter: TypeFilter::All,
                 parameters: vec![],
-                return_type_fn: |receiver| {
-                    // bumpRef creates a bump-allocated reference, same as ref()
-                    VeltranoType::ref_(receiver.clone())
-                },
+                return_type_strategy: MethodReturnTypeStrategy::RefToReceiver,
             },
         );
     }
@@ -248,51 +242,165 @@ impl BuiltinRegistry {
         signatures
     }
 
-    /// Get method signatures for a specific receiver type
+    /// Get method signatures for a specific receiver type (with trait checking)
     pub fn get_method_signatures_for_type(
         &self,
         receiver_type: &VeltranoType,
+        trait_checker: &mut crate::rust_interop::RustInteropRegistry,
     ) -> Vec<MethodSignature> {
         let mut signatures = Vec::new();
 
         for (_method_name, method_variants) in &self.methods {
             for method_kind in method_variants {
-                match method_kind {
-                    BuiltinMethodKind::TraitMethod {
-                        method_name,
-                        parameters,
-                        return_type_fn,
-                        ..
-                    } => {
-                        // Note: trait checking will be done separately
-                        signatures.push(MethodSignature {
-                            name: method_name.clone(),
-                            receiver_type: receiver_type.clone(),
-                            parameters: parameters.clone(),
-                            return_type: return_type_fn(receiver_type),
-                        });
-                    }
-                    BuiltinMethodKind::SpecialMethod {
-                        method_name,
-                        receiver_type_filter,
-                        parameters,
-                        return_type_fn,
-                    } => {
-                        // Only include if the receiver type passes the filter
-                        if receiver_type_filter(receiver_type) {
-                            signatures.push(MethodSignature {
-                                name: method_name.clone(),
-                                receiver_type: receiver_type.clone(),
-                                parameters: parameters.clone(),
-                                return_type: return_type_fn(receiver_type),
-                            });
-                        }
-                    }
+                if self.method_matches_receiver(method_kind, receiver_type, trait_checker) {
+                    let method_name = match method_kind {
+                        BuiltinMethodKind::TraitMethod { method_name, .. } => method_name,
+                        BuiltinMethodKind::SpecialMethod { method_name, .. } => method_name,
+                    };
+
+                    let parameters = match method_kind {
+                        BuiltinMethodKind::TraitMethod { parameters, .. } => parameters,
+                        BuiltinMethodKind::SpecialMethod { parameters, .. } => parameters,
+                    };
+
+                    let return_type =
+                        self.compute_return_type(method_kind, receiver_type, trait_checker);
+
+                    signatures.push(MethodSignature {
+                        name: method_name.clone(),
+                        receiver_type: receiver_type.clone(),
+                        parameters: parameters.clone(),
+                        return_type,
+                    });
                 }
             }
         }
 
         signatures
+    }
+
+    /// Check if a method is available on a given receiver type (with trait checking)
+    pub fn is_method_available(
+        &self,
+        method_name: &str,
+        receiver_type: &VeltranoType,
+        trait_checker: &mut crate::rust_interop::RustInteropRegistry,
+    ) -> bool {
+        if let Some(method_variants) = self.methods.get(method_name) {
+            for method_kind in method_variants {
+                if self.method_matches_receiver(method_kind, receiver_type, trait_checker) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Get the return type for a method call (with trait checking)
+    pub fn get_method_return_type(
+        &self,
+        method_name: &str,
+        receiver_type: &VeltranoType,
+        trait_checker: &mut crate::rust_interop::RustInteropRegistry,
+    ) -> Option<VeltranoType> {
+        if let Some(method_variants) = self.methods.get(method_name) {
+            for method_kind in method_variants {
+                if self.method_matches_receiver(method_kind, receiver_type, trait_checker) {
+                    return Some(self.compute_return_type(
+                        method_kind,
+                        receiver_type,
+                        trait_checker,
+                    ));
+                }
+            }
+        }
+        None
+    }
+
+    /// Check if a method variant matches the receiver type
+    fn method_matches_receiver(
+        &self,
+        method_kind: &BuiltinMethodKind,
+        receiver_type: &VeltranoType,
+        trait_checker: &mut crate::rust_interop::RustInteropRegistry,
+    ) -> bool {
+        match method_kind {
+            BuiltinMethodKind::TraitMethod { required_trait, .. } => {
+                // Check if receiver type implements the required trait
+                let rust_type_name = receiver_type.to_rust_type_name();
+                trait_checker
+                    .type_implements_trait(&rust_type_name, required_trait)
+                    .unwrap_or(false)
+            }
+            BuiltinMethodKind::SpecialMethod {
+                receiver_type_filter,
+                ..
+            } => self.type_filter_matches(receiver_type_filter, receiver_type, trait_checker),
+        }
+    }
+
+    /// Check if a type filter matches the receiver type
+    fn type_filter_matches(
+        &self,
+        filter: &TypeFilter,
+        receiver_type: &VeltranoType,
+        trait_checker: &mut crate::rust_interop::RustInteropRegistry,
+    ) -> bool {
+        match filter {
+            TypeFilter::All => true,
+            TypeFilter::TypeConstructors(constructors) => {
+                constructors.contains(&receiver_type.constructor)
+            }
+            TypeFilter::HasTrait(trait_name) => {
+                let rust_type_name = receiver_type.to_rust_type_name();
+                trait_checker
+                    .type_implements_trait(&rust_type_name, trait_name)
+                    .unwrap_or(false)
+            }
+        }
+    }
+
+    /// Compute the return type for a method
+    fn compute_return_type(
+        &self,
+        method_kind: &BuiltinMethodKind,
+        receiver_type: &VeltranoType,
+        trait_checker: &mut crate::rust_interop::RustInteropRegistry,
+    ) -> VeltranoType {
+        let strategy = match method_kind {
+            BuiltinMethodKind::TraitMethod {
+                return_type_strategy,
+                ..
+            } => return_type_strategy,
+            BuiltinMethodKind::SpecialMethod {
+                return_type_strategy,
+                ..
+            } => return_type_strategy,
+        };
+
+        match strategy {
+            MethodReturnTypeStrategy::SameAsReceiver => receiver_type.clone(),
+            MethodReturnTypeStrategy::RefToReceiver => VeltranoType::ref_(receiver_type.clone()),
+            MethodReturnTypeStrategy::MutRefToReceiver => {
+                VeltranoType::mut_ref(receiver_type.clone())
+            }
+            MethodReturnTypeStrategy::OwnedVersion => {
+                if receiver_type.is_naturally_referenced(trait_checker) {
+                    VeltranoType::own(receiver_type.clone())
+                } else {
+                    receiver_type.clone() // Already owned for value types
+                }
+            }
+            MethodReturnTypeStrategy::FixedType(fixed_type) => fixed_type.clone(),
+            MethodReturnTypeStrategy::CloneSemantics => {
+                // Clone returns an owned version based on trait checking
+                if receiver_type.is_naturally_referenced(trait_checker) {
+                    VeltranoType::own(receiver_type.clone())
+                } else {
+                    receiver_type.clone() // Already owned for value types
+                }
+            }
+        }
     }
 }
 
