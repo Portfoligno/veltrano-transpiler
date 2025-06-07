@@ -105,6 +105,8 @@ impl VeltranoType {
 
     /// Apply type constructors
     pub fn own(inner: VeltranoType) -> Self {
+        // Note: Validation is now handled during type checking phase
+        // This constructor only creates the type representation
         Self {
             constructor: TypeConstructor::Own,
             args: vec![inner],
@@ -188,6 +190,31 @@ impl VeltranoType {
                 self.constructor,
                 TypeConstructor::Str | TypeConstructor::String | TypeConstructor::Custom(_)
             )
+    }
+
+    /// Validate if Own<T> type constructor is valid with the given inner type
+    pub fn validate_own_constructor(inner: &VeltranoType) -> Result<(), String> {
+        // Check if the inner type is naturally owned (Int, Bool, Unit, Nothing)
+        if inner.is_naturally_owned() {
+            return Err(format!(
+                "Cannot use Own<{:?}>. This type is already owned.",
+                inner.constructor
+            ));
+        }
+
+        // Check for specific invalid combinations
+        match &inner.constructor {
+            TypeConstructor::MutRef => {
+                Err("Cannot use Own<MutRef<T>>. MutRef<T> is already owned.".to_string())
+            }
+            TypeConstructor::Box => {
+                Err("Cannot use Own<Box<T>>. Box<T> is already owned.".to_string())
+            }
+            TypeConstructor::Own => {
+                Err("Cannot use Own<Own<T>>. This creates double ownership.".to_string())
+            }
+            _ => Ok(()),
+        }
     }
 
     /// Get the ultimate base type constructor (recursively unwrap constructors)
@@ -318,6 +345,10 @@ pub enum TypeCheckError {
     },
     FunctionNotFound {
         name: String,
+        location: SourceLocation,
+    },
+    InvalidTypeConstructor {
+        message: String,
         location: SourceLocation,
     },
 }
@@ -456,8 +487,56 @@ impl VeltranoTypeChecker {
         }
     }
 
+    /// Validate a type recursively, checking for invalid type constructor usage
+    fn validate_type(&self, veltrano_type: &VeltranoType) -> Result<(), TypeCheckError> {
+        match &veltrano_type.constructor {
+            TypeConstructor::Own => {
+                // Validate Own<T> type constructor
+                if let Some(inner) = veltrano_type.inner() {
+                    // First validate the inner type recursively
+                    self.validate_type(inner)?;
+
+                    // Then validate the Own<T> constraint
+                    if let Err(err_msg) = VeltranoType::validate_own_constructor(inner) {
+                        return Err(TypeCheckError::InvalidTypeConstructor {
+                            message: err_msg,
+                            location: SourceLocation {
+                                file: "unknown".to_string(),
+                                line: 0,
+                                column: 0,
+                                source_line: "".to_string(),
+                            },
+                        });
+                    }
+                } else {
+                    return Err(TypeCheckError::InvalidTypeConstructor {
+                        message: "Own<T> requires a type parameter".to_string(),
+                        location: SourceLocation {
+                            file: "unknown".to_string(),
+                            line: 0,
+                            column: 0,
+                            source_line: "".to_string(),
+                        },
+                    });
+                }
+            }
+            _ => {
+                // For other type constructors, recursively validate type arguments
+                for arg in &veltrano_type.args {
+                    self.validate_type(arg)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Check variable declaration
     fn check_var_declaration(&mut self, var_decl: &VarDeclStmt) -> Result<(), TypeCheckError> {
+        // Validate type annotation if present
+        if let Some(declared_type) = &var_decl.type_annotation {
+            self.validate_type(declared_type)?;
+        }
+
         if let Some(initializer) = &var_decl.initializer {
             let init_type = self.check_expression(initializer)?;
 
@@ -488,6 +567,16 @@ impl VeltranoTypeChecker {
 
     /// Check function declaration
     fn check_function_declaration(&mut self, fun_decl: &FunDeclStmt) -> Result<(), TypeCheckError> {
+        // Validate parameter types
+        for param in &fun_decl.params {
+            self.validate_type(&param.param_type)?;
+        }
+
+        // Validate return type if present
+        if let Some(return_type) = &fun_decl.return_type {
+            self.validate_type(return_type)?;
+        }
+
         // Create function signature and add to environment
         let param_types: Vec<VeltranoType> = fun_decl
             .params

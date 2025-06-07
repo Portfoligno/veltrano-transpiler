@@ -5,8 +5,9 @@ use veltrano::config::Config;
 mod common;
 mod test_configs;
 use common::{
-    assert_parse_error, assert_transpilation_match, assert_transpilation_output, compile_rust_code,
-    transpile, transpile_and_compile,
+    assert_parse_error, assert_parse_or_type_check_error, assert_transpilation_match,
+    assert_transpilation_output, assert_type_check_error, compile_rust_code, transpile,
+    transpile_and_compile,
 };
 
 #[test]
@@ -545,7 +546,7 @@ fn test_own_value_type_validation() {
     };
 
     // Test that Own<Int> is rejected
-    assert_parse_error(
+    assert_type_check_error(
         r#"fun main() { val x: Own<Int> = 42 }"#,
         config.clone(),
         Some("Cannot use Own<Int>. This type is already owned."),
@@ -553,7 +554,7 @@ fn test_own_value_type_validation() {
     .expect("Own<Int> should be rejected");
 
     // Test that Own<Bool> is rejected
-    assert_parse_error(
+    assert_type_check_error(
         r#"fun main() { val flag: Own<Bool> = true }"#,
         config.clone(),
         Some("This type is already owned"),
@@ -569,7 +570,7 @@ fn test_own_value_type_validation() {
     .expect("Own<String> should be accepted");
 
     // Test that Own<MutRef<T>> is rejected
-    assert_parse_error(
+    assert_type_check_error(
         r#"fun main() { val x: Own<MutRef<String>> = something }"#,
         config.clone(),
         Some("MutRef<T> is already owned"),
@@ -577,7 +578,7 @@ fn test_own_value_type_validation() {
     .expect("Own<MutRef<T>> should be rejected");
 
     // Test that Own<Box<T>> is rejected
-    assert_parse_error(
+    assert_type_check_error(
         r#"fun main() { val x: Own<Box<String>> = something }"#,
         config.clone(),
         Some("Box<T> is already owned"),
@@ -585,7 +586,7 @@ fn test_own_value_type_validation() {
     .expect("Own<Box<T>> should be rejected");
 
     // Test that Own<Own<T>> is rejected
-    assert_parse_error(
+    assert_type_check_error(
         r#"fun main() { val x: Own<Own<String>> = something }"#,
         config,
         Some("Cannot use Own<Own<T>>. This creates double ownership."),
@@ -634,7 +635,8 @@ fn test_fail_examples() {
         let config = Config {
             preserve_comments: false,
         };
-        if let Err(error) = assert_parse_error(&veltrano_code, config, expected_error) {
+        if let Err(error) = assert_parse_or_type_check_error(&veltrano_code, config, expected_error)
+        {
             panic!(
                 "Parse failure validation failed for {}: {}",
                 fail_file, error

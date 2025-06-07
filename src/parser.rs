@@ -1,6 +1,6 @@
 use crate::ast::*;
 use crate::lexer::{Token, TokenType};
-use crate::type_checker::{TypeConstructor, VeltranoType};
+use crate::type_checker::VeltranoType;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -761,27 +761,7 @@ impl Parser {
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
 
-        // Validate that Own<T> is not used with invalid types
-        if inner_type.is_naturally_owned() {
-            return Err(format!(
-                "Cannot use Own<{:?}>. This type is already owned.",
-                inner_type.constructor
-            ));
-        }
-
-        match &inner_type.constructor {
-            TypeConstructor::MutRef => {
-                return Err("Cannot use Own<MutRef<T>>. MutRef<T> is already owned.".to_string());
-            }
-            TypeConstructor::Box => {
-                return Err("Cannot use Own<Box<T>>. Box<T> is already owned.".to_string());
-            }
-            TypeConstructor::Own => {
-                return Err("Cannot use Own<Own<T>>. This creates double ownership.".to_string());
-            }
-            _ => {}
-        }
-
+        // Validation is now handled by the type checker
         Ok(VeltranoType::own(inner_type))
     }
 

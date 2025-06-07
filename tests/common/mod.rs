@@ -311,3 +311,52 @@ pub fn assert_transpilation_output(
 
     Ok(())
 }
+
+/// Helper to assert type checking fails with optional specific error message
+pub fn assert_type_check_error(
+    code: &str,
+    config: Config,
+    expected_error: Option<&str>,
+) -> Result<String, String> {
+    match parse_and_type_check(code, config) {
+        Ok(_) => Err("Expected type checking to fail, but it succeeded".to_string()),
+        Err(errors) => {
+            let error_message = format_type_check_errors(errors);
+            match expected_error {
+                Some(expected) if error_message.contains(expected) => Ok(error_message),
+                Some(expected) => Err(format!(
+                    "Expected error containing '{}', but got: '{}'",
+                    expected, error_message
+                )),
+                None => Ok(error_message),
+            }
+        }
+    }
+}
+
+/// Helper to assert either parsing or type checking fails with optional specific error message
+/// This tries parsing first, and if that succeeds, tries type checking
+pub fn assert_parse_or_type_check_error(
+    code: &str,
+    config: Config,
+    expected_error: Option<&str>,
+) -> Result<String, String> {
+    // First try parsing only
+    match parse_veltrano_code(code, config.clone()) {
+        Err(parse_error) => {
+            // Parse failed - check if this matches expected error
+            match expected_error {
+                Some(expected) if parse_error.contains(expected) => Ok(parse_error),
+                Some(expected) => Err(format!(
+                    "Expected error containing '{}', but got: '{}'",
+                    expected, parse_error
+                )),
+                None => Ok(parse_error),
+            }
+        }
+        Ok(_) => {
+            // Parse succeeded - try type checking
+            assert_type_check_error(code, config, expected_error)
+        }
+    }
+}

@@ -124,6 +124,12 @@ fn format_type_error(error: &TypeCheckError) -> String {
                 name, location.file, location.line
             )
         }
+        TypeCheckError::InvalidTypeConstructor { message, location } => {
+            format!(
+                "Invalid type constructor at {}:{}: {}",
+                location.file, location.line, message
+            )
+        }
     }
 }
 
