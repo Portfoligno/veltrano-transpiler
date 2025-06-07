@@ -111,7 +111,7 @@ impl VeltranoType {
         }
     }
 
-    pub fn ref_type(inner: VeltranoType) -> Self {
+    pub fn ref_(inner: VeltranoType) -> Self {
         Self {
             constructor: TypeConstructor::Ref,
             args: vec![inner],
@@ -831,11 +831,11 @@ impl VeltranoTypeChecker {
                     Ok(inner.clone())
                 } else {
                     // Shouldn't happen with well-formed Own<T>
-                    Ok(VeltranoType::ref_type(receiver_type.clone()))
+                    Ok(VeltranoType::ref_(receiver_type.clone()))
                 }
             }
             // T → Ref<T> (add a Ref wrapper)
-            _ => Ok(VeltranoType::ref_type(receiver_type.clone())),
+            _ => Ok(VeltranoType::ref_(receiver_type.clone())),
         }
     }
 
@@ -872,7 +872,7 @@ impl VeltranoTypeChecker {
     ) -> Result<VeltranoType, TypeCheckError> {
         // For now, just return a reference to the receiver
         // This should be handled by builtin registry
-        Ok(VeltranoType::ref_type(receiver_type.clone()))
+        Ok(VeltranoType::ref_(receiver_type.clone()))
     }
 
     /// Check .clone() method call (TODO: integrate with builtin registry)

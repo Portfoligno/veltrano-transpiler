@@ -547,7 +547,7 @@ fn test_integration_with_veltrano_type_system() {
                 lifetime: None,
                 inner: Box::new(RustType::I32),
             },
-            VeltranoType::ref_type(VeltranoType::int()),
+            VeltranoType::ref_(VeltranoType::int()),
         ),
         (
             RustType::Custom {

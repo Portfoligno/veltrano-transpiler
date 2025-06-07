@@ -79,8 +79,8 @@ fn test_borrowed_string_to_str_suggestion() {
 #[test]
 fn test_mutref_to_borrowed_suggestion() {
     let error = TypeCheckError::TypeMismatch {
-        expected: VeltranoType::ref_type(VeltranoType::string()), // Ref<String>
-        actual: VeltranoType::mut_ref(VeltranoType::string()),    // MutRef<String>
+        expected: VeltranoType::ref_(VeltranoType::string()), // Ref<String>
+        actual: VeltranoType::mut_ref(VeltranoType::string()), // MutRef<String>
         location: SourceLocation {
             file: "test.vl".to_string(),
             line: 1,
@@ -105,8 +105,8 @@ fn test_vec_to_slice_suggestion() {
     let inner_type = VeltranoType::int();
 
     let error = TypeCheckError::TypeMismatch {
-        expected: VeltranoType::ref_type(inner_type.clone()), // Ref<Int> (slice-like)
-        actual: VeltranoType::vec(inner_type),                // Vec<Int>
+        expected: VeltranoType::ref_(inner_type.clone()), // Ref<Int> (slice-like)
+        actual: VeltranoType::vec(inner_type),            // Vec<Int>
         location: SourceLocation {
             file: "test.vl".to_string(),
             line: 1,
@@ -131,8 +131,8 @@ fn test_array_to_slice_suggestion() {
     let inner_type = VeltranoType::int();
 
     let error = TypeCheckError::TypeMismatch {
-        expected: VeltranoType::ref_type(inner_type.clone()), // Ref<Int> (slice-like)
-        actual: VeltranoType::array(inner_type, 3),           // Array<Int, 3>
+        expected: VeltranoType::ref_(inner_type.clone()), // Ref<Int> (slice-like)
+        actual: VeltranoType::array(inner_type, 3),       // Array<Int, 3>
         location: SourceLocation {
             file: "test.vl".to_string(),
             line: 1,
@@ -157,7 +157,7 @@ fn test_owned_array_to_slice_suggestion() {
     let inner_type = VeltranoType::int();
 
     let error = TypeCheckError::TypeMismatch {
-        expected: VeltranoType::ref_type(inner_type.clone()), // Ref<Int> (slice-like)
+        expected: VeltranoType::ref_(inner_type.clone()), // Ref<Int> (slice-like)
         actual: VeltranoType::own(VeltranoType::array(inner_type, 3)), // Own<Array<Int, 3>>
         location: SourceLocation {
             file: "test.vl".to_string(),

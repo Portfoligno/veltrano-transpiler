@@ -380,7 +380,7 @@ fn test_rust_type_to_veltrano_conversion() {
     };
     assert_eq!(
         rust_ref.to_veltrano_type().unwrap(),
-        VeltranoType::ref_type(VeltranoType::int())
+        VeltranoType::ref_(VeltranoType::int())
     );
 
     // Test mutable references

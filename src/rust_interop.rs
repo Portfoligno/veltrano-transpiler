@@ -119,7 +119,7 @@ impl RustType {
             // References
             RustType::Ref { inner, .. } => {
                 let inner_type = inner.to_veltrano_type()?;
-                Ok(VeltranoType::ref_type(inner_type))
+                Ok(VeltranoType::ref_(inner_type))
             }
             RustType::MutRef { inner, .. } => {
                 let inner_type = inner.to_veltrano_type()?;

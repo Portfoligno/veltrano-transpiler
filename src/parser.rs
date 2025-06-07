@@ -753,7 +753,7 @@ impl Parser {
         self.consume(&TokenType::Less, "Expected '<' after Ref")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
-        Ok(VeltranoType::ref_type(inner_type))
+        Ok(VeltranoType::ref_(inner_type))
     }
 
     fn parse_own_type(&mut self) -> Result<VeltranoType, String> {

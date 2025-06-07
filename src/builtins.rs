@@ -119,7 +119,7 @@ impl BuiltinRegistry {
                 parameters: vec![],
                 return_type_fn: |receiver| {
                     // ref() creates an immutable reference
-                    VeltranoType::ref_type(receiver.clone())
+                    VeltranoType::ref_(receiver.clone())
                 },
             },
         );
@@ -157,7 +157,7 @@ impl BuiltinRegistry {
                     if let TypeConstructor::Vec = receiver.constructor {
                         // Vec<T> → Ref<Slice<T>> (slice is naturally a reference type)
                         if let Some(inner) = receiver.inner() {
-                            VeltranoType::ref_type(inner.clone())
+                            VeltranoType::ref_(inner.clone())
                         } else {
                             // Fallback
                             receiver.clone()
@@ -179,7 +179,7 @@ impl BuiltinRegistry {
                 parameters: vec![],
                 return_type_fn: |receiver| {
                     // bumpRef creates a bump-allocated reference, same as ref()
-                    VeltranoType::ref_type(receiver.clone())
+                    VeltranoType::ref_(receiver.clone())
                 },
             },
         );
