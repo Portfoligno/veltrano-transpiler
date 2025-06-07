@@ -1,0 +1,26 @@
+// Test all supported numeric types
+fun main() {
+    // Signed integers (TODO: literal type inference not implemented yet)
+    // val i32_val: I32 = 42
+    val i64_val: I64 = 1000
+    // val isize_val: ISize = 500
+    
+    // Unsigned integers (TODO: literal type inference not implemented yet)
+    // val u32_val: U32 = 255
+    // val u64_val: U64 = 9000
+    // val usize_val: USize = 1000
+    
+    // Other primitives
+    val bool_val: Bool = true
+    // val char_val: Char = 'A'  // TODO: char literals not implemented yet
+    val unit_val: Unit = Unit
+    
+    // println("I32: {}", i32_val)
+    println("I64: {}", i64_val)
+    // println("ISize: {}", isize_val)
+    // println("U32: {}", u32_val)
+    // println("U64: {}", u64_val)
+    // println("USize: {}", usize_val)
+    println("Bool: {}", bool_val)
+    // println("Char: {}", char_val)
+}

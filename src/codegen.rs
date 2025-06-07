@@ -441,8 +441,14 @@ impl CodeGenerator {
 
         match &type_annotation.constructor {
             // Base types
+            TypeConstructor::I32 => self.output.push_str("i32"),
             TypeConstructor::I64 => self.output.push_str("i64"),
+            TypeConstructor::ISize => self.output.push_str("isize"),
+            TypeConstructor::U32 => self.output.push_str("u32"),
+            TypeConstructor::U64 => self.output.push_str("u64"),
+            TypeConstructor::USize => self.output.push_str("usize"),
             TypeConstructor::Bool => self.output.push_str("bool"),
+            TypeConstructor::Char => self.output.push_str("char"),
             TypeConstructor::Unit => self.output.push_str("()"),
             TypeConstructor::Nothing => self.output.push_str("!"),
             TypeConstructor::Str => {

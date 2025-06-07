@@ -728,12 +728,22 @@ impl Parser {
             self.advance();
 
             match type_name.as_str() {
+                // Signed integers
+                "I32" => Ok(VeltranoType::i32()),
                 "I64" => Ok(VeltranoType::i64()),
-                "Str" => Ok(VeltranoType::str()), // naturally referenced
-                "String" => Ok(VeltranoType::string()), // naturally referenced
+                "ISize" => Ok(VeltranoType::isize()),
+                // Unsigned integers
+                "U32" => Ok(VeltranoType::u32()),
+                "U64" => Ok(VeltranoType::u64()),
+                "USize" => Ok(VeltranoType::usize()),
+                // Other primitives
                 "Bool" => Ok(VeltranoType::bool()),
+                "Char" => Ok(VeltranoType::char()),
                 "Unit" => Ok(VeltranoType::unit()),
                 "Nothing" => Ok(VeltranoType::nothing()),
+                // String types
+                "Str" => Ok(VeltranoType::str()), // naturally referenced
+                "String" => Ok(VeltranoType::string()), // naturally referenced
                 "Ref" => self.parse_ref_type(),
                 "Own" => self.parse_own_type(),
                 "MutRef" => self.parse_mutref_type(),

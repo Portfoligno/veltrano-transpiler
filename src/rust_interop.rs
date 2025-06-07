@@ -102,12 +102,13 @@ impl RustType {
     pub fn to_veltrano_type(&self) -> Result<VeltranoType, String> {
         match self {
             // Primitives
-            RustType::I32
-            | RustType::I64
-            | RustType::ISize
-            | RustType::U32
-            | RustType::U64
-            | RustType::USize => Ok(VeltranoType::i64()),
+            RustType::I32 => Ok(VeltranoType::i32()),
+            RustType::I64 => Ok(VeltranoType::i64()),
+            RustType::ISize => Ok(VeltranoType::isize()),
+            RustType::U32 => Ok(VeltranoType::u32()),
+            RustType::U64 => Ok(VeltranoType::u64()),
+            RustType::USize => Ok(VeltranoType::usize()),
+            RustType::Char => Ok(VeltranoType::char()),
             RustType::Bool => Ok(VeltranoType::bool()),
             RustType::Unit => Ok(VeltranoType::unit()),
             RustType::Never => Ok(VeltranoType::nothing()),

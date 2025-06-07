@@ -191,8 +191,14 @@ impl FunDeclStmt {
                     false
                 }
             }
-            TypeConstructor::I64
+            TypeConstructor::I32
+            | TypeConstructor::I64
+            | TypeConstructor::ISize
+            | TypeConstructor::U32
+            | TypeConstructor::U64
+            | TypeConstructor::USize
             | TypeConstructor::Bool
+            | TypeConstructor::Char
             | TypeConstructor::Unit
             | TypeConstructor::Nothing => false,
             // For other constructors, conservatively assume they might need lifetimes

@@ -14,10 +14,25 @@ pub struct VeltranoType {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeConstructor {
     // Base types (kind *)
+    // Signed integers
+    /// i32 in Rust
+    I32,
     /// i64 in Rust
     I64,
+    /// isize in Rust
+    ISize,
+    // Unsigned integers
+    /// u32 in Rust
+    U32,
+    /// u64 in Rust
+    U64,
+    /// usize in Rust
+    USize,
+    // Other primitives
     /// bool in Rust
     Bool,
+    /// char in Rust
+    Char,
     /// () in Rust
     Unit,
     /// ! in Rust (never type)
@@ -54,6 +69,14 @@ pub enum TypeConstructor {
 
 impl VeltranoType {
     /// Helper constructors for base types
+    // Signed integers
+    pub fn i32() -> Self {
+        Self {
+            constructor: TypeConstructor::I32,
+            args: vec![],
+        }
+    }
+
     pub fn i64() -> Self {
         Self {
             constructor: TypeConstructor::I64,
@@ -61,9 +84,46 @@ impl VeltranoType {
         }
     }
 
+    pub fn isize() -> Self {
+        Self {
+            constructor: TypeConstructor::ISize,
+            args: vec![],
+        }
+    }
+
+    // Unsigned integers
+    pub fn u32() -> Self {
+        Self {
+            constructor: TypeConstructor::U32,
+            args: vec![],
+        }
+    }
+
+    pub fn u64() -> Self {
+        Self {
+            constructor: TypeConstructor::U64,
+            args: vec![],
+        }
+    }
+
+    pub fn usize() -> Self {
+        Self {
+            constructor: TypeConstructor::USize,
+            args: vec![],
+        }
+    }
+
+    // Other primitives
     pub fn bool() -> Self {
         Self {
             constructor: TypeConstructor::Bool,
+            args: vec![],
+        }
+    }
+
+    pub fn char() -> Self {
+        Self {
+            constructor: TypeConstructor::Char,
             args: vec![],
         }
     }
@@ -176,8 +236,14 @@ impl VeltranoType {
         self.args.is_empty()
             && matches!(
                 self.constructor,
-                TypeConstructor::I64
+                TypeConstructor::I32
+                    | TypeConstructor::I64
+                    | TypeConstructor::ISize
+                    | TypeConstructor::U32
+                    | TypeConstructor::U64
+                    | TypeConstructor::USize
                     | TypeConstructor::Bool
+                    | TypeConstructor::Char
                     | TypeConstructor::Unit
                     | TypeConstructor::Nothing
             )
@@ -232,8 +298,14 @@ impl VeltranoType {
     pub fn can_clone(&self) -> bool {
         let base = self.get_base_constructor();
         match base {
-            TypeConstructor::I64
+            TypeConstructor::I32
+            | TypeConstructor::I64
+            | TypeConstructor::ISize
+            | TypeConstructor::U32
+            | TypeConstructor::U64
+            | TypeConstructor::USize
             | TypeConstructor::Bool
+            | TypeConstructor::Char
             | TypeConstructor::Unit
             | TypeConstructor::Nothing => true,
             TypeConstructor::String => true,
@@ -248,8 +320,14 @@ impl VeltranoType {
     pub fn can_to_string(&self) -> bool {
         let base = self.get_base_constructor();
         match base {
-            TypeConstructor::I64
+            TypeConstructor::I32
+            | TypeConstructor::I64
+            | TypeConstructor::ISize
+            | TypeConstructor::U32
+            | TypeConstructor::U64
+            | TypeConstructor::USize
             | TypeConstructor::Bool
+            | TypeConstructor::Char
             | TypeConstructor::Unit
             | TypeConstructor::Nothing => true,
             TypeConstructor::String | TypeConstructor::Str => true,
@@ -996,8 +1074,14 @@ impl VeltranoTypeChecker {
         // TODO: Implement proper type name generation for new type system
         let base = veltrano_type.get_base_constructor();
         match base {
+            TypeConstructor::I32 => "i32".to_string(),
             TypeConstructor::I64 => "i64".to_string(),
+            TypeConstructor::ISize => "isize".to_string(),
+            TypeConstructor::U32 => "u32".to_string(),
+            TypeConstructor::U64 => "u64".to_string(),
+            TypeConstructor::USize => "usize".to_string(),
             TypeConstructor::Bool => "bool".to_string(),
+            TypeConstructor::Char => "char".to_string(),
             TypeConstructor::Str => "&str".to_string(),
             TypeConstructor::String => "String".to_string(),
             TypeConstructor::Unit => "()".to_string(),
