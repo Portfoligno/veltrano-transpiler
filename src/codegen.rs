@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::config::Config;
+use crate::rust_interop;
 use crate::type_checker::VeltranoType;
 use std::collections::{HashMap, HashSet};
 
@@ -12,6 +13,7 @@ pub struct CodeGenerator {
     data_classes_with_lifetime: HashSet<String>, // Track data classes that need lifetime parameters
     data_classes: HashSet<String>,              // Track all data classes
     generating_bump_function: bool, // Track when generating function with bump parameter
+    trait_checker: rust_interop::RustInteropRegistry, // For trait-based type checking
     config: Config,
 }
 
@@ -26,6 +28,7 @@ impl CodeGenerator {
             data_classes_with_lifetime: HashSet::new(),
             data_classes: HashSet::new(),
             generating_bump_function: false,
+            trait_checker: rust_interop::RustInteropRegistry::new(),
             config,
         }
     }
@@ -45,17 +48,10 @@ impl CodeGenerator {
                     self.data_classes.insert(data_class.name.clone());
 
                     // Check if this data class needs lifetime parameters
-                    let needs_lifetime = data_class.fields.iter().any(|field| {
-                        use crate::type_checker::TypeConstructor;
-                        matches!(
-                            field.field_type.constructor,
-                            TypeConstructor::Str
-                                | TypeConstructor::String
-                                | TypeConstructor::Custom(_)
-                                | TypeConstructor::Ref
-                                | TypeConstructor::MutRef
-                        )
-                    });
+                    let needs_lifetime = data_class
+                        .fields
+                        .iter()
+                        .any(|field| self.type_needs_lifetime(&field.field_type));
                     if needs_lifetime {
                         self.data_classes_with_lifetime
                             .insert(data_class.name.clone());
@@ -297,19 +293,11 @@ impl CodeGenerator {
     }
 
     fn generate_data_class(&mut self, data_class: &DataClassStmt) {
-        use crate::type_checker::TypeConstructor;
-
         // Check if any fields are reference types
-        let needs_lifetime = data_class.fields.iter().any(|field| {
-            matches!(
-                field.field_type.constructor,
-                TypeConstructor::Str
-                    | TypeConstructor::String
-                    | TypeConstructor::Custom(_)
-                    | TypeConstructor::Ref
-                    | TypeConstructor::MutRef
-            )
-        });
+        let needs_lifetime = data_class
+            .fields
+            .iter()
+            .any(|field| self.type_needs_lifetime(&field.field_type));
 
         self.indent();
         self.output.push_str("#[derive(Debug, Clone)]\n");
@@ -482,7 +470,7 @@ impl CodeGenerator {
             TypeConstructor::Own => {
                 // Own<T> generates the owned version of T in Rust
                 if let Some(inner) = type_annotation.inner() {
-                    self.generate_owned_type(inner);
+                    let _ = self.generate_owned_type(inner);
                 }
             }
             TypeConstructor::Ref => {
@@ -545,24 +533,68 @@ impl CodeGenerator {
         }
     }
 
+    /// Check if a type needs lifetime parameters (is naturally referenced)
+    fn type_needs_lifetime(&mut self, veltrano_type: &VeltranoType) -> bool {
+        use crate::type_checker::TypeConstructor;
+
+        match &veltrano_type.constructor {
+            // Reference types always need lifetimes
+            TypeConstructor::Ref | TypeConstructor::MutRef => true,
+            // Use trait checking for base types
+            _ if veltrano_type.args.is_empty() => {
+                veltrano_type.is_naturally_referenced(&mut self.trait_checker)
+            }
+            // Composed types need further analysis
+            _ => false,
+        }
+    }
+
     // Generate owned version of a type (strips references for naturally referenced types)
-    fn generate_owned_type(&mut self, type_annotation: &VeltranoType) {
+    fn generate_owned_type(&mut self, type_annotation: &VeltranoType) -> VeltranoType {
         use crate::type_checker::TypeConstructor;
 
         match &type_annotation.constructor {
-            // For naturally referenced types, generate the owned version
-            TypeConstructor::Str => self.output.push_str("String"), // Own<Str> -> String
-            TypeConstructor::String => self.output.push_str("String"), // Own<String> -> String
-            TypeConstructor::Custom(name) => {
-                // Own<Custom> generates the owned version
-                self.output.push_str(name);
-                // Add lifetime parameter for custom types in bump functions if they need lifetime
-                if self.generating_bump_function && self.data_classes_with_lifetime.contains(name) {
-                    self.output.push_str("<'a>");
+            // Special case: Str -> String (owned version of string slice)
+            TypeConstructor::Str => {
+                self.output.push_str("String");
+                VeltranoType::string()
+            }
+            // Use trait checking to determine if this is naturally referenced
+            _ if type_annotation.args.is_empty() => {
+                if type_annotation.is_naturally_referenced(&mut self.trait_checker) {
+                    // For naturally referenced types, generate the owned version
+                    match &type_annotation.constructor {
+                        TypeConstructor::String => {
+                            self.output.push_str("String");
+                            type_annotation.clone()
+                        }
+                        TypeConstructor::Custom(name) => {
+                            self.output.push_str(name);
+                            // Add lifetime parameter for custom types in bump functions if they need lifetime
+                            if self.generating_bump_function
+                                && self.data_classes_with_lifetime.contains(name)
+                            {
+                                self.output.push_str("<'a>");
+                            }
+                            type_annotation.clone()
+                        }
+                        _ => {
+                            // Fallback: generate the type as-is
+                            self.generate_type(type_annotation);
+                            type_annotation.clone()
+                        }
+                    }
+                } else {
+                    // For naturally owned types, generate as-is
+                    self.generate_type(type_annotation);
+                    type_annotation.clone()
                 }
             }
             // For other types, use normal generation (they're already owned)
-            _ => self.generate_type(type_annotation),
+            _ => {
+                self.generate_type(type_annotation);
+                type_annotation.clone()
+            }
         }
     }
 
