@@ -6,7 +6,7 @@ mod common;
 fn test_basic_type_checking() {
     let code = r#"
     fun main() {
-        val x: Int = 42
+        val x: I64 = 42
         val y: Bool = true
     }
     "#;
@@ -25,7 +25,7 @@ fn test_basic_type_checking() {
 #[test]
 fn test_type_mismatch_detection() {
     let code = r#"
-    fun processInt(x: Int): Bool {
+    fun processInt(x: I64): Bool {
         return true
     }
     

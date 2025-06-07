@@ -82,7 +82,7 @@ In Veltrano, the type system is built around making references the default:
 
 - Types without `Own<>` are **references by default**
 - Use `Own<T>` for **explicit ownership**
-- Basic types (`Int`, `Bool`, `Unit`, `Nothing`) are **always owned** (matching Rust's Copy types)
+- Basic types (`I64`, `Bool`, `Unit`, `Nothing`) are **always owned** (matching Rust's Copy types)
 - Use `Ref<T>` for **additional reference levels**
 - Use `MutRef<T>` for **mutable references**
 
@@ -91,7 +91,7 @@ In Veltrano, the type system is built around making references the default:
 ### Base Types
 | Veltrano Type | Rust Type | Description | Example |
 |---------------|-----------|-------------|---------|
-| `Int` | `i64` | 64-bit integer (always owned) | `val x: Int = 42` |
+| `I64` | `i64` | 64-bit integer (always owned) | `val x: I64 = 42` |
 | `Bool` | `bool` | Boolean (always owned) | `val flag: Bool = true` |
 | `Unit` | `()` | Unit type | `fun doSomething(): Unit` |
 | `Nothing` | `!` | Never type | `fun abort(): Nothing` |
@@ -101,10 +101,10 @@ In Veltrano, the type system is built around making references the default:
 ### Type Constructors
 | Pattern | Applied to Owned Base | Applied to Reference Base |
 |---------|----------------------|---------------------------|
-| `Own<T>` | Invalid (`Own<Int>`) | `Own<String>` → `String` |
-| `Ref<T>` | `Ref<Int>` → `&i64` | `Ref<String>` → `&&String` |
-| `MutRef<T>` | `MutRef<Int>` → `&mut i64` | `MutRef<String>` → `&mut &String` |
-| `Box<T>` | `Box<Int>` → `Box<i64>` | `Box<Str>` → `Box<str>` |
+| `Own<T>` | Invalid (`Own<I64>`) | `Own<String>` → `String` |
+| `Ref<T>` | `Ref<I64>` → `&i64` | `Ref<String>` → `&&String` |
+| `MutRef<T>` | `MutRef<I64>` → `&mut i64` | `MutRef<String>` → `&mut &String` |
+| `Box<T>` | `Box<I64>` → `Box<i64>` | `Box<Str>` → `Box<str>` |
 
 ### Working with References
 
@@ -124,23 +124,23 @@ Create mutable references with two available syntaxes:
 
 ```kotlin
 // Preferred: MutRef() function - generates &mut (&value).clone()
-val number: Int = 42
-val mutableRef: MutRef<Int> = MutRef(number)
+val number: I64 = 42
+val mutableRef: MutRef<I64> = MutRef(number)
 
 // Alternative: .mutRef() method - generates &mut value
 // Chain directly without binding to avoid immutability issues
-val mutableRef2: MutRef<Int> = number.ref().clone().mutRef()
+val mutableRef2: MutRef<I64> = number.ref().clone().mutRef()
 ```
 
 **Example with function:**
 ```kotlin
-fun modify(value: MutRef<Int>) {
+fun modify(value: MutRef<I64>) {
     // Function accepting a mutable reference
 }
 
 fun main() {
-    val number: Int = 42
-    val mutableRef: MutRef<Int> = MutRef(number)
+    val number: I64 = 42
+    val mutableRef: MutRef<I64> = MutRef(number)
     modify(mutableRef)
 }
 ```
@@ -167,7 +167,7 @@ Veltrano uses `val` for immutable variable bindings:
 
 ```kotlin
 val name: Str = "Alice"             // String slice (explicitly typed)
-val age = 25                        // Type inference (Int)
+val age = 25                        // Type inference (I64)
 val message = "Hello, World!"       // Type inference (Str)
 val owned: Own<String> = "Bob".toString()  // Owned string
 ```
@@ -183,12 +183,12 @@ fun greet(name: String) {
 }
 
 // With return type
-fun add(a: Int, b: Int): Int {
+fun add(a: I64, b: I64): I64 {
     return a + b
 }
 
 // Expression body (explicit return needed)
-fun multiply(x: Int, y: Int): Int {
+fun multiply(x: I64, y: I64): I64 {
     return x * y
 }
 ```
@@ -280,8 +280,8 @@ This applies to all identifiers: functions, variables, and parameters.
 
 **Example:**
 ```kotlin
-fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
-    val totalResult: Int = firstNumber + secondNumber
+fun calculateSum(firstNumber: I64, secondNumber: I64): I64 {
+    val totalResult: I64 = firstNumber + secondNumber
     return totalResult
 }
 ```
@@ -387,7 +387,7 @@ Most types in Veltrano are references by default because:
 This design choice means:
 - `String` in Veltrano is `&String` in Rust (not `String`)
 - To get an owned string, use `Own<String>`
-- Basic types like `Int` and `Bool` remain owned (matching Rust's Copy types)
+- Basic types like `I64` and `Bool` remain owned (matching Rust's Copy types)
 
 ## Contributing
 

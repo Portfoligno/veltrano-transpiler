@@ -427,7 +427,7 @@ fn test_while_true_to_loop_conversion() {
 #[test]
 fn test_inline_comments_with_and_without_preservation() {
     let veltrano_code = r#"fun main() {
-    val simple: Int = 42 // Simple inline comment
+    val simple: I64 = 42 // Simple inline comment
     // var mutable: Bool = true // Another inline comment
     val string: Str = "hello" // String with inline comment
     
@@ -495,7 +495,7 @@ fn test_inline_comments_with_and_without_preservation() {
 fn test_mut_ref_type_and_method() {
     // Test MutRef type annotation
     let veltrano_code = r#"fun testMutRef() {
-    val value: MutRef<Int> = someVar.mutRef()
+    val value: MutRef<I64> = someVar.mutRef()
     val strRef: MutRef<Own<String>> = text.mutRef()
 }"#;
 
@@ -545,13 +545,13 @@ fn test_own_value_type_validation() {
         preserve_comments: false,
     };
 
-    // Test that Own<Int> is rejected
+    // Test that Own<I64> is rejected
     assert_type_check_error(
-        r#"fun main() { val x: Own<Int> = 42 }"#,
+        r#"fun main() { val x: Own<I64> = 42 }"#,
         config.clone(),
-        Some("Cannot use Own<Int>. This type is already owned."),
+        Some("Cannot use Own<I64>. This type is already owned."),
     )
-    .expect("Own<Int> should be rejected");
+    .expect("Own<I64> should be rejected");
 
     // Test that Own<Bool> is rejected
     assert_type_check_error(
@@ -993,7 +993,7 @@ fun main() {
     val result = new()
 }
 
-fun new(): Int {
+fun new(): I64 {
     return 42
 }
 "#;
@@ -1016,7 +1016,7 @@ fun new(): Int {
 fn test_data_class_generation() {
     // Test data class with value types only (no lifetime needed)
     let source1 = r#"
-data class Point(val x: Int, val y: Int)
+data class Point(val x: I64, val y: I64)
 "#;
 
     let config = Config {
@@ -1037,7 +1037,7 @@ data class Point(val x: Int, val y: Int)
 
     // Test data class with reference types (lifetime needed)
     let source2 = r#"
-data class Person(val name: String, val age: Int)
+data class Person(val name: String, val age: I64)
 "#;
 
     let rust_code2 =
@@ -1051,7 +1051,7 @@ data class Person(val name: String, val age: Int)
 
     // Test data class with custom types
     let source3 = r#"
-data class Container(val item: MyType, val count: Int)
+data class Container(val item: MyType, val count: I64)
 "#;
 
     let rust_code3 = transpile(source3, config, false).expect("Transpilation should succeed");
@@ -1065,8 +1065,8 @@ data class Container(val item: MyType, val count: Int)
 fn test_data_class_initialization() {
     // Test Kotlin-style struct initialization
     let source = r#"
-data class Point(val x: Int, val y: Int)
-data class Person(val name: String, val age: Int)
+data class Point(val x: I64, val y: I64)
+data class Person(val name: String, val age: I64)
 
 fun main() {
     val p1 = Point(x = 10, y = 20)
@@ -1089,8 +1089,8 @@ fun main() {
 fn test_data_class_field_shorthand() {
     // Test Rust field shorthand syntax in struct initialization
     let source = r#"
-data class Point(val x: Int, val y: Int)
-data class Person(val name: Str, val age: Int)
+data class Point(val x: I64, val y: I64)
+data class Person(val name: Str, val age: I64)
 
 fun main() {
     // All positional - uses field shorthand
@@ -1123,8 +1123,8 @@ fun main() {
 fn test_data_class_argument_order() {
     // Test that named arguments can be provided in any order
     let source = r#"
-data class Person(val name: Str, val age: Int)
-data class Book(val title: Str, val author: Str, val pages: Int)
+data class Person(val name: Str, val age: I64)
+data class Book(val title: Str, val author: Str, val pages: I64)
 
 fun main() {
     // Arguments in declaration order
@@ -1162,8 +1162,8 @@ fun main() {
 #[test]
 fn test_data_class_mixed_bare_named_args() {
     // Test that bare and named arguments can be mixed in any order
-    let source = r#"data class Person(val name: Str, val age: Int)
-data class Book(val title: Str, val author: Str, val pages: Int)
+    let source = r#"data class Person(val name: Str, val age: I64)
+data class Book(val title: Str, val author: Str, val pages: I64)
 
 fun main() {
     val name = "Alice"
@@ -1278,8 +1278,8 @@ fun main() {
 fn test_data_class_field_access() {
     // Test field access for data classes
     let source = r#"
-data class Point(val x: Int, val y: Int)
-data class Person(val name: Str, val age: Int)
+data class Point(val x: I64, val y: I64)
+data class Person(val name: Str, val age: I64)
 
 fun main() {
     val p = Point(x = 10, y = 20)
@@ -1354,11 +1354,11 @@ fun main() {
 #[test]
 fn test_nested_function_call_comment_indentation() {
     // Test that comments in nested function calls have proper indentation
-    let veltrano_code = r#"fun f(a: Int, b: Int): Int {
+    let veltrano_code = r#"fun f(a: I64, b: I64): I64 {
     return a + b
 }
 
-fun g(x: Int, y: Int, z: Int): Int {
+fun g(x: I64, y: I64, z: I64): I64 {
     return x * y * z
 }
 

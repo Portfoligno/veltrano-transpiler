@@ -1,5 +1,5 @@
-// Expected error: Cannot use Own<Int>. This type is already owned
+// Expected error: Cannot use Own<I64>. This type is already owned
 fun main() {
-    val x: Own<Int> = 42
+    val x: Own<I64> = 42
     val y: Own<Bool> = true
 }
