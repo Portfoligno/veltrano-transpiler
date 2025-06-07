@@ -410,7 +410,16 @@ When the user requests a release:
 **Self-Check:** "Have I discovered anything that would help future sessions? Have I created examples? Have I found limitations?"
 **Triggers:** Any syntax error resolution, any successful example creation, any debugging breakthrough
 
-### 6. Understanding Expected Output File Issues
+### 6. Missing Files in Commits After Context Compaction
+**Problem:** Multi-file operations (type migrations, refactoring) often leave modified files uncommitted, especially after session continuation  
+**Solution:** Before any commit, verify all work is complete by checking file categories affected by your operation type  
+**Self-Check:** "What type of operation was I doing? Which file categories should this have touched?"  
+**Common Patterns:**
+- **Type changes:** type_checker.rs → parser.rs → codegen.rs → rust_interop.rs → tests → examples
+- **Language features:** ast.rs → parser.rs → codegen.rs → examples → tests  
+- **Documentation:** README.md + related example files
+
+### 7. Understanding Expected Output File Issues
 **Problem:** Confusion about whether to fix the transpiler or just update test files  
 **Solution:** Expected output files show current transpiler behavior - if it looks wrong, fix the transpiler
 
