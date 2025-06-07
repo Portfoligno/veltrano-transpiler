@@ -1,4 +1,4 @@
-// Expected error: Cannot use Own<Int>. Int is already owned
+// Expected error: Cannot use Own<Int>. This type is already owned
 fun main() {
     val x: Own<Int> = 42
     val y: Own<Bool> = true

@@ -445,9 +445,26 @@ impl CodeGenerator {
             TypeConstructor::Bool => self.output.push_str("bool"),
             TypeConstructor::Unit => self.output.push_str("()"),
             TypeConstructor::Nothing => self.output.push_str("!"),
-            TypeConstructor::Str => self.output.push_str("str"),
-            TypeConstructor::String => self.output.push_str("String"),
+            TypeConstructor::Str => {
+                if self.generating_bump_function {
+                    self.output.push_str("&'a str");
+                } else {
+                    self.output.push_str("&str");
+                }
+            }
+            TypeConstructor::String => {
+                if self.generating_bump_function {
+                    self.output.push_str("&'a String");
+                } else {
+                    self.output.push_str("&String");
+                }
+            }
             TypeConstructor::Custom(name) => {
+                // Custom types are naturally referenced in Veltrano
+                self.output.push('&');
+                if self.generating_bump_function {
+                    self.output.push_str("'a ");
+                }
                 self.output.push_str(name);
                 // Add lifetime parameter for custom types in bump functions if they need lifetime
                 if self.generating_bump_function && self.data_classes_with_lifetime.contains(name) {
@@ -457,9 +474,9 @@ impl CodeGenerator {
 
             // Type constructors
             TypeConstructor::Own => {
-                // Own<T> just generates T in Rust
+                // Own<T> generates the owned version of T in Rust
                 if let Some(inner) = type_annotation.inner() {
-                    self.generate_type(inner);
+                    self.generate_owned_type(inner);
                 }
             }
             TypeConstructor::Ref => {
@@ -519,6 +536,27 @@ impl CodeGenerator {
                 }
                 self.output.push_str(&format!("; {}]", size));
             }
+        }
+    }
+
+    // Generate owned version of a type (strips references for naturally referenced types)
+    fn generate_owned_type(&mut self, type_annotation: &VeltranoType) {
+        use crate::type_checker::TypeConstructor;
+
+        match &type_annotation.constructor {
+            // For naturally referenced types, generate the owned version
+            TypeConstructor::Str => self.output.push_str("String"), // Own<Str> -> String
+            TypeConstructor::String => self.output.push_str("String"), // Own<String> -> String
+            TypeConstructor::Custom(name) => {
+                // Own<Custom> generates the owned version
+                self.output.push_str(name);
+                // Add lifetime parameter for custom types in bump functions if they need lifetime
+                if self.generating_bump_function && self.data_classes_with_lifetime.contains(name) {
+                    self.output.push_str("<'a>");
+                }
+            }
+            // For other types, use normal generation (they're already owned)
+            _ => self.generate_type(type_annotation),
         }
     }
 

@@ -1,4 +1,4 @@
-// Expected error: Cannot use Own<> on already owned type.
+// Expected error: Cannot use Own<Own<T>>. This creates double ownership.
 fun main() {
     val x: Own<Own<String>> = something
 }
