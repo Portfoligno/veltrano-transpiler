@@ -1,18 +1,18 @@
 // Demonstrates multiline function call syntax support in Veltrano
 
 fun simpleAdd(
-    a: Int,
-    b: Int
-): Int {
+    a: I64,
+    b: I64
+): I64 {
     return a + b
 }
 
 fun complexCalculation(
-    x: Int,
-    y: Int,
-    z: Int,
-    multiplier: Int
-): Int {
+    x: I64,
+    y: I64,
+    z: I64,
+    multiplier: I64
+): I64 {
     return (x + y + z) * multiplier
 }
 

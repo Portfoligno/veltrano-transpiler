@@ -1,9 +1,9 @@
 // Basic function example
-fun add(a: Int, b: Int): Int {
+fun add(a: I64, b: I64): I64 {
     return a + b
 }
 
 fun main() {
-    val result: Int = add(5, 3)
+    val result: I64 = add(5, 3)
     println("5 + 3 = {}", result)
 }

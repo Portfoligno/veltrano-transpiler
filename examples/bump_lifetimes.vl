@@ -1,12 +1,12 @@
 // Testing bump allocation with proper lifetime parameters
 
-data class Person(val name: Str, val age: Int)
+data class Person(val name: Str, val age: I64)
 
 fun processPerson(person: Person): Str {
     return person.name
 }
 
-fun createPerson(name: Str, age: Int): Person {
+fun createPerson(name: Str, age: I64): Person {
     return Person(name = name, age = age).bumpRef()
 }
 

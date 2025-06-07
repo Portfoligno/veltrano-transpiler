@@ -109,14 +109,14 @@ fn test_clone_preserves_type() {
 #[test]
 fn test_double_ref_on_int_is_allowed() {
     let code = r#"
-    fun takeRefRefInt(x: Ref<Ref<Int>>): Int {
+    fun takeRefRefInt(x: Ref<Ref<I64>>): I64 {
         return 42
     }
     
     fun main() {
-        val x: Int = 42
-        val borrowed = x.ref()        // Int → Ref<Int>
-        val doubleBorrowed = borrowed.ref()  // Ref<Int> → Ref<Ref<Int>>
+        val x: I64 = 42
+        val borrowed = x.ref()        // I64 → Ref<I64>
+        val doubleBorrowed = borrowed.ref()  // Ref<I64> → Ref<Ref<I64>>
         val result = takeRefRefInt(doubleBorrowed)
     }
     "#;
@@ -127,7 +127,7 @@ fn test_double_ref_on_int_is_allowed() {
     let result = parse_and_type_check(code, config).map(|_| ());
     assert!(
         result.is_ok(),
-        "Double ref on Int should be allowed: Int → Ref<Int> → Ref<Ref<Int>>"
+        "Double ref on I64 should be allowed: I64 → Ref<I64> → Ref<Ref<I64>>"
     );
 }
 

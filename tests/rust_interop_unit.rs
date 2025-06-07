@@ -349,7 +349,7 @@ fn test_rust_type_to_veltrano_conversion() {
     // Test basic types
     assert_eq!(
         RustType::I32.to_veltrano_type().unwrap(),
-        VeltranoType::int()
+        VeltranoType::i64()
     );
 
     assert_eq!(
@@ -380,7 +380,7 @@ fn test_rust_type_to_veltrano_conversion() {
     };
     assert_eq!(
         rust_ref.to_veltrano_type().unwrap(),
-        VeltranoType::ref_(VeltranoType::int())
+        VeltranoType::ref_(VeltranoType::i64())
     );
 
     // Test mutable references
@@ -397,7 +397,7 @@ fn test_rust_type_to_veltrano_conversion() {
     let rust_box = RustType::Box(Box::new(RustType::I32));
     assert_eq!(
         rust_box.to_veltrano_type().unwrap(),
-        VeltranoType::boxed(VeltranoType::int())
+        VeltranoType::boxed(VeltranoType::i64())
     );
 
     // Test custom types

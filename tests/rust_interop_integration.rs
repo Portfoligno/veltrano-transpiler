@@ -537,7 +537,7 @@ fn test_integration_with_veltrano_type_system() {
 
     // Test that extracted Rust types integrate properly with the Veltrano type system
     let rust_types_to_test = vec![
-        (RustType::I32, VeltranoType::int()),
+        (RustType::I32, VeltranoType::i64()),
         (RustType::Bool, VeltranoType::bool()),
         (RustType::Unit, VeltranoType::unit()),
         (RustType::String, VeltranoType::string()),
@@ -547,7 +547,7 @@ fn test_integration_with_veltrano_type_system() {
                 lifetime: None,
                 inner: Box::new(RustType::I32),
             },
-            VeltranoType::ref_(VeltranoType::int()),
+            VeltranoType::ref_(VeltranoType::i64()),
         ),
         (
             RustType::Custom {

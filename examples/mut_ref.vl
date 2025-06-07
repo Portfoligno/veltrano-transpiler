@@ -1,12 +1,12 @@
-fun modify(value: MutRef<Int>) {
+fun modify(value: MutRef<I64>) {
     // In Rust, this would require dereferencing: *value = 42
     // But we could add syntactic sugar later
 }
 
 fun main() {
     // MutRef() function simplifies creating mutable references
-    val number: Int = 10
-    val mutableRef: MutRef<Int> = MutRef(number)
+    val number: I64 = 10
+    val mutableRef: MutRef<I64> = MutRef(number)
     
     modify(mutableRef)
     

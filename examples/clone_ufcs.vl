@@ -16,7 +16,7 @@ fun main() {
     val properClone = owned.ref().clone()  // Generates: Clone::clone(&owned)
     
     // Example 4: With integers (always owned in Veltrano)
-    val num: Int = 42
+    val num: I64 = 42
     val numRef = num.ref()  // Creates &i64
     val clonedNum = numRef.clone()  // Generates: Clone::clone(num_ref)
     

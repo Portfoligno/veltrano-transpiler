@@ -9,6 +9,6 @@ fun main() {
     println("{}", message)
     
     // Another line comment
-    val number: Int = 42 // Inline comment
+    val number: I64 = 42 // Inline comment
     println("{}", number)
 }

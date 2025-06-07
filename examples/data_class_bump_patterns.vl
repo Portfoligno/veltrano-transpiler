@@ -1,16 +1,16 @@
 // Data class reference preparation patterns
 // Shows how functions prepare data class instances with references for caller use
 
-data class Point(val x: Int, val y: Int)
-data class Config(val enabled: Bool, val max_retries: Int)
+data class Point(val x: I64, val y: I64)
+data class Config(val enabled: Bool, val max_retries: I64)
 
-data class Person(val name: Str, val age: Int)
+data class Person(val name: Str, val age: I64)
 data class Message(val content: Str, val sender: Str)
 
 // ========= KEY INSIGHT: ALL DATA CLASSES GET BUMP PARAMETERS =========
 
 // Even data classes with only value fields get bump parameters
-fun createPoint(x: Int, y: Int): Point {
+fun createPoint(x: I64, y: I64): Point {
     return Point(x = x, y = y).bumpRef()
 }
 
@@ -23,7 +23,7 @@ fun isConfigValid(config: Config): Bool {
 }
 
 // Data classes with reference fields also get bump parameters
-fun createPerson(name: Str, age: Int): Person {
+fun createPerson(name: Str, age: I64): Person {
     return Person(name = name, age = age).bumpRef()
 }
 
@@ -31,11 +31,11 @@ fun formatMessage(msg: Message): Str {
     return msg.content
 }
 
-data class Company(val name: Str, val size: Int)
+data class Company(val name: Str, val size: I64)
 data class Employee(val person: Person, val company: Company)
 
 // Nested data classes - all components need bump allocation
-fun createEmployee(name: Str, age: Int, company_name: Str, company_size: Int): Employee {
+fun createEmployee(name: Str, age: I64, company_name: Str, company_size: I64): Employee {
     val person = createPerson(name, age)
     val company = Company(name = company_name, size = company_size).bumpRef()
     return Employee(person = person, company = company).bumpRef()

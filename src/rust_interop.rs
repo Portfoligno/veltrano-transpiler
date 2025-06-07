@@ -107,7 +107,7 @@ impl RustType {
             | RustType::ISize
             | RustType::U32
             | RustType::U64
-            | RustType::USize => Ok(VeltranoType::int()),
+            | RustType::USize => Ok(VeltranoType::i64()),
             RustType::Bool => Ok(VeltranoType::bool()),
             RustType::Unit => Ok(VeltranoType::unit()),
             RustType::Never => Ok(VeltranoType::nothing()),

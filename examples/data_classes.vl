@@ -1,17 +1,17 @@
 // Data classes in Veltrano - Kotlin-like syntax for defining simple data structures
 
 // Simple data class with value types (no lifetime needed)
-data class Point(val x: Int, val y: Int)
+data class Point(val x: I64, val y: I64)
 
 // Data class with reference types (lifetime parameter automatically added)
-data class Person(val name: Str, val age: Int)
+data class Person(val name: Str, val age: I64)
 
 // Data class with custom types
-data class Book(val title: Str, val author: Person, val pages: Int)
+data class Book(val title: Str, val author: Person, val pages: I64)
 
 // Nested data classes
-data class Address(val street: Str, val city: Str, val zipCode: Int)
-data class Company(val name: Str, val address: Address, val employees: Int)
+data class Address(val street: Str, val city: Str, val zipCode: I64)
+data class Company(val name: Str, val address: Address, val employees: I64)
 
 fun main() {
     // Kotlin-style struct initialization with named parameters

@@ -1,4 +1,4 @@
-fun fibonacci(n: Int): Int {
+fun fibonacci(n: I64): I64 {
     if (n <= 1) {
         return n
     }
@@ -6,6 +6,6 @@ fun fibonacci(n: Int): Int {
 }
 
 fun main() {
-    val result: Int = fibonacci(10)
+    val result: I64 = fibonacci(10)
     println("{}", result)
 }

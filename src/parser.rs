@@ -728,7 +728,7 @@ impl Parser {
             self.advance();
 
             match type_name.as_str() {
-                "Int" => Ok(VeltranoType::int()),
+                "I64" => Ok(VeltranoType::i64()),
                 "Str" => Ok(VeltranoType::str()), // naturally referenced
                 "String" => Ok(VeltranoType::string()), // naturally referenced
                 "Bool" => Ok(VeltranoType::bool()),

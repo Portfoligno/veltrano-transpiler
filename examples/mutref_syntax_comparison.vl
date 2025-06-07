@@ -2,20 +2,20 @@
 // Both are supported, but MutRef() function is preferred for most cases
 
 fun main() {
-    val number: Int = 42
+    val number: I64 = 42
     val text: Own<String> = "Hello".toString()
     
     // Method 1: MutRef() function (preferred)
     // Generates: &mut (&value).clone()
     // This is the recommended approach for creating mutable references
-    val mutRefFunc1: MutRef<Int> = MutRef(number)
+    val mutRefFunc1: MutRef<I64> = MutRef(number)
     val mutRefFunc2: MutRef<Own<String>> = MutRef(text)
     
     // Method 2: .mutRef() method (for symmetry with .ref())
     // Generates: &mut value
     // Useful for method chaining and when you already have a cloned value
     // Note: Since Int is always owned, we need ref() before clone()
-    val mutRefMethod1: MutRef<Int> = number.ref().clone().mutRef()
+    val mutRefMethod1: MutRef<I64> = number.ref().clone().mutRef()
     
     // For String references, clone() returns String (owned), so the type is MutRef<Own<String>>
     val mutRefMethod2: MutRef<Own<String>> = text.ref().clone().mutRef()

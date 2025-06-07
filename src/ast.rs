@@ -191,7 +191,7 @@ impl FunDeclStmt {
                     false
                 }
             }
-            TypeConstructor::Int
+            TypeConstructor::I64
             | TypeConstructor::Bool
             | TypeConstructor::Unit
             | TypeConstructor::Nothing => false,

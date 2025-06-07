@@ -1,6 +1,6 @@
 // Test multiline function calls with comments
 
-fun testFunction(a: Int, b: Int, c: Int): Int {
+fun testFunction(a: I64, b: I64, c: I64): I64 {
     return a + b + c
 }
 
@@ -30,10 +30,10 @@ fun main() {
     
     // Test 4: Comments in function parameter definitions
     fun withCommentedParams(
-        x: Int,  // The x coordinate
-        y: Int,  // The y coordinate
-        z: Int   // The z coordinate
-    ): Int {
+        x: I64,  // The x coordinate
+        y: I64,  // The y coordinate
+        z: I64   // The z coordinate
+    ): I64 {
         return x + y + z
     }
     

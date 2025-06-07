@@ -1,11 +1,11 @@
-fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
-    val totalResult: Int = firstNumber + secondNumber
+fun calculateSum(firstNumber: I64, secondNumber: I64): I64 {
+    val totalResult: I64 = firstNumber + secondNumber
     return totalResult
 }
 
 fun main() {
-    val myFirstValue: Int = 10
-    val mySecondValue: Int = 20
-    val finalResult: Int = calculateSum(myFirstValue, mySecondValue)
+    val myFirstValue: I64 = 10
+    val mySecondValue: I64 = 20
+    val finalResult: I64 = calculateSum(myFirstValue, mySecondValue)
     println("{}", finalResult)
 }

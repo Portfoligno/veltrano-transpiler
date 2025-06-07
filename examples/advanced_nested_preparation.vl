@@ -3,11 +3,11 @@
 
 data class Address(val street: Str, val city: Str, val postal_code: Str)
 data class Contact(val email: Str, val phone: Str, val address: Address)
-data class Person(val name: Str, val age: Int, val contact: Contact)
+data class Person(val name: Str, val age: I64, val contact: Contact)
 data class Organization(val name: Str, val primary_contact: Person, val secondary_contact: Person)
 data class Project(val title: Str, val organization: Organization, val description: Str)
 
-data class ProcessingMetadata(val processed_by: Str, val timestamp: Int, val notes: Str)
+data class ProcessingMetadata(val processed_by: Str, val timestamp: I64, val notes: Str)
 data class ProcessedProject(val original: Project, val processed_title: Str, val metadata: ProcessingMetadata)
 
 // ========= DEEP NESTED CONSTRUCTION WITH REFERENCE PREPARATION =========
@@ -28,14 +28,14 @@ fun createContact(email: Str, phone: Str, street: Str, city: Str, postal: Str): 
     return Contact(email = email_ref, phone = phone_ref, address = address).bumpRef()
 }
 
-fun createPerson(name: Str, age: Int, email: Str, phone: Str, street: Str, city: Str, postal: Str): Person {
+fun createPerson(name: Str, age: I64, email: Str, phone: Str, street: Str, city: Str, postal: Str): Person {
     // Prepare person with deeply nested references valid for caller scope
     val name_ref = name.bumpRef()
     val contact = createContact(email, phone, street, city, postal)
     return Person(name = name_ref, age = age, contact = contact).bumpRef()
 }
 
-fun createOrganization(org_name: Str, primary_name: Str, primary_age: Int, secondary_name: Str, secondary_age: Int): Organization {
+fun createOrganization(org_name: Str, primary_name: Str, primary_age: I64, secondary_name: Str, secondary_age: I64): Organization {
     // Prepare organization with complex nested person structures
     val org_name_ref = org_name.bumpRef()
     
@@ -67,14 +67,14 @@ fun transformProjectTitle(project: Project, transform_prefix: Str): Str {
     return prefix_ref
 }
 
-fun createProcessingMetadata(processor_name: Str, time: Int, project_title: Str): ProcessingMetadata {
+fun createProcessingMetadata(processor_name: Str, time: I64, project_title: Str): ProcessingMetadata {
     // Create metadata preparing processing information for caller
     val processor_ref = processor_name.bumpRef()
     val notes = "Processing notes here".bumpRef()
     return ProcessingMetadata(processed_by = processor_ref, timestamp = time, notes = notes).bumpRef()
 }
 
-fun processProject(project: Project, processor_name: Str, timestamp: Int): ProcessedProject {
+fun processProject(project: Project, processor_name: Str, timestamp: I64): ProcessedProject {
     // Process project preparing comprehensive result with nested references
     val processed_title = transformProjectTitle(project.ref(), "ENHANCED")
     val metadata = createProcessingMetadata(processor_name, timestamp, processed_title)
@@ -105,7 +105,7 @@ fun analyzeProjectComplexity(project: Project): Str {
 
 // ========= BATCH PROCESSING WITH REFERENCE PREPARATION =========
 
-fun createProjectBatch(base_title: Str, org_base: Str, count: Int): Project {
+fun createProjectBatch(base_title: Str, org_base: Str, count: I64): Project {
     // Create batch project preparing all references for caller
     val batch_title = "Batch Project Title".bumpRef()
     val batch_org = "Batch Organization".bumpRef()
@@ -114,7 +114,7 @@ fun createProjectBatch(base_title: Str, org_base: Str, count: Int): Project {
     return createProject(batch_title, batch_org, batch_description)
 }
 
-fun processBatchProject(base_title: Str, org_base: Str, count: Int, processor: Str): ProcessedProject {
+fun processBatchProject(base_title: Str, org_base: Str, count: I64, processor: Str): ProcessedProject {
     // Process batch project preparing complete results for caller
     val project = createProjectBatch(base_title, org_base, count)
     val batch_processor = "Batch Processor".bumpRef()

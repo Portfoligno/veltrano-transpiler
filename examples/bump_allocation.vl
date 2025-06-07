@@ -1,16 +1,16 @@
 // Cross-scope reference preparation using automatic bump parameter detection
 // Shows how functions prepare references for use in caller scope
 
-data class Person(val name: Str, val age: Int)
-data class Company(val name: Str, val employee_count: Int)
+data class Person(val name: Str, val age: I64)
+data class Company(val name: Str, val employee_count: I64)
 
 // ========= VALUE-ONLY FUNCTIONS (NO bump parameters) =========
 
-fun processValue(val_param: Int): Int {
+fun processValue(val_param: I64): I64 {
     return val_param * 2
 }
 
-fun calculateBonus(age: Int): Int {
+fun calculateBonus(age: I64): I64 {
     return age * 100
 }
 
@@ -28,11 +28,11 @@ fun getPersonName(person: Person): Str {
 // ========= EXPLICIT BUMP ALLOCATION (GET bump parameters) =========
 
 // Function with explicit bump allocation - GETS automatic bump parameter
-fun createBumpPerson(name: Str, age: Int): Person {
+fun createBumpPerson(name: Str, age: I64): Person {
     return Person(name = name, age = age).bumpRef()
 }
 
-fun createBumpAllocatedPerson(name: Str, age: Int): Person {
+fun createBumpAllocatedPerson(name: Str, age: I64): Person {
     return Person(name = name, age = age).bumpRef()
 }
 
@@ -43,13 +43,13 @@ fun processPersonData(person: Person): Str {
     return formatPersonInfo(person)
 }
 
-fun createEmployeeRecord(name: Str, age: Int): Person {
+fun createEmployeeRecord(name: Str, age: I64): Person {
     val person = createBumpAllocatedPerson(name, age)
     return person
 }
 
 // Function that mixes value types and references
-fun processEmployee(person: Person): Int {
+fun processEmployee(person: Person): I64 {
     val bonus = calculateBonus(person.age)  // No bump needed for calculateBonus
     return bonus
 }

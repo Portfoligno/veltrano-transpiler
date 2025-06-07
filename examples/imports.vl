@@ -28,6 +28,6 @@ fun main() {
     println("Result: {}", result)
 }
 
-fun processData(n: Int): Int {
+fun processData(n: I64): I64 {
     return n + 1
 }

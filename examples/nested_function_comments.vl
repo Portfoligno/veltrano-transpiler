@@ -1,10 +1,10 @@
 // Test nested function call comment indentation
 
-fun f(a: Int, b: Int): Int {
+fun f(a: I64, b: I64): I64 {
     return a + b
 }
 
-fun g(x: Int, y: Int, z: Int): Int {
+fun g(x: I64, y: I64, z: I64): I64 {
     return x * y * z
 }
 

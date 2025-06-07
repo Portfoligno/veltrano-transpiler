@@ -15,7 +15,7 @@ pub struct VeltranoType {
 pub enum TypeConstructor {
     // Base types (kind *)
     /// i64 in Rust
-    Int,
+    I64,
     /// bool in Rust
     Bool,
     /// () in Rust
@@ -54,9 +54,9 @@ pub enum TypeConstructor {
 
 impl VeltranoType {
     /// Helper constructors for base types
-    pub fn int() -> Self {
+    pub fn i64() -> Self {
         Self {
-            constructor: TypeConstructor::Int,
+            constructor: TypeConstructor::I64,
             args: vec![],
         }
     }
@@ -176,7 +176,7 @@ impl VeltranoType {
         self.args.is_empty()
             && matches!(
                 self.constructor,
-                TypeConstructor::Int
+                TypeConstructor::I64
                     | TypeConstructor::Bool
                     | TypeConstructor::Unit
                     | TypeConstructor::Nothing
@@ -232,7 +232,7 @@ impl VeltranoType {
     pub fn can_clone(&self) -> bool {
         let base = self.get_base_constructor();
         match base {
-            TypeConstructor::Int
+            TypeConstructor::I64
             | TypeConstructor::Bool
             | TypeConstructor::Unit
             | TypeConstructor::Nothing => true,
@@ -248,7 +248,7 @@ impl VeltranoType {
     pub fn can_to_string(&self) -> bool {
         let base = self.get_base_constructor();
         match base {
-            TypeConstructor::Int
+            TypeConstructor::I64
             | TypeConstructor::Bool
             | TypeConstructor::Unit
             | TypeConstructor::Nothing => true,
@@ -630,7 +630,7 @@ impl VeltranoTypeChecker {
     /// Check literal expression
     fn check_literal(&self, literal: &LiteralExpr) -> Result<VeltranoType, TypeCheckError> {
         let veltrano_type = match literal {
-            LiteralExpr::Int(_) => VeltranoType::int(),
+            LiteralExpr::Int(_) => VeltranoType::i64(),
             LiteralExpr::Bool(_) => VeltranoType::bool(),
             LiteralExpr::String(_) => VeltranoType::string(), // String literals are naturally referenced
             LiteralExpr::Unit => VeltranoType::unit(),
@@ -671,8 +671,8 @@ impl VeltranoTypeChecker {
             | BinaryOp::Multiply
             | BinaryOp::Divide
             | BinaryOp::Modulo => {
-                // Both operands must be Int
-                let expected_int = VeltranoType::int();
+                // Both operands must be I64
+                let expected_int = VeltranoType::i64();
 
                 if !self.types_equal(&left_type, &expected_int) {
                     return Err(TypeCheckError::TypeMismatch {
@@ -700,7 +700,7 @@ impl VeltranoTypeChecker {
                     });
                 }
 
-                Ok(VeltranoType::int())
+                Ok(VeltranoType::i64())
             }
             BinaryOp::Equal
             | BinaryOp::NotEqual
@@ -736,8 +736,8 @@ impl VeltranoTypeChecker {
 
         match unary.operator {
             UnaryOp::Minus => {
-                // Must be Int
-                let expected_int = VeltranoType::int();
+                // Must be I64
+                let expected_int = VeltranoType::i64();
 
                 if !self.types_equal(&operand_type, &expected_int) {
                     return Err(TypeCheckError::TypeMismatch {
@@ -752,7 +752,7 @@ impl VeltranoTypeChecker {
                     });
                 }
 
-                Ok(VeltranoType::int())
+                Ok(VeltranoType::i64())
             }
         }
     }
@@ -996,7 +996,7 @@ impl VeltranoTypeChecker {
         // TODO: Implement proper type name generation for new type system
         let base = veltrano_type.get_base_constructor();
         match base {
-            TypeConstructor::Int => "i64".to_string(),
+            TypeConstructor::I64 => "i64".to_string(),
             TypeConstructor::Bool => "bool".to_string(),
             TypeConstructor::Str => "&str".to_string(),
             TypeConstructor::String => "String".to_string(),
@@ -1056,8 +1056,8 @@ impl VeltranoTypeChecker {
         &self,
         _receiver_type: &VeltranoType,
     ) -> Result<VeltranoType, TypeCheckError> {
-        // For now, just return Int for length method (should use builtin registry)
-        Ok(VeltranoType::int())
+        // For now, just return I64 for length method (should use builtin registry)
+        Ok(VeltranoType::i64())
     }
 
     /// Core type equality check - no implicit conversion logic

@@ -2,7 +2,7 @@ fun abort(message: Str): Nothing {
     panic("{}", message)
 }
 
-fun conditionalAbort(shouldAbort: Bool): Int {
+fun conditionalAbort(shouldAbort: Bool): I64 {
     if (shouldAbort) {
         abort("Something went wrong!")
     } else {
@@ -11,6 +11,6 @@ fun conditionalAbort(shouldAbort: Bool): Int {
 }
 
 fun main() {
-    val result: Int = conditionalAbort(false)
+    val result: I64 = conditionalAbort(false)
     println("{}", result)
 }

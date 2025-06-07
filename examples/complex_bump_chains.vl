@@ -1,8 +1,8 @@
 // Reference preparation call chains
 // Shows how reference preparation propagates through function calls
 
-data class User(val name: Str, val id: Int)
-data class Stats(val count: Int, val active: Bool)
+data class User(val name: Str, val id: I64)
+data class Stats(val count: I64, val active: Bool)
 
 // ========= TRANSITIVE CALL CHAINS =========
 
@@ -41,14 +41,14 @@ fun getUserStats(user: User): Stats {
 }
 
 // Pure value function - NO bump parameter
-fun calculateChecksum(id: Int): Int {
+fun calculateChecksum(id: I64): I64 {
     return id * 31
 }
 
 // ========= MIXED DEPENDENCIES =========
 
 // Function mixing bump-requiring and value-only calls
-fun analyzeUser(user: User): Int {
+fun analyzeUser(user: User): I64 {
     val processed_name = processUserName(user.name)  // Needs bump (transitive)
     val stats = getUserStats(user)                   // Needs bump (data class)
     val id_check = calculateChecksum(user.id)        // No bump (pure value)
@@ -58,7 +58,7 @@ fun analyzeUser(user: User): Int {
 // ========= CONDITIONAL PATHS =========
 
 // Gets bump parameter because one path requires it
-fun conditionalProcessing(user: User, mode: Int): Int {
+fun conditionalProcessing(user: User, mode: I64): I64 {
     if (mode == 1) {
         val name = processUserName(user.name)  // This path needs bump
         return 100

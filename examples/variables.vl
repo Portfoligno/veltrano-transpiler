@@ -9,7 +9,7 @@ fun main() {
     println("{}", inferred)
     
     // Different types
-    val number: Int = 42
+    val number: I64 = 42
     val flag: Bool = true
     val empty: Unit = Unit  // Unit literal
     

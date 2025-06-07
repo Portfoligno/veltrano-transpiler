@@ -44,8 +44,8 @@ fn test_camel_to_snake_case() {
 #[test]
 fn test_camel_case_transpilation() {
     let source = r#"
-fun calculateSum(firstNumber: Int, secondNumber: Int): Int {
-    val totalResult: Int = firstNumber + secondNumber
+fun calculateSum(firstNumber: I64, secondNumber: I64): I64 {
+    val totalResult: I64 = firstNumber + secondNumber
     return totalResult
 }
 "#;

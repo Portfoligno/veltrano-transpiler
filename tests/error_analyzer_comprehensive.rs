@@ -102,7 +102,7 @@ fn test_mutref_to_borrowed_suggestion() {
 
 #[test]
 fn test_vec_to_slice_suggestion() {
-    let inner_type = VeltranoType::int();
+    let inner_type = VeltranoType::i64();
 
     let error = TypeCheckError::TypeMismatch {
         expected: VeltranoType::ref_(inner_type.clone()), // Ref<Int> (slice-like)
@@ -128,7 +128,7 @@ fn test_vec_to_slice_suggestion() {
 
 #[test]
 fn test_array_to_slice_suggestion() {
-    let inner_type = VeltranoType::int();
+    let inner_type = VeltranoType::i64();
 
     let error = TypeCheckError::TypeMismatch {
         expected: VeltranoType::ref_(inner_type.clone()), // Ref<Int> (slice-like)
@@ -154,7 +154,7 @@ fn test_array_to_slice_suggestion() {
 
 #[test]
 fn test_owned_array_to_slice_suggestion() {
-    let inner_type = VeltranoType::int();
+    let inner_type = VeltranoType::i64();
 
     let error = TypeCheckError::TypeMismatch {
         expected: VeltranoType::ref_(inner_type.clone()), // Ref<Int> (slice-like)
@@ -233,7 +233,7 @@ fn test_field_not_found_suggestion() {
 #[test]
 fn test_no_suggestion_for_unrelated_types() {
     let error = TypeCheckError::TypeMismatch {
-        expected: VeltranoType::int(), // Int
+        expected: VeltranoType::i64(), // I64
         actual: VeltranoType::bool(),  // Bool
         location: SourceLocation {
             file: "test.vl".to_string(),

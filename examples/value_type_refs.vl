@@ -1,4 +1,4 @@
-fun takesInt(x: Int) {
+fun takesInt(x: I64) {
     println("Got int: {}", x)
 }
 
@@ -12,7 +12,7 @@ fun takesOwnedString(x: Own<String>) {
 
 fun main() {
     // Value types are always owned
-    val number: Int = 42
+    val number: I64 = 42
     val flag: Bool = true
     
     // Reference types can be owned or borrowed
