@@ -91,7 +91,7 @@ impl BuiltinRegistry {
                 return_type_fn: |receiver| {
                     // clone() returns an owned version of the type
                     // If it's a naturally referenced type, wrap in Own<>
-                    if receiver.is_naturally_referenced() {
+                    if receiver.is_naturally_referenced_legacy() {
                         VeltranoType::own(receiver.clone())
                     } else {
                         receiver.clone() // Already owned for value types

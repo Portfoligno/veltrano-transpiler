@@ -3,6 +3,7 @@ mod codegen;
 mod config;
 mod lexer;
 mod parser;
+mod rust_interop;
 mod type_checker;
 
 use std::env;

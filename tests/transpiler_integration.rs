@@ -549,7 +549,7 @@ fn test_own_value_type_validation() {
     assert_type_check_error(
         r#"fun main() { val x: Own<I64> = 42 }"#,
         config.clone(),
-        Some("Cannot use Own<I64>. This type is already owned."),
+        Some("Cannot use Own<I64>. Types that implement Copy are always owned by default and don't need the Own<> wrapper."),
     )
     .expect("Own<I64> should be rejected");
 
@@ -557,7 +557,7 @@ fn test_own_value_type_validation() {
     assert_type_check_error(
         r#"fun main() { val flag: Own<Bool> = true }"#,
         config.clone(),
-        Some("This type is already owned"),
+        Some("Types that implement Copy are always owned by default and don't need the Own<> wrapper."),
     )
     .expect("Own<Bool> should be rejected");
 

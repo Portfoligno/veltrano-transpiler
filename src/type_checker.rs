@@ -1,4 +1,5 @@
 use crate::ast::*;
+use crate::rust_interop;
 use std::collections::HashMap;
 
 /// A type in the Veltrano type system supporting higher-kinded types
@@ -231,26 +232,65 @@ impl VeltranoType {
         self.args.first_mut()
     }
 
-    /// Check if this is a naturally owned type (Int, Bool, Unit, Nothing)
-    pub fn is_naturally_owned(&self) -> bool {
-        self.args.is_empty()
-            && matches!(
-                self.constructor,
-                TypeConstructor::I32
-                    | TypeConstructor::I64
-                    | TypeConstructor::ISize
-                    | TypeConstructor::U32
-                    | TypeConstructor::U64
-                    | TypeConstructor::USize
-                    | TypeConstructor::Bool
-                    | TypeConstructor::Char
-                    | TypeConstructor::Unit
-                    | TypeConstructor::Nothing
-            )
+    /// Convert this VeltranoType to its corresponding Rust type name
+    pub fn to_rust_type_name(&self) -> String {
+        // Only handle base types (no type arguments) for trait checking
+        if !self.args.is_empty() {
+            return "unknown".to_string();
+        }
+
+        match &self.constructor {
+            TypeConstructor::I32 => "i32".to_string(),
+            TypeConstructor::I64 => "i64".to_string(),
+            TypeConstructor::ISize => "isize".to_string(),
+            TypeConstructor::U32 => "u32".to_string(),
+            TypeConstructor::U64 => "u64".to_string(),
+            TypeConstructor::USize => "usize".to_string(),
+            TypeConstructor::Bool => "bool".to_string(),
+            TypeConstructor::Char => "char".to_string(),
+            TypeConstructor::Str => "&str".to_string(),
+            TypeConstructor::String => "String".to_string(),
+            TypeConstructor::Unit => "()".to_string(),
+            TypeConstructor::Nothing => "!".to_string(),
+            TypeConstructor::Custom(name) => name.clone(),
+            _ => "unknown".to_string(),
+        }
     }
 
-    /// Check if this is a naturally referenced type (Str, String, Custom)
-    pub fn is_naturally_referenced(&self) -> bool {
+    /// Check if this type implements Copy trait (should be naturally owned/value types)
+    pub fn implements_copy(&self, trait_checker: &mut rust_interop::RustInteropRegistry) -> bool {
+        // Only base types (no type arguments) can implement Copy directly
+        if !self.args.is_empty() {
+            return false;
+        }
+
+        let rust_type_name = self.to_rust_type_name();
+
+        // Use the trait checker to determine Copy implementation
+        trait_checker
+            .type_implements_trait(&rust_type_name, "Copy")
+            .unwrap_or(false)
+    }
+
+    /// Check if this is a naturally owned type (Copy types)
+    pub fn is_naturally_owned(
+        &self,
+        trait_checker: &mut rust_interop::RustInteropRegistry,
+    ) -> bool {
+        self.implements_copy(trait_checker)
+    }
+
+    /// Check if this is a naturally referenced type (non-Copy types by default)
+    pub fn is_naturally_referenced(
+        &self,
+        trait_checker: &mut rust_interop::RustInteropRegistry,
+    ) -> bool {
+        !self.is_naturally_owned(trait_checker) && self.args.is_empty()
+    }
+
+    /// Temporary backward compatibility method for builtins.rs
+    /// TODO: Remove once builtins.rs is updated to use trait checker
+    pub fn is_naturally_referenced_legacy(&self) -> bool {
         self.args.is_empty()
             && matches!(
                 self.constructor,
@@ -259,11 +299,16 @@ impl VeltranoType {
     }
 
     /// Validate if Own<T> type constructor is valid with the given inner type
-    pub fn validate_own_constructor(inner: &VeltranoType) -> Result<(), String> {
-        // Check if the inner type is naturally owned (Int, Bool, Unit, Nothing)
-        if inner.is_naturally_owned() {
+    pub fn validate_own_constructor(
+        inner: &VeltranoType,
+        trait_checker: &mut rust_interop::RustInteropRegistry,
+    ) -> Result<(), String> {
+        // Check if the inner type implements Copy (is naturally owned)
+        let is_copy = inner.is_naturally_owned(trait_checker);
+
+        if is_copy {
             return Err(format!(
-                "Cannot use Own<{:?}>. This type is already owned.",
+                "Cannot use Own<{:?}>. Types that implement Copy are always owned by default and don't need the Own<> wrapper.",
                 inner.constructor
             ));
         }
@@ -487,12 +532,14 @@ impl TypeEnvironment {
 /// Main type checker with strict type checking (no implicit conversions)
 pub struct VeltranoTypeChecker {
     env: TypeEnvironment,
+    trait_checker: rust_interop::RustInteropRegistry,
 }
 
 impl VeltranoTypeChecker {
     pub fn new() -> Self {
         let mut checker = Self {
             env: TypeEnvironment::new(),
+            trait_checker: rust_interop::RustInteropRegistry::new(),
         };
 
         // Initialize built-in functions and methods
@@ -566,7 +613,7 @@ impl VeltranoTypeChecker {
     }
 
     /// Validate a type recursively, checking for invalid type constructor usage
-    fn validate_type(&self, veltrano_type: &VeltranoType) -> Result<(), TypeCheckError> {
+    fn validate_type(&mut self, veltrano_type: &VeltranoType) -> Result<(), TypeCheckError> {
         match &veltrano_type.constructor {
             TypeConstructor::Own => {
                 // Validate Own<T> type constructor
@@ -575,7 +622,9 @@ impl VeltranoTypeChecker {
                     self.validate_type(inner)?;
 
                     // Then validate the Own<T> constraint
-                    if let Err(err_msg) = VeltranoType::validate_own_constructor(inner) {
+                    if let Err(err_msg) =
+                        VeltranoType::validate_own_constructor(inner, &mut self.trait_checker)
+                    {
                         return Err(TypeCheckError::InvalidTypeConstructor {
                             message: err_msg,
                             location: SourceLocation {
@@ -1049,7 +1098,7 @@ impl VeltranoTypeChecker {
     ) -> Result<VeltranoType, TypeCheckError> {
         if receiver_type.can_clone() {
             // Clone returns an owned version - use builtin registry logic instead
-            if receiver_type.is_naturally_referenced() {
+            if receiver_type.is_naturally_referenced(&mut self.trait_checker) {
                 Ok(VeltranoType::own(receiver_type.clone()))
             } else {
                 Ok(receiver_type.clone()) // Already owned for value types

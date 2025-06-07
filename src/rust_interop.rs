@@ -239,6 +239,37 @@ impl RustInteropRegistry {
         let key = format!("{}::{}", type_name, method_name);
         self.items.get(&key)
     }
+
+    /// Check if a type implements a specific trait
+    pub fn type_implements_trait(
+        &mut self,
+        type_path: &str,
+        trait_name: &str,
+    ) -> Result<bool, RustInteropError> {
+        // For built-in types, we can have hardcoded knowledge
+        let implements = match type_path {
+            // Primitive types that implement Copy and Clone
+            "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64"
+            | "u128" | "usize" | "f32" | "f64" | "bool" | "char" => {
+                matches!(trait_name, "Clone" | "Copy" | "Debug")
+            }
+            // String types
+            "String" | "std::string::String" => {
+                matches!(trait_name, "Clone" | "Debug" | "Display" | "ToString")
+            }
+            "&str" | "str" => {
+                matches!(trait_name, "Debug" | "Display" | "ToString")
+            }
+            // Unit type
+            "()" => {
+                matches!(trait_name, "Clone" | "Copy" | "Debug")
+            }
+            // For other types, we don't have knowledge yet
+            _ => false,
+        };
+
+        Ok(implements)
+    }
 }
 
 /// Simple parser for Rust type signatures
@@ -665,68 +696,52 @@ impl DynamicRustRegistry {
         type_path: &str,
         trait_name: &str,
     ) -> Result<bool, RustInteropError> {
-        // For built-in types, we can have hardcoded knowledge
-        let implements = match type_path {
-            // Primitive types that implement Clone
-            "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64"
-            | "u128" | "usize" | "f32" | "f64" | "bool" | "char" => {
-                matches!(trait_name, "Clone" | "Copy" | "Debug")
-            }
-            // String types
-            "String" | "std::string::String" => {
-                matches!(trait_name, "Clone" | "Debug" | "Display" | "ToString")
-            }
-            "&str" | "str" => {
-                matches!(trait_name, "Debug" | "Display" | "ToString")
-            }
-            // Unit type
-            "()" => {
-                matches!(trait_name, "Clone" | "Copy" | "Debug")
-            }
-            // For other types, query the crate info
-            _ => {
-                // Try to determine which crate the type belongs to
-                let (crate_name, type_name) = if type_path.contains("::") {
-                    self.parse_path(type_path)?
-                } else {
-                    // Assume it's in the current crate
-                    ("self", type_path)
-                };
+        // For built-in types, delegate to RustInteropRegistry
+        let mut basic_registry = RustInteropRegistry::new();
+        let basic_result = basic_registry.type_implements_trait(type_path, trait_name);
+        if basic_result.is_ok() {
+            return basic_result;
+        }
 
-                // Query the crate
-                let crate_name = crate_name.to_string();
-
-                // Try cache first
-                if let Some(cached) = self.cache.get(&crate_name) {
-                    return Ok(cached
-                        .trait_implementations
-                        .get(type_name)
-                        .map_or(false, |traits| traits.contains(trait_name)));
-                }
-
-                // Query dynamically
-                for querier in &mut self.queriers {
-                    if querier.supports_crate(&crate_name) {
-                        match querier.query_crate(&crate_name) {
-                            Ok(crate_info) => {
-                                let result = crate_info
-                                    .trait_implementations
-                                    .get(type_name)
-                                    .map_or(false, |traits| traits.contains(trait_name));
-                                // Cache the result
-                                self.cache.insert(crate_name, crate_info);
-                                return Ok(result);
-                            }
-                            Err(_) => continue, // Try next querier
-                        }
-                    }
-                }
-
-                false // Default to not implemented if we can't find info
-            }
+        // For other types, query the crate info
+        // Try to determine which crate the type belongs to
+        let (crate_name, type_name) = if type_path.contains("::") {
+            self.parse_path(type_path)?
+        } else {
+            // Assume it's in the current crate
+            ("self", type_path)
         };
 
-        Ok(implements)
+        // Query the crate
+        let crate_name = crate_name.to_string();
+
+        // Try cache first
+        if let Some(cached) = self.cache.get(&crate_name) {
+            return Ok(cached
+                .trait_implementations
+                .get(type_name)
+                .map_or(false, |traits| traits.contains(trait_name)));
+        }
+
+        // Query dynamically
+        for querier in &mut self.queriers {
+            if querier.supports_crate(&crate_name) {
+                match querier.query_crate(&crate_name) {
+                    Ok(crate_info) => {
+                        let result = crate_info
+                            .trait_implementations
+                            .get(type_name)
+                            .map_or(false, |traits| traits.contains(trait_name));
+                        // Cache the result
+                        self.cache.insert(crate_name, crate_info);
+                        return Ok(result);
+                    }
+                    Err(_) => continue, // Try next querier
+                }
+            }
+        }
+
+        Ok(false) // Default to not implemented if we can't find info
     }
 
     /// Get all traits implemented by a type
