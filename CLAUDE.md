@@ -260,6 +260,20 @@ git checkout original-branch
 - Use `git push --no-progress` to suppress progress indicators while keeping push summary
 - Alternative: `git push --quiet` for minimal output (errors only)
 
+#### Understanding Context When User Reports Git Actions
+- **When user mentions they've done something with git** (amended, rebased, cherry-picked, etc.):
+  - **Don't assume** - verify the actual repository state
+  - **Check what happened** using git commands:
+    - `git status` - current working directory state
+    - `git log --oneline -n 5` - recent commits
+    - `git diff --stat HEAD~1` - what changed in recent commits
+  - **Understand the implications** before taking further git actions
+  - **Example:** "I've amended X" could mean:
+    - Changes are already incorporated in an existing commit
+    - Local history has diverged from remote
+    - Simple pull/push may not work as expected
+- **This prevents:** accidentally undoing user's deliberate git operations
+
 ---
 
 ## 🚀 Release Process
