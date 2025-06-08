@@ -715,7 +715,7 @@ impl CodeGenerator {
         self.indent();
     }
 
-    fn generate_comma_separated_args(&mut self, args: &[Argument]) {
+    fn generate_comma_separated_args_for_struct_init(&mut self, args: &[Argument]) {
         let mut first = true;
         for arg in args {
             if !first {
@@ -723,14 +723,18 @@ impl CodeGenerator {
             }
             first = false;
             match arg {
-                Argument::Bare(expr, comment) => {
-                    self.generate_expression(expr);
-                    self.generate_inline_comment(comment);
+                Argument::Bare(_, _) => {
+                    panic!("Data class constructors don't support positional arguments. Use named arguments or .field shorthand syntax");
                 }
                 Argument::Named(name, expr, comment) => {
                     self.output.push_str(&self.camel_to_snake_case(name));
                     self.output.push_str(": ");
                     self.generate_expression(expr);
+                    self.generate_inline_comment(comment);
+                }
+                Argument::Shorthand(field_name, comment) => {
+                    // Shorthand: generate field_name (variable matches field name)
+                    self.output.push_str(&self.camel_to_snake_case(field_name));
                     self.generate_inline_comment(comment);
                 }
                 Argument::StandaloneComment(_, _) => {
@@ -768,6 +772,9 @@ impl CodeGenerator {
                             self.output.push(',');
                         }
                         self.generate_inline_comment(comment);
+                    }
+                    Argument::Shorthand(field_name, _) => {
+                        panic!("Shorthand syntax (.{}) is only valid for data class constructors, not function calls", field_name);
                     }
                     Argument::StandaloneComment(content, whitespace) => {
                         // Generate standalone comment as its own line
@@ -810,6 +817,9 @@ impl CodeGenerator {
                         self.generate_expression(expr);
                         self.generate_inline_comment_as_block(comment);
                     }
+                    Argument::Shorthand(field_name, _) => {
+                        panic!("Shorthand syntax (.{}) is only valid for data class constructors, not function calls", field_name);
+                    }
                     Argument::StandaloneComment(_, _) => {
                         // For single-line calls, standalone comments force multiline format
                         // This should not happen in practice as standalone comments should trigger multiline
@@ -849,7 +859,7 @@ impl CodeGenerator {
                 // This is struct initialization (works with positional, named, or mixed arguments)
                 self.output.push_str(name);
                 self.output.push_str(" { ");
-                self.generate_comma_separated_args(&call.args);
+                self.generate_comma_separated_args_for_struct_init(&call.args);
                 self.output.push_str(" }");
                 return;
             }
@@ -866,6 +876,11 @@ impl CodeGenerator {
                 match &call.args[0] {
                     Argument::Bare(expr, _) => {
                         self.generate_expression(expr);
+                    }
+                    Argument::Shorthand(field_name, _) => {
+                        // Shorthand behaves like Bare - just generate the identifier
+                        let snake_name = self.camel_to_snake_case(field_name);
+                        self.output.push_str(&snake_name);
                     }
                     Argument::Named(_, _, _) => {
                         panic!("MutRef() does not support named arguments");
@@ -1114,6 +1129,7 @@ impl CodeGenerator {
                     || call.args.iter().any(|arg| match arg {
                         Argument::Bare(expr, _) => self.expr_uses_bump_allocation(expr),
                         Argument::Named(_, expr, _) => self.expr_uses_bump_allocation(expr),
+                        Argument::Shorthand(_, _) => false, // Shorthand is just an identifier, doesn't use bump allocation
                         Argument::StandaloneComment(_, _) => false, // Comments don't use bump allocation
                     })
             }

@@ -1093,14 +1093,14 @@ data class Point(val x: I64, val y: I64)
 data class Person(val name: Str, val age: I64)
 
 fun main() {
-    // All positional - uses field shorthand
+    // All shorthand - uses field shorthand syntax
     val x = 10
     val y = 20
-    val p1 = Point(x, y)
+    val p1 = Point(.x, .y)
     
-    // Mixed positional and named
+    // Mixed shorthand and named
     val name = "Alice"
-    val p2 = Person(name, age = 30)
+    val p2 = Person(.name, age = 30)
     
     // All named
     val p3 = Person(name = "Bob", age = 25)
@@ -1161,7 +1161,7 @@ fun main() {
 
 #[test]
 fn test_data_class_mixed_bare_named_args() {
-    // Test that bare and named arguments can be mixed in any order
+    // Test that shorthand and named arguments can be mixed in any order
     let source = r#"data class Person(val name: Str, val age: I64)
 data class Book(val title: Str, val author: Str, val pages: I64)
 
@@ -1172,16 +1172,16 @@ fun main() {
     val author = "Steve"
     val pages = 500
     
-    // Bare first, named second
-    val p1 = Person(name, age = 25)
+    // Shorthand first, named second
+    val p1 = Person(.name, age = 25)
     
-    // Named first, bare second
-    val p2 = Person(age = 35, name)
+    // Named first, shorthand second
+    val p2 = Person(age = 35, .name)
     
     // Multiple combinations with 3 fields
-    val b1 = Book(title, author = "Carol", pages = 300)     // bare, named, named
-    val b2 = Book(title = "Guide", author, pages = 400)     // named, bare, named  
-    val b3 = Book(title = "Manual", author = "Bob", pages)  // named, named, bare
+    val b1 = Book(.title, author = "Carol", pages = 300)     // shorthand, named, named
+    val b2 = Book(title = "Guide", .author, pages = 400)     // named, shorthand, named
+    val b3 = Book(title = "Manual", author = "Bob", .pages)  // named, named, shorthand
 }"#;
 
     let config = Config {

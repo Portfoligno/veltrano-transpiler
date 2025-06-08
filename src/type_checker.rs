@@ -587,6 +587,7 @@ impl VeltranoTypeChecker {
                 let actual_param = match arg {
                     Argument::Bare(expr, _) => self.check_expression(expr)?,
                     Argument::Named(_, expr, _) => self.check_expression(expr)?,
+                    Argument::Shorthand(_, _) => continue, // Type checking happens in codegen via variable lookup
                     Argument::StandaloneComment(_, _) => continue, // Skip comments
                 };
 
@@ -635,6 +636,7 @@ impl VeltranoTypeChecker {
                 Argument::Named(_, expr, _) => {
                     self.check_expression(expr)?; // Ensure expression is valid
                 }
+                Argument::Shorthand(_, _) => continue, // No expression to validate
                 Argument::StandaloneComment(_, _) => continue, // Skip comments
             }
         }

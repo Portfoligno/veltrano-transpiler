@@ -57,6 +57,7 @@ pub enum BinaryOp {
 pub enum Argument {
     Bare(Expr, Option<(String, String)>), // Expression with optional inline comment
     Named(String, Expr, Option<(String, String)>), // Named argument with optional inline comment
+    Shorthand(String, Option<(String, String)>), // Shorthand field (.field) with optional inline comment
     StandaloneComment(String, String), // Standalone comment with content and preceding whitespace
 }
 
@@ -263,6 +264,7 @@ mod bump_usage_analyzer {
                     || call.args.iter().any(|arg| match arg {
                         Argument::Bare(expr, _) => expr_uses_bump(expr, functions_with_bump),
                         Argument::Named(_, expr, _) => expr_uses_bump(expr, functions_with_bump),
+                        Argument::Shorthand(_, _) => false, // Shorthand is just an identifier, doesn't use bump allocation
                         Argument::StandaloneComment(_, _) => false, // Comments don't use bump allocation
                     })
             }

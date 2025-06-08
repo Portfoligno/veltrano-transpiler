@@ -504,8 +504,23 @@ impl Parser {
                             is_multiline = true;
                         }
 
-                        // Try to parse regular argument (named or bare)
-                        if let TokenType::Identifier(name) = &self.peek().token_type {
+                        // Try to parse regular argument (named, shorthand, or bare)
+                        if self.check(&TokenType::Dot) {
+                            // This is shorthand syntax (.field)
+                            self.advance(); // consume dot
+                            if let TokenType::Identifier(field_name) = &self.peek().token_type {
+                                let field_name = field_name.clone();
+                                self.advance(); // consume identifier
+
+                                // Capture comment immediately after the field name
+                                let comment = self.skip_newlines_and_capture_comment();
+                                args.push(Argument::Shorthand(field_name, comment));
+                            } else {
+                                return Err(format!(
+                                    "Expected field name after '.' in shorthand syntax"
+                                ));
+                            }
+                        } else if let TokenType::Identifier(name) = &self.peek().token_type {
                             let name = name.clone();
                             let next_pos = self.current + 1;
                             if next_pos < self.tokens.len()
@@ -552,6 +567,11 @@ impl Parser {
                                         }
                                     }
                                     Argument::Named(_, _, ref mut existing_comment) => {
+                                        if existing_comment.is_none() {
+                                            *existing_comment = Some(inline_comment);
+                                        }
+                                    }
+                                    Argument::Shorthand(_, ref mut existing_comment) => {
                                         if existing_comment.is_none() {
                                             *existing_comment = Some(inline_comment);
                                         }

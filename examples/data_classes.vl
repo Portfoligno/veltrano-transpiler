@@ -22,25 +22,25 @@ fun main() {
     // Field shorthand syntax - when variable name matches field name
     val x = 100
     val y = 200
-    val p2 = Point(x, y)  // Generates: Point { x, y }
+    val p2 = Point(.x, .y)  // Generates: Point { x, y }
     
     // Mixed shorthand and named parameters
     val name = "Bob"
-    val bob = Person(name, age = 25)  // Generates: Person { name, age: 25 }
+    val bob = Person(.name, age = 25)  // Generates: Person { name, age: 25 }
     
     // Named arguments can be in any order
     val charlie = Person(age = 40, name = "Charlie")  // Order doesn't matter!
     val book2 = Book(pages = 300, author = alice.ref(), title = "Rust in Action")
     
-    // Bare arguments can be mixed with named arguments in any position
-    val david = Person(name, age = 45)  // bare first, named second
-    val emma = Person(age = 35, name)   // named first, bare second
+    // Shorthand arguments can be mixed with named arguments in any position
+    val david = Person(.name, age = 45)  // shorthand first, named second
+    val emma = Person(age = 35, .name)   // named first, shorthand second
     
     // More complex mixing with 3 fields
     val title = "Learning Rust"
     val pages = 250
-    val book3 = Book(title, author = alice.ref(), pages = 400)  // bare, named, named
-    val book4 = Book(title = "Rust Guide", author = alice.ref(), pages)   // named, named, bare
+    val book3 = Book(.title, author = alice.ref(), pages = 400)  // shorthand, named, named
+    val book4 = Book(title = "Rust Guide", author = alice.ref(), .pages)   // named, named, shorthand
     
     // Field access
     val aliceName = alice.name
