@@ -575,11 +575,10 @@ impl BuiltinRegistry {
     ) -> bool {
         // For trait methods, we need to look up the method on the underlying type
         // For example, Ref<I64>.to_string() should look up to_string on i64, not &i64
-        // Get the appropriate type name for method lookup
+        // Get the appropriate type for method lookup
         let rust_type = receiver_type.to_rust_type(trait_checker);
-        let lookup_type_name = rust_type.to_type_name_for_lookup();
         
-        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&lookup_type_name, method_name) {
+        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name) {
             // Check if the Veltrano receiver type can provide the required Rust access
             self.receiver_can_provide_rust_access_for_imported(
                 receiver_type,
@@ -599,11 +598,10 @@ impl BuiltinRegistry {
         trait_checker: &mut RustInteropRegistry,
     ) -> Option<VeltranoType> {
         // Use same lookup logic as is_imported_method_available
-        // Get the appropriate type name for method lookup
+        // Get the appropriate type for method lookup
         let rust_type = receiver_type.to_rust_type(trait_checker);
-        let lookup_type_name = rust_type.to_type_name_for_lookup();
         
-        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&lookup_type_name, method_name) {
+        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name) {
             // Check if the receiver can provide the required access
             if self.receiver_can_provide_rust_access_for_imported(
                 receiver_type,
@@ -663,10 +661,9 @@ impl BuiltinRegistry {
         receiver_type: &VeltranoType,
         trait_checker: &mut RustInteropRegistry,
     ) -> Option<Vec<VeltranoType>> {
-        // Get the appropriate Rust type name for lookup
-        let lookup_type_name = self.get_lookup_type_name(receiver_type, trait_checker);
+        let rust_type = receiver_type.to_rust_type(trait_checker);
         
-        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&lookup_type_name, method_name) {
+        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name) {
             // Convert Rust parameter types to Veltrano types
             let mut veltrano_params = Vec::new();
             for rust_param in &method_info.parameters {
@@ -687,10 +684,9 @@ impl BuiltinRegistry {
         receiver_type: &VeltranoType,
         trait_checker: &mut RustInteropRegistry,
     ) -> Option<SelfKind> {
-        // Get the appropriate Rust type name for lookup
-        let lookup_type_name = self.get_lookup_type_name(receiver_type, trait_checker);
+        let rust_type = receiver_type.to_rust_type(trait_checker);
         
-        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&lookup_type_name, method_name) {
+        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name) {
             Some(method_info.self_kind)
         } else {
             None
@@ -704,10 +700,9 @@ impl BuiltinRegistry {
         receiver_type: &VeltranoType,
         trait_checker: &mut RustInteropRegistry,
     ) -> Option<VeltranoType> {
-        // Get the appropriate Rust type name for lookup
-        let lookup_type_name = self.get_lookup_type_name(receiver_type, trait_checker);
+        let rust_type = receiver_type.to_rust_type(trait_checker);
         
-        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&lookup_type_name, method_name) {
+        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name) {
             // Convert Rust return type to Veltrano type
             method_info.return_type.to_veltrano_type().ok()
         } else {
@@ -715,27 +710,6 @@ impl BuiltinRegistry {
         }
     }
 
-    /// Get the appropriate Rust type name for method lookup
-    fn get_lookup_type_name(&self, receiver_type: &VeltranoType, trait_checker: &mut RustInteropRegistry) -> String {
-        use crate::rust_interop::RustType;
-        
-        let rust_type = receiver_type.to_rust_type(trait_checker);
-        
-        // For Clone trait, we need to consider that &T also implements Clone
-        // So we look up the method on the actual Rust type, not the fully dereferenced type
-        let lookup_name = match &rust_type {
-            RustType::Ref { inner, .. } => {
-                // For references, check if we should look up on the reference itself
-                // This is important for Clone which is implemented for &T
-                format!("&{}", inner.to_type_name_for_lookup())
-            }
-            _ => rust_type.to_type_name_for_lookup()
-        };
-        
-        eprintln!("DEBUG: get_lookup_type_name - receiver_type: {:?} -> rust_type: {:?} -> lookup_name: {}", 
-                  receiver_type, rust_type, lookup_name);
-        lookup_name
-    }
 }
 
 impl Default for BuiltinRegistry {

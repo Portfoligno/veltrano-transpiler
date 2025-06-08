@@ -68,6 +68,16 @@ pub enum TypeCheckError {
         message: String,
         location: SourceLocation,
     },
+    InvalidType {
+        type_name: String,
+        reason: String,
+        location: SourceLocation,
+    },
+    InvalidImport {
+        type_name: String,
+        method_name: String,
+        location: SourceLocation,
+    },
 }
 
 /// Main type checker with strict type checking (no implicit conversions)
@@ -75,7 +85,7 @@ pub struct VeltranoTypeChecker {
     env: TypeEnvironment,
     trait_checker: RustInteropRegistry,
     builtin_registry: BuiltinRegistry,
-    imports: std::collections::HashMap<String, (String, String)>, // method_name/alias -> (type_name, method_name)
+    imports: std::collections::HashMap<String, (crate::rust_interop::RustType, String)>, // method_name/alias -> (rust_type, method_name)
 }
 
 /// Helper functions for trait checking on VeltranoType
@@ -264,20 +274,42 @@ impl VeltranoTypeChecker {
 
     /// Check import statement and register it for method resolution
     fn check_import_statement(&mut self, import: &ImportStmt) -> Result<(), TypeCheckError> {
+        use crate::rust_interop::RustTypeParser;
+        
+        // Parse the type name into a RustType
+        let rust_type = RustTypeParser::parse(&import.type_name)
+            .map_err(|_| TypeCheckError::InvalidType {
+                type_name: import.type_name.clone(),
+                reason: "Failed to parse import type".to_string(),
+                location: SourceLocation {
+                    file: "unknown".to_string(),
+                    line: 0,
+                    column: 0,
+                    source_line: "".to_string(),
+                },
+            })?;
+        
         // Store the import for later method resolution
         let key = import
             .alias
             .clone()
             .unwrap_or_else(|| import.method_name.clone());
         self.imports
-            .insert(key, (import.type_name.clone(), import.method_name.clone()));
+            .insert(key, (rust_type.clone(), import.method_name.clone()));
 
-        // TODO: Validate that the imported method exists and get its signature
-        // For now, we trust that the import is valid
-        // In a full implementation, we would:
-        // 1. Query the Rust interop system to verify the method exists
-        // 2. Get the method signature for type checking
-        // 3. Store the signature for later use during method calls
+        // Validate that the imported method exists
+        if let Err(_) = self.trait_checker.query_method_signature(&rust_type, &import.method_name) {
+            return Err(TypeCheckError::InvalidImport {
+                type_name: import.type_name.clone(),
+                method_name: import.method_name.clone(),
+                location: SourceLocation {
+                    file: "unknown".to_string(),
+                    line: 0,
+                    column: 0,
+                    source_line: "".to_string(),
+                },
+            });
+        }
 
         Ok(())
     }
@@ -813,10 +845,10 @@ impl VeltranoTypeChecker {
         let receiver_type = self.check_expression(&method_call.object)?;
 
         // Priority 1: Check if this method is explicitly imported
-        if let Some((type_name, original_method)) = self.imports.get(&method_call.method).cloned() {
+        if let Some((rust_type, original_method)) = self.imports.get(&method_call.method).cloned() {
             return self.check_imported_method_call(
                 &receiver_type,
-                &type_name,
+                &rust_type,
                 &original_method,
                 method_call,
             );
@@ -848,14 +880,14 @@ impl VeltranoTypeChecker {
     fn check_imported_method_call(
         &mut self,
         receiver_type: &VeltranoType,
-        rust_type_name: &str,
+        rust_type: &crate::rust_interop::RustType,
         rust_method_name: &str,
         _method_call: &MethodCallExpr,
     ) -> Result<VeltranoType, TypeCheckError> {
         // Query the imported method signature
         if let Ok(Some(method_info)) = self
             .trait_checker
-            .query_method_signature(rust_type_name, rust_method_name)
+            .query_method_signature(rust_type, rust_method_name)
         {
             // Check if the receiver type can provide the required access
             if !self.builtin_registry.receiver_can_provide_rust_access_for_imported(

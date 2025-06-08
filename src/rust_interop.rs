@@ -138,13 +138,10 @@ impl RustType {
         }
     }
 
-    /// Get the base type name for method lookup
-    /// Recursively removes all reference layers to find where methods are defined
-    pub fn to_type_name_for_lookup(&self) -> String {
+    /// Convert RustType to its string representation for crate info queries
+    /// This preserves references and is only used at the lowest level
+    fn to_crate_query_string(&self) -> String {
         match self {
-            RustType::Ref { inner, .. } | RustType::MutRef { inner, .. } => {
-                inner.to_type_name_for_lookup()
-            }
             RustType::I32 => "i32".to_string(),
             RustType::I64 => "i64".to_string(),
             RustType::ISize => "isize".to_string(),
@@ -157,13 +154,21 @@ impl RustType {
             RustType::Never => "!".to_string(),
             RustType::Str => "str".to_string(),
             RustType::String => "String".to_string(),
-            RustType::Box(_) => "Box".to_string(),
-            RustType::Rc(_) => "Rc".to_string(),
-            RustType::Arc(_) => "Arc".to_string(),
-            RustType::Vec(_) => "Vec".to_string(),
-            RustType::Option(_) => "Option".to_string(),
-            RustType::Result { .. } => "Result".to_string(),
-            RustType::Custom { name, .. } => name.clone(),
+            RustType::Ref { inner, .. } => format!("&{}", inner.to_crate_query_string()),
+            RustType::MutRef { inner, .. } => format!("&mut {}", inner.to_crate_query_string()),
+            RustType::Box(inner) => format!("Box<{}>", inner.to_crate_query_string()),
+            RustType::Rc(inner) => format!("Rc<{}>", inner.to_crate_query_string()),
+            RustType::Arc(inner) => format!("Arc<{}>", inner.to_crate_query_string()),
+            RustType::Vec(inner) => format!("Vec<{}>", inner.to_crate_query_string()),
+            RustType::Option(inner) => format!("Option<{}>", inner.to_crate_query_string()),
+            RustType::Result { ok, err } => format!("Result<{}, {}>", ok.to_crate_query_string(), err.to_crate_query_string()),
+            RustType::Custom { name, generics } => {
+                if generics.is_empty() {
+                    name.clone()
+                } else {
+                    format!("{}<{}>", name, generics.iter().map(|g| g.to_crate_query_string()).collect::<Vec<_>>().join(", "))
+                }
+            },
             RustType::Generic(name) => name.clone(),
         }
     }
@@ -363,16 +368,53 @@ impl RustInteropRegistry {
     /// This integrates with the DynamicRustRegistry for full method resolution
     pub fn query_method_signature(
         &mut self,
-        type_path: &str,
+        rust_type: &RustType,
         method_name: &str,
     ) -> Result<Option<ImportedMethodInfo>, RustInteropError> {
-        // First try hardcoded method info for built-in types
-        if let Some(method_info) = self.get_method_info(type_path, method_name) {
-            return Ok(Some(method_info));
-        }
+        // Try method resolution following Rust's rules
+        // First try the exact type, then try dereferenced types
+        let type_sequence = self.build_method_resolution_sequence(rust_type);
+        
+        for candidate_type in type_sequence {
+            // Convert to string only at the lowest level for CrateInfo query
+            let type_path = candidate_type.to_crate_query_string();
+            eprintln!("DEBUG: query_method_signature - trying candidate_type: {:?} -> type_path: {}", candidate_type, type_path);
+            
+            // First try hardcoded method info for built-in types
+            if let Some(method_info) = self.get_method_info(&type_path, method_name) {
+                return Ok(Some(method_info));
+            }
 
-        // For other types, use the dynamic registry to query method signatures
-        self.query_dynamic_method_signature(type_path, method_name)
+            // For other types, use the dynamic registry to query method signatures
+            if let result @ Ok(Some(_)) = self.query_dynamic_method_signature(&type_path, method_name) {
+                return result;
+            }
+        }
+        
+        Ok(None)
+    }
+    
+    /// Build the sequence of types to check for method resolution
+    /// Following Rust's method resolution order
+    fn build_method_resolution_sequence(&self, rust_type: &RustType) -> Vec<RustType> {
+        let mut sequence = Vec::new();
+        
+        // For references, check the reference type first (for impl Clone for &T)
+        // Then check the inner type (for impl Clone for T)
+        match rust_type {
+            RustType::Ref { inner, lifetime: _ } => {
+                // First check &T itself
+                sequence.push(rust_type.clone());
+                // Then check T (the compiler will auto-ref if needed)
+                sequence.push(inner.as_ref().clone());
+            }
+            _ => {
+                // For non-references, just check the type itself
+                sequence.push(rust_type.clone());
+            }
+        }
+        
+        sequence
     }
 
     /// Query method signature using the dynamic registry system
