@@ -286,6 +286,9 @@ git checkout original-branch
     - Simple pull/push may not work as expected
 - **This prevents:** accidentally undoing user's deliberate git operations
 
+#### Interactive Rebase Limitations
+❌ **NEVER use `git rebase -i`** - Interactive rebase requires user input which is not available in Claude Code environment. The command will appear to succeed but won't actually squash commits.
+
 ---
 
 ## 🚀 Release Process
