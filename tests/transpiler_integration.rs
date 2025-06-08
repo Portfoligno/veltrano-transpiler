@@ -647,16 +647,15 @@ fn test_fail_examples() {
 
 #[test]
 fn test_clone_ufcs_generation() {
-    // Test that clone() generates UFCS syntax
+    // Test that clone() generates UFCS syntax with explicit conversion enforcement
     let veltrano_code = r#"fun testClone() {
     val owned: Own<String> = "hello".toString()
     val borrowed: String = owned.ref()
     
-    // Test various clone scenarios
-    val clonedOwned = owned.clone()
-    val clonedBorrowed = borrowed.clone()
+    // Test clone scenarios with explicit conversions
+    val clonedFromRef = borrowed.clone()
     
-    // Test with method chaining
+    // Test with method chaining  
     val chained = owned.ref().clone()
 }"#;
 
@@ -666,14 +665,9 @@ fn test_clone_ufcs_generation() {
     let rust_code =
         transpile(veltrano_code, config, false).expect("Clone UFCS test should parse and generate");
 
-    // Check UFCS generation for clone
+    // Check UFCS generation for clone with explicit conversions
     assert!(
-        rust_code.contains("let cloned_owned = Clone::clone(owned)"),
-        "Expected 'Clone::clone(owned)' but got: {}",
-        rust_code
-    );
-    assert!(
-        rust_code.contains("let cloned_borrowed = Clone::clone(borrowed)"),
+        rust_code.contains("let cloned_from_ref = Clone::clone(borrowed)"),
         "Expected 'Clone::clone(borrowed)' but got: {}",
         rust_code
     );
@@ -922,9 +916,10 @@ fn test_preimported_methods() {
     let source = r#"
 fun main() {
     val text: Own<String> = "Hello".toString()
-    val cloned = text.clone()
-    val string = text.toString()
-    val reference = text.ref()
+    val borrowed: String = text.ref()
+    val cloned = borrowed.clone()
+    val string = borrowed.toString()
+    val reference = borrowed.ref()
     val mutable = text.mutRef()
 }
 "#;
@@ -934,10 +929,10 @@ fun main() {
     };
     let rust_code = transpile(source, config, false).expect("Transpilation should succeed");
 
-    // Check pre-imported methods
-    assert!(rust_code.contains("Clone::clone(text)"));
-    assert!(rust_code.contains("ToString::to_string(text)"));
-    assert!(rust_code.contains("&text")); // .ref() is now just borrowing
+    // Check pre-imported methods with explicit conversions
+    assert!(rust_code.contains("Clone::clone(borrowed)"));
+    assert!(rust_code.contains("ToString::to_string(borrowed)"));
+    assert!(rust_code.contains("&text")); // .ref() to get borrowed
     assert!(rust_code.contains("&mut text")); // .mutRef()
 }
 

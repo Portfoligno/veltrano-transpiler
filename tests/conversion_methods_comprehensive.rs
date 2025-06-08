@@ -92,10 +92,13 @@ fn test_mutref_to_immutable_conversion() {
 
 #[test]
 fn test_clone_preserves_type() {
+    // With explicit conversion enforcement, Own<String> cannot directly call clone()
+    // Must use .ref().clone() for explicit conversion
     let code = r#"
     fun main() {
         val owned: Own<String> = "hello".toString()
-        val cloned: Own<String> = owned.clone()
+        val ref_string: String = owned.ref()
+        val cloned: String = ref_string.clone()  // String.clone() -> String
     }
     "#;
 
@@ -103,7 +106,7 @@ fn test_clone_preserves_type() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config).map(|_| ());
-    assert!(result.is_ok(), "Clone should preserve the exact type");
+    assert!(result.is_ok(), "Clone should preserve the exact type with explicit conversion");
 }
 
 #[test]
