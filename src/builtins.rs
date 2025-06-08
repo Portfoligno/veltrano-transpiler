@@ -497,8 +497,30 @@ impl BuiltinRegistry {
             }
             MethodReturnTypeStrategy::FixedType(fixed_type) => fixed_type.clone(),
             MethodReturnTypeStrategy::CloneSemantics => {
-                // Clone should preserve the exact type - cloning any type returns the same type
-                receiver_type.clone()
+                // Clone semantics: unwrap reference types, wrap naturally referenced types
+                // Ref<T>.clone() -> T, T.clone() -> Own<T>
+                // Note: Own<T>.clone() is not possible due to explicit conversion enforcement
+                match &receiver_type.constructor {
+                    TypeConstructor::Ref | TypeConstructor::MutRef => {
+                        // Ref<T>.clone() or MutRef<T>.clone() returns T
+                        if let Some(inner) = receiver_type.inner() {
+                            inner.clone()
+                        } else {
+                            // Fallback to receiver type if no inner type
+                            receiver_type.clone()
+                        }
+                    }
+                    _ => {
+                        // T.clone() returns Own<T> for naturally referenced types, T for value types
+                        if receiver_type.implements_copy(trait_checker) {
+                            // Value types (I64, Bool, etc.) return themselves
+                            receiver_type.clone()
+                        } else {
+                            // Naturally referenced types (String, etc.) return Own<T>
+                            VeltranoType::own(receiver_type.clone())
+                        }
+                    }
+                }
             }
             MethodReturnTypeStrategy::RefSemantics => {
                 // Implement correct ref() semantics:

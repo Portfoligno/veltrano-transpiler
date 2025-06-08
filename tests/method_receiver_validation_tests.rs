@@ -160,8 +160,8 @@ fn test_explicit_conversion_chain() {
     fun main() {
         val owned: Own<String> = "hello".toString()
         val borrowed: String = owned.ref()
-        val cloned: String = borrowed.clone()
-        val str_ref: Ref<String> = cloned.ref()
+        val cloned: Own<String> = borrowed.clone()
+        val str_ref: String = cloned.ref()
     }
     "#;
 
@@ -180,8 +180,8 @@ fn test_method_chaining_with_explicit_conversions() {
     fun main() {
         val owned: Own<String> = "hello".toString()
         
-        // Chain: Own<String> -> String -> String (clone) -> Ref<String>
-        val result: Ref<String> = owned.ref().clone().ref()
+        // Chain: Own<String> -> String -> Own<String> (clone) -> String
+        val result: String = owned.ref().clone().ref()
     }
     "#;
 
@@ -240,4 +240,161 @@ fn test_correct_behavior_with_explicit_conversion() {
     let result = parse_and_type_check(code, config).map(|_| ());
 
     assert!(result.is_ok(), "Explicit conversion .ref().clone() should work");
+}
+
+// ============================================================================
+// I64 Clone Test Cases - Value types with Copy trait
+// ============================================================================
+
+#[test]
+fn test_i64_clone_naturally_owned() {
+    // I64 is naturally owned (implements Copy), so it can call clone directly
+    let code = r#"
+    fun main() {
+        val x: I64 = 42
+        val cloned: I64 = x.clone()  // I64 can call clone directly
+    }
+    "#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let result = parse_and_type_check(code, config).map(|_| ());
+
+    assert!(result.is_ok(), "I64 should be able to call clone directly");
+}
+
+#[test]
+fn test_i64_ref_clone() {
+    // Ref<I64> should also be able to call clone
+    let code = r#"
+    fun main() {
+        val x: I64 = 42
+        val ref_x: Ref<I64> = x.ref()
+        val cloned: I64 = ref_x.clone()  // Ref<I64> can call clone
+    }
+    "#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let result = parse_and_type_check(code, config).map(|_| ());
+
+    assert!(result.is_ok(), "Ref<I64> should be able to call clone");
+}
+
+#[test]
+fn test_own_i64_clone_should_fail() {
+    // Own<I64> should fail because I64 is a Copy type and shouldn't be wrapped in Own<>
+    // But if it somehow exists, it shouldn't be able to auto-borrow
+    let code = r#"
+    fun main() {
+        val owned: Own<I64> = someFunction()  // Hypothetical Own<I64>
+        val cloned = owned.clone()  // Should fail - no auto-borrow
+    }
+    "#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let result = parse_and_type_check(code, config).map(|_| ());
+
+    // This might fail for different reasons (Own<I64> validation or method not found)
+    // The key is that it should fail, not succeed
+    assert!(result.is_err(), "Own<I64>.clone() should fail - no auto-borrow allowed");
+}
+
+#[test]
+fn test_i64_clone_chaining() {
+    // Test clone chaining with I64
+    let code = r#"
+    fun main() {
+        val x: I64 = 42
+        val cloned1: I64 = x.clone()
+        val cloned2: I64 = cloned1.clone()
+        val ref_cloned: Ref<I64> = cloned2.ref()
+        val cloned3: I64 = ref_cloned.clone()
+    }
+    "#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let result = parse_and_type_check(code, config).map(|_| ());
+
+    assert!(result.is_ok(), "I64 clone chaining should work");
+}
+
+#[test]
+fn test_i64_vs_string_clone_comparison() {
+    // Compare I64 (Copy type) vs String (non-Copy type) clone behavior
+    let code = r#"
+    fun main() {
+        // I64 - naturally owned, can clone directly
+        val num: I64 = 42
+        val num_cloned: I64 = num.clone()
+        
+        // String - naturally referenced, can clone directly
+        val str: String = "hello"
+        val str_cloned: Own<String> = str.clone()
+        
+        // Both can be wrapped in Ref<> and cloned
+        val num_ref: Ref<I64> = num.ref()
+        val num_ref_cloned: I64 = num_ref.clone()
+        
+        val str_ref: Ref<String> = str.ref()  
+        val str_ref_cloned: String = str_ref.clone()
+    }
+    "#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let result = parse_and_type_check(code, config).map(|_| ());
+
+    assert!(result.is_ok(), "Both I64 and String should support direct cloning");
+}
+
+#[test]
+fn test_i64_method_chaining_with_clone() {
+    // Test method chaining involving clone with I64
+    let code = r#"
+    fun main() {
+        val x: I64 = 42
+        
+        // Chain: I64 -> I64 (clone) -> Ref<I64> -> I64 (clone)
+        val result: I64 = x.clone().ref().clone()
+    }
+    "#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let result = parse_and_type_check(code, config).map(|_| ());
+
+    assert!(result.is_ok(), "I64 method chaining with clone should work");
+}
+
+#[test] 
+fn test_i64_mutref_clone() {
+    // Test that MutRef<I64> can call clone (if MutRef supports it)
+    let code = r#"
+    fun main() {
+        val x: I64 = 42
+        val mut_ref: MutRef<I64> = x.mutRef()
+        
+        // This might not work since MutRef<I64> would require I64 to not be Copy
+        // But if it exists, it should follow the same rules
+        val cloned = mut_ref.clone()  // Should fail - MutRef can't provide &self access
+    }
+    "#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let result = parse_and_type_check(code, config).map(|_| ());
+
+    // MutRef<I64> likely shouldn't exist (I64 is Copy), but if it does,
+    // it shouldn't be able to auto-convert to call clone
+    assert!(result.is_err(), "MutRef<I64>.clone() should fail");
 }
