@@ -86,8 +86,8 @@ fn build_diff_error_message(context: &str, expected_rust: &str, actual_rust: &st
 }
 
 /// Helper to create a default source location for error handling
-fn default_source_location() -> veltrano::type_checker::SourceLocation {
-    veltrano::type_checker::SourceLocation {
+fn default_source_location() -> veltrano::types::SourceLocation {
+    veltrano::types::SourceLocation {
         file: "test".to_string(),
         line: 0,
         column: 0,

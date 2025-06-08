@@ -1,10 +1,12 @@
 mod ast;
+mod builtins;
 mod codegen;
 mod config;
 mod lexer;
 mod parser;
 mod rust_interop;
 mod type_checker;
+mod types;
 
 use std::env;
 use std::fs;

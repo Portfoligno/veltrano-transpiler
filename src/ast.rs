@@ -1,4 +1,4 @@
-use crate::type_checker::VeltranoType;
+use crate::types::VeltranoType;
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -170,7 +170,7 @@ impl FunDeclStmt {
 
     /// Checks if a type needs lifetime parameters
     fn type_needs_lifetime(&self, type_: &VeltranoType) -> bool {
-        use crate::type_checker::TypeConstructor;
+        use crate::types::TypeConstructor;
 
         match &type_.constructor {
             TypeConstructor::Str | TypeConstructor::String => true,

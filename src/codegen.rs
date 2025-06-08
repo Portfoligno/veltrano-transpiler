@@ -1,7 +1,7 @@
 use crate::ast::*;
 use crate::config::Config;
 use crate::rust_interop::RustInteropRegistry;
-use crate::type_checker::VeltranoType;
+use crate::types::VeltranoType;
 use std::collections::{HashMap, HashSet};
 
 pub struct CodeGenerator {
@@ -425,7 +425,7 @@ impl CodeGenerator {
     }
 
     fn generate_type(&mut self, type_annotation: &VeltranoType) {
-        use crate::type_checker::TypeConstructor;
+        use crate::types::TypeConstructor;
 
         match &type_annotation.constructor {
             // Base types
@@ -469,7 +469,8 @@ impl CodeGenerator {
             // Type constructors
             TypeConstructor::Own => {
                 // Own<T> generates the owned version of T in Rust
-                let inner = type_annotation.inner()
+                let inner = type_annotation
+                    .inner()
                     .expect("Own<T> must have exactly one type argument");
                 self.generate_owned_version(inner);
             }
@@ -479,7 +480,8 @@ impl CodeGenerator {
                 } else {
                     self.output.push('&');
                 }
-                let inner = type_annotation.inner()
+                let inner = type_annotation
+                    .inner()
                     .expect("Ref<T> must have exactly one type argument");
                 self.generate_type(inner);
             }
@@ -489,27 +491,31 @@ impl CodeGenerator {
                 } else {
                     self.output.push_str("&mut ");
                 }
-                let inner = type_annotation.inner()
+                let inner = type_annotation
+                    .inner()
                     .expect("MutRef<T> must have exactly one type argument");
                 self.generate_type(inner);
             }
             TypeConstructor::Box => {
                 self.output.push_str("Box<");
-                let inner = type_annotation.inner()
+                let inner = type_annotation
+                    .inner()
                     .expect("Box<T> must have exactly one type argument");
                 self.generate_type(inner);
                 self.output.push('>');
             }
             TypeConstructor::Vec => {
                 self.output.push_str("Vec<");
-                let inner = type_annotation.inner()
+                let inner = type_annotation
+                    .inner()
                     .expect("Vec<T> must have exactly one type argument");
                 self.generate_type(inner);
                 self.output.push('>');
             }
             TypeConstructor::Option => {
                 self.output.push_str("Option<");
-                let inner = type_annotation.inner()
+                let inner = type_annotation
+                    .inner()
                     .expect("Option<T> must have exactly one type argument");
                 self.generate_type(inner);
                 self.output.push('>');
@@ -517,7 +523,10 @@ impl CodeGenerator {
             TypeConstructor::Result => {
                 self.output.push_str("Result<");
                 if type_annotation.args.len() != 2 {
-                    panic!("Result<T, E> must have exactly two type arguments, got {}", type_annotation.args.len());
+                    panic!(
+                        "Result<T, E> must have exactly two type arguments, got {}",
+                        type_annotation.args.len()
+                    );
                 }
                 self.generate_type(&type_annotation.args[0]);
                 self.output.push_str(", ");
@@ -526,7 +535,8 @@ impl CodeGenerator {
             }
             TypeConstructor::Array(size) => {
                 self.output.push('[');
-                let inner = type_annotation.inner()
+                let inner = type_annotation
+                    .inner()
                     .expect("Array<T, N> must have exactly one type argument");
                 self.generate_type(inner);
                 self.output.push_str(&format!("; {}]", size));
@@ -536,7 +546,7 @@ impl CodeGenerator {
 
     /// Check if a type needs lifetime parameters (is naturally referenced)
     fn type_needs_lifetime(&mut self, veltrano_type: &VeltranoType) -> bool {
-        use crate::type_checker::TypeConstructor;
+        use crate::types::TypeConstructor;
 
         match &veltrano_type.constructor {
             // Reference types always need lifetimes
@@ -553,7 +563,7 @@ impl CodeGenerator {
     /// Generate the owned version of a type (for Own<T> -> T conversion)
     /// For naturally referenced types, this strips the & prefix
     fn generate_owned_version(&mut self, type_annotation: &VeltranoType) {
-        use crate::type_checker::TypeConstructor;
+        use crate::types::TypeConstructor;
 
         if !type_annotation.implements_copy(&mut self.trait_checker) {
             // For naturally referenced types, generate without the & prefix
@@ -568,17 +578,23 @@ impl CodeGenerator {
                         self.output.push_str("<'a>");
                     }
                 }
-                _ => panic!("Unexpected naturally referenced type: {:?}", type_annotation.constructor),
+                _ => panic!(
+                    "Unexpected naturally referenced type: {:?}",
+                    type_annotation.constructor
+                ),
             }
         } else {
-            panic!("Own<T> should only be used with naturally referenced types, got: {:?}", type_annotation.constructor);
+            panic!(
+                "Own<T> should only be used with naturally referenced types, got: {:?}",
+                type_annotation.constructor
+            );
         }
     }
 
     // Removed generate_base_type - now handled in generate_type
 
     fn generate_data_class_field_type(&mut self, type_annotation: &VeltranoType) {
-        use crate::type_checker::TypeConstructor;
+        use crate::types::TypeConstructor;
 
         match &type_annotation.constructor {
             // Reference types in data classes need lifetime annotations
@@ -594,13 +610,15 @@ impl CodeGenerator {
             // Type constructors that need special handling in data classes
             TypeConstructor::Ref => {
                 self.output.push_str("&'a ");
-                let inner = type_annotation.inner()
+                let inner = type_annotation
+                    .inner()
                     .expect("Ref<T> must have exactly one type argument");
                 self.generate_type(inner);
             }
             TypeConstructor::MutRef => {
                 self.output.push_str("&'a mut ");
-                let inner = type_annotation.inner()
+                let inner = type_annotation
+                    .inner()
                     .expect("MutRef<T> must have exactly one type argument");
                 self.generate_type(inner);
             }

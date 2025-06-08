@@ -533,7 +533,7 @@ fn test_stdlib_type_extraction() {
 
 #[test]
 fn test_integration_with_veltrano_type_system() {
-    use veltrano::type_checker::{TypeConstructor, VeltranoType};
+    use veltrano::types::VeltranoType;
 
     // Test that extracted Rust types integrate properly with the Veltrano type system
     let rust_types_to_test = vec![

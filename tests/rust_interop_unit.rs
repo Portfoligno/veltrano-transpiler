@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use veltrano::rust_interop::*;
-use veltrano::type_checker::VeltranoType;
+use veltrano::types::VeltranoType;
 
 /// Unit tests for the Rust interop system
 /// These tests use mocks and don't require external toolchain components

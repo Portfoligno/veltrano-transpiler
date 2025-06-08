@@ -1,6 +1,6 @@
 use crate::ast::*;
 use crate::lexer::{Token, TokenType};
-use crate::type_checker::VeltranoType;
+use crate::types::VeltranoType;
 
 pub struct Parser {
     tokens: Vec<Token>,

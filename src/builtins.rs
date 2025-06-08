@@ -2,7 +2,7 @@
 /// This module consolidates all built-in function definitions that were previously
 /// scattered across codegen.rs, rust_interop.rs, and implicit in type checking
 use crate::rust_interop::RustInteropRegistry;
-use crate::type_checker::{FunctionSignature, MethodSignature, TypeConstructor, VeltranoType};
+use crate::types::{FunctionSignature, MethodSignature, TypeConstructor, VeltranoType};
 use std::collections::HashMap;
 
 /// Categories of built-in functions
@@ -52,6 +52,8 @@ pub enum MethodReturnTypeStrategy {
     FixedType(VeltranoType),
     /// For clone: return owned version based on trait checking
     CloneSemantics,
+    /// For ref(): Own<T> → T, T → Ref<T>
+    RefSemantics,
 }
 
 /// Filter for determining if a method applies to a receiver type
@@ -140,7 +142,7 @@ impl BuiltinRegistry {
                 method_name: "ref".to_string(),
                 receiver_type_filter: TypeFilter::All,
                 parameters: vec![],
-                return_type_strategy: MethodReturnTypeStrategy::RefToReceiver,
+                return_type_strategy: MethodReturnTypeStrategy::RefSemantics,
             },
         );
 
@@ -165,6 +167,17 @@ impl BuiltinRegistry {
                 receiver_type_filter: TypeFilter::TypeConstructors(vec![TypeConstructor::Vec]),
                 parameters: vec![],
                 return_type_strategy: MethodReturnTypeStrategy::RefToReceiver,
+            },
+        );
+
+        // Other common methods
+        self.register_method(
+            "length",
+            BuiltinMethodKind::SpecialMethod {
+                method_name: "length".to_string(),
+                receiver_type_filter: TypeFilter::All, // Available on all types for now
+                parameters: vec![],
+                return_type_strategy: MethodReturnTypeStrategy::FixedType(VeltranoType::i64()),
             },
         );
 
@@ -396,6 +409,23 @@ impl BuiltinRegistry {
             MethodReturnTypeStrategy::CloneSemantics => {
                 // Clone should preserve the exact type - cloning any type returns the same type
                 receiver_type.clone()
+            }
+            MethodReturnTypeStrategy::RefSemantics => {
+                // Implement correct ref() semantics:
+                // Own<T> → T, T → Ref<T>, MutRef<T> → Ref<MutRef<T>>
+                match &receiver_type.constructor {
+                    // Own<T> → T (remove the Own wrapper)
+                    TypeConstructor::Own => {
+                        if let Some(inner) = receiver_type.inner() {
+                            inner.clone()
+                        } else {
+                            // Shouldn't happen with well-formed Own<T>
+                            VeltranoType::ref_(receiver_type.clone())
+                        }
+                    }
+                    // T → Ref<T> (add a Ref wrapper)
+                    _ => VeltranoType::ref_(receiver_type.clone()),
+                }
             }
         }
     }

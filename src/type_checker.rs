@@ -1,383 +1,7 @@
 use crate::ast::*;
+use crate::builtins::BuiltinRegistry;
 use crate::rust_interop::RustInteropRegistry;
-use std::collections::HashMap;
-
-/// A type in the Veltrano type system supporting higher-kinded types
-#[derive(Debug, Clone, PartialEq)]
-pub struct VeltranoType {
-    /// The type constructor or base type
-    pub constructor: TypeConstructor,
-    /// Type arguments (empty for base types)
-    pub args: Vec<VeltranoType>,
-}
-
-/// Type constructors and base types with their kinds
-#[derive(Debug, Clone, PartialEq)]
-pub enum TypeConstructor {
-    // Base types (kind *)
-    // Signed integers
-    /// i32 in Rust
-    I32,
-    /// i64 in Rust
-    I64,
-    /// isize in Rust
-    ISize,
-    // Unsigned integers
-    /// u32 in Rust
-    U32,
-    /// u64 in Rust
-    U64,
-    /// usize in Rust
-    USize,
-    // Other primitives
-    /// bool in Rust
-    Bool,
-    /// char in Rust
-    Char,
-    /// () in Rust
-    Unit,
-    /// ! in Rust (never type)
-    Nothing,
-    /// &str in Rust (string slice)
-    Str,
-    /// &String in Rust (reference to owned string)
-    String,
-    /// Custom/user-defined types
-    Custom(String),
-
-    // Built-in type constructors (kind * -> *)
-    /// Own<T> - forces ownership, removes reference level for reference types
-    Own,
-    /// Ref<T> - adds reference level (&T)
-    Ref,
-    /// MutRef<T> - mutable reference (&mut T)
-    MutRef,
-    /// Box<T> - heap allocation
-    Box,
-    /// Vec<T> - dynamic array
-    Vec,
-    /// Option<T> - optional value
-    Option,
-
-    // Higher-kinded constructors (kind * -> * -> *)
-    /// Result<T, E> - result type
-    Result,
-
-    // Special cases
-    /// Array<T, N> - fixed-size array (size is part of type)
-    Array(usize),
-}
-
-impl VeltranoType {
-    /// Helper constructors for base types
-    // Signed integers
-    pub fn i32() -> Self {
-        Self {
-            constructor: TypeConstructor::I32,
-            args: vec![],
-        }
-    }
-
-    pub fn i64() -> Self {
-        Self {
-            constructor: TypeConstructor::I64,
-            args: vec![],
-        }
-    }
-
-    pub fn isize() -> Self {
-        Self {
-            constructor: TypeConstructor::ISize,
-            args: vec![],
-        }
-    }
-
-    // Unsigned integers
-    pub fn u32() -> Self {
-        Self {
-            constructor: TypeConstructor::U32,
-            args: vec![],
-        }
-    }
-
-    pub fn u64() -> Self {
-        Self {
-            constructor: TypeConstructor::U64,
-            args: vec![],
-        }
-    }
-
-    pub fn usize() -> Self {
-        Self {
-            constructor: TypeConstructor::USize,
-            args: vec![],
-        }
-    }
-
-    // Other primitives
-    pub fn bool() -> Self {
-        Self {
-            constructor: TypeConstructor::Bool,
-            args: vec![],
-        }
-    }
-
-    pub fn char() -> Self {
-        Self {
-            constructor: TypeConstructor::Char,
-            args: vec![],
-        }
-    }
-
-    pub fn unit() -> Self {
-        Self {
-            constructor: TypeConstructor::Unit,
-            args: vec![],
-        }
-    }
-
-    pub fn nothing() -> Self {
-        Self {
-            constructor: TypeConstructor::Nothing,
-            args: vec![],
-        }
-    }
-
-    pub fn str() -> Self {
-        Self {
-            constructor: TypeConstructor::Str,
-            args: vec![],
-        }
-    }
-
-    pub fn string() -> Self {
-        Self {
-            constructor: TypeConstructor::String,
-            args: vec![],
-        }
-    }
-
-    pub fn custom(name: String) -> Self {
-        Self {
-            constructor: TypeConstructor::Custom(name),
-            args: vec![],
-        }
-    }
-
-    /// Apply type constructors
-    pub fn own(inner: VeltranoType) -> Self {
-        // Note: Validation is now handled during type checking phase
-        // This constructor only creates the type representation
-        Self {
-            constructor: TypeConstructor::Own,
-            args: vec![inner],
-        }
-    }
-
-    pub fn ref_(inner: VeltranoType) -> Self {
-        Self {
-            constructor: TypeConstructor::Ref,
-            args: vec![inner],
-        }
-    }
-
-    pub fn mut_ref(inner: VeltranoType) -> Self {
-        Self {
-            constructor: TypeConstructor::MutRef,
-            args: vec![inner],
-        }
-    }
-
-    pub fn vec(inner: VeltranoType) -> Self {
-        Self {
-            constructor: TypeConstructor::Vec,
-            args: vec![inner],
-        }
-    }
-
-    pub fn boxed(inner: VeltranoType) -> Self {
-        Self {
-            constructor: TypeConstructor::Box,
-            args: vec![inner],
-        }
-    }
-
-    pub fn array(inner: VeltranoType, size: usize) -> Self {
-        Self {
-            constructor: TypeConstructor::Array(size),
-            args: vec![inner],
-        }
-    }
-
-    pub fn option(inner: VeltranoType) -> Self {
-        Self {
-            constructor: TypeConstructor::Option,
-            args: vec![inner],
-        }
-    }
-
-    pub fn result(ok_type: VeltranoType, err_type: VeltranoType) -> Self {
-        Self {
-            constructor: TypeConstructor::Result,
-            args: vec![ok_type, err_type],
-        }
-    }
-
-    /// Compatibility methods for migration
-    pub fn inner(&self) -> Option<&VeltranoType> {
-        self.args.first()
-    }
-
-    /// Convert this VeltranoType to its corresponding Rust type name
-    pub fn to_rust_type_name(&self) -> String {
-        // Only handle base types (no type arguments) for trait checking
-        if !self.args.is_empty() {
-            return "unknown".to_string();
-        }
-
-        match &self.constructor {
-            TypeConstructor::I32 => "i32".to_string(),
-            TypeConstructor::I64 => "i64".to_string(),
-            TypeConstructor::ISize => "isize".to_string(),
-            TypeConstructor::U32 => "u32".to_string(),
-            TypeConstructor::U64 => "u64".to_string(),
-            TypeConstructor::USize => "usize".to_string(),
-            TypeConstructor::Bool => "bool".to_string(),
-            TypeConstructor::Char => "char".to_string(),
-            TypeConstructor::Str => "&str".to_string(),
-            TypeConstructor::String => "String".to_string(),
-            TypeConstructor::Unit => "()".to_string(),
-            TypeConstructor::Nothing => "!".to_string(),
-            TypeConstructor::Custom(name) => name.clone(),
-            _ => "unknown".to_string(),
-        }
-    }
-
-    /// Check if this type implements Copy trait (should be naturally owned/value types)
-    pub fn implements_copy(&self, trait_checker: &mut RustInteropRegistry) -> bool {
-        // Only base types (no type arguments) can implement Copy directly
-        if !self.args.is_empty() {
-            return false;
-        }
-
-        let rust_type_name = self.to_rust_type_name();
-
-        // Use the trait checker to determine Copy implementation
-        trait_checker
-            .type_implements_trait(&rust_type_name, "Copy")
-            .unwrap_or(false)
-    }
-
-    /// Validate if Own<T> type constructor is valid with the given inner type
-    pub fn validate_own_constructor(
-        inner: &VeltranoType,
-        trait_checker: &mut RustInteropRegistry,
-    ) -> Result<(), String> {
-        // Check if the inner type implements Copy (is naturally owned)
-        let is_copy = inner.implements_copy(trait_checker);
-
-        if is_copy {
-            return Err(format!(
-                "Cannot use Own<{:?}>. Types that implement Copy are always owned by default and don't need the Own<> wrapper.",
-                inner.constructor
-            ));
-        }
-
-        // Check for specific invalid combinations
-        match &inner.constructor {
-            TypeConstructor::MutRef => {
-                Err("Cannot use Own<MutRef<T>>. MutRef<T> is already owned.".to_string())
-            }
-            TypeConstructor::Box => {
-                Err("Cannot use Own<Box<T>>. Box<T> is already owned.".to_string())
-            }
-            TypeConstructor::Own => {
-                Err("Cannot use Own<Own<T>>. This creates double ownership.".to_string())
-            }
-            _ => Ok(()),
-        }
-    }
-
-    /// Get the ultimate base type constructor (recursively unwrap constructors)
-    pub fn get_base_constructor(&self) -> &TypeConstructor {
-        if self.args.is_empty() {
-            &self.constructor
-        } else if let Some(inner) = self.inner() {
-            inner.get_base_constructor()
-        } else {
-            &self.constructor
-        }
-    }
-
-    /// Check if this can be cloned (TODO: integrate with trait system)
-    pub fn can_clone(&self) -> bool {
-        let base = self.get_base_constructor();
-        match base {
-            TypeConstructor::I32
-            | TypeConstructor::I64
-            | TypeConstructor::ISize
-            | TypeConstructor::U32
-            | TypeConstructor::U64
-            | TypeConstructor::USize
-            | TypeConstructor::Bool
-            | TypeConstructor::Char
-            | TypeConstructor::Unit
-            | TypeConstructor::Nothing => true,
-            TypeConstructor::String => true,
-            TypeConstructor::Str => false, // &str is Copy, not Clone
-            TypeConstructor::Custom(_) => true, // Assume custom types can be cloned
-            // For composed types (Vec, Array, etc.), assume they can be cloned
-            _ => true,
-        }
-    }
-
-    /// Check if this can be converted to string (TODO: integrate with trait system)
-    pub fn can_to_string(&self) -> bool {
-        let base = self.get_base_constructor();
-        match base {
-            TypeConstructor::I32
-            | TypeConstructor::I64
-            | TypeConstructor::ISize
-            | TypeConstructor::U32
-            | TypeConstructor::U64
-            | TypeConstructor::USize
-            | TypeConstructor::Bool
-            | TypeConstructor::Char
-            | TypeConstructor::Unit
-            | TypeConstructor::Nothing => true,
-            TypeConstructor::String | TypeConstructor::Str => true,
-            TypeConstructor::Custom(_) => true, // Assume custom types can be converted to string
-            // For composed types, assume they can be converted to string
-            _ => true,
-        }
-    }
-}
-
-/// Function signature for type checking
-#[derive(Debug, Clone)]
-pub struct FunctionSignature {
-    pub name: String,
-    pub parameters: Vec<VeltranoType>,
-    pub return_type: VeltranoType,
-}
-
-/// Method signature for type checking
-#[derive(Debug, Clone)]
-pub struct MethodSignature {
-    pub name: String,
-    pub receiver_type: VeltranoType,
-    pub parameters: Vec<VeltranoType>,
-    pub return_type: VeltranoType,
-}
-
-/// Source location for error reporting
-#[derive(Debug, Clone)]
-pub struct SourceLocation {
-    pub file: String,
-    pub line: usize,
-    pub column: usize,
-    pub source_line: String,
-}
+use crate::types::*;
 
 /// Type checking errors with detailed information
 #[derive(Debug)]
@@ -446,63 +70,122 @@ pub enum TypeCheckError {
     },
 }
 
-/// Type environment for tracking variables and functions
-pub struct TypeEnvironment {
-    variables: HashMap<String, VeltranoType>,
-    functions: HashMap<String, FunctionSignature>,
-    scopes: Vec<HashMap<String, VeltranoType>>,
-}
-
-impl TypeEnvironment {
-    pub fn new() -> Self {
-        Self {
-            variables: HashMap::new(),
-            functions: HashMap::new(),
-            scopes: Vec::new(),
-        }
-    }
-
-    pub fn lookup_variable(&self, name: &str) -> Option<&VeltranoType> {
-        // Check current scopes first (most recent first)
-        for scope in self.scopes.iter().rev() {
-            if let Some(var_type) = scope.get(name) {
-                return Some(var_type);
-            }
-        }
-
-        // Check global variables
-        self.variables.get(name)
-    }
-
-    pub fn declare_variable(&mut self, name: String, typ: VeltranoType) {
-        if let Some(current_scope) = self.scopes.last_mut() {
-            current_scope.insert(name, typ);
-        } else {
-            self.variables.insert(name, typ);
-        }
-    }
-
-    pub fn declare_function(&mut self, name: String, signature: FunctionSignature) {
-        self.functions.insert(name, signature);
-    }
-
-    pub fn lookup_function(&self, name: &str) -> Option<&FunctionSignature> {
-        self.functions.get(name)
-    }
-
-    pub fn enter_scope(&mut self) {
-        self.scopes.push(HashMap::new());
-    }
-
-    pub fn exit_scope(&mut self) {
-        self.scopes.pop();
-    }
-}
-
 /// Main type checker with strict type checking (no implicit conversions)
 pub struct VeltranoTypeChecker {
     env: TypeEnvironment,
     trait_checker: RustInteropRegistry,
+    builtin_registry: BuiltinRegistry,
+}
+
+/// Helper functions for trait checking on VeltranoType
+impl VeltranoType {
+    /// Check if this type implements Copy trait (should be naturally owned/value types)
+    pub fn implements_copy(&self, trait_checker: &mut RustInteropRegistry) -> bool {
+        // Only base types (no type arguments) can implement Copy directly
+        if !self.args.is_empty() {
+            return false;
+        }
+
+        let rust_type_name = self.to_rust_type_name();
+
+        // Use the trait checker to determine Copy implementation
+        trait_checker
+            .type_implements_trait(&rust_type_name, "Copy")
+            .unwrap_or(false)
+    }
+
+    /// Validate if Own<T> type constructor is valid with the given inner type
+    pub fn validate_own_constructor(
+        inner: &VeltranoType,
+        trait_checker: &mut RustInteropRegistry,
+    ) -> Result<(), String> {
+        // Check if the inner type implements Copy (is naturally owned)
+        let is_copy = inner.implements_copy(trait_checker);
+
+        if is_copy {
+            return Err(format!(
+                "Cannot use Own<{:?}>. Types that implement Copy are always owned by default and don't need the Own<> wrapper.",
+                inner.constructor
+            ));
+        }
+
+        // Check for specific invalid combinations
+        match &inner.constructor {
+            TypeConstructor::MutRef => {
+                Err("Cannot use Own<MutRef<T>>. MutRef<T> is already owned.".to_string())
+            }
+            TypeConstructor::Box => {
+                Err("Cannot use Own<Box<T>>. Box<T> is already owned.".to_string())
+            }
+            TypeConstructor::Own => {
+                Err("Cannot use Own<Own<T>>. This creates double ownership.".to_string())
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// Check if this can be cloned (integrated with trait system)
+    pub fn can_clone(&self, trait_checker: &mut RustInteropRegistry) -> bool {
+        // For base types (no type arguments), use trait checker
+        if self.args.is_empty() {
+            let rust_type_name = self.to_rust_type_name();
+            return trait_checker
+                .type_implements_trait(&rust_type_name, "Clone")
+                .unwrap_or(false);
+        }
+
+        // For complex types, assume they can be cloned if their base can be cloned
+        // This is a simplification - in reality we'd need to check all type parameters
+        let base = self.get_base_constructor();
+        match base {
+            TypeConstructor::I32
+            | TypeConstructor::I64
+            | TypeConstructor::ISize
+            | TypeConstructor::U32
+            | TypeConstructor::U64
+            | TypeConstructor::USize
+            | TypeConstructor::Bool
+            | TypeConstructor::Char
+            | TypeConstructor::Unit
+            | TypeConstructor::Nothing => true,
+            TypeConstructor::String => true,
+            TypeConstructor::Str => false, // &str is Copy, not Clone
+            TypeConstructor::Custom(_) => true, // Assume custom types can be cloned
+            // For composed types (Vec, Array, etc.), assume they can be cloned
+            _ => true,
+        }
+    }
+
+    /// Check if this can be converted to string (integrated with trait system)
+    pub fn can_to_string(&self, trait_checker: &mut RustInteropRegistry) -> bool {
+        // For base types (no type arguments), use trait checker
+        if self.args.is_empty() {
+            let rust_type_name = self.to_rust_type_name();
+            return trait_checker
+                .type_implements_trait(&rust_type_name, "ToString")
+                .unwrap_or(false);
+        }
+
+        // For complex types, assume they can be converted to string if their base can
+        // This is a simplification - in reality we'd need to check all type parameters
+        let base = self.get_base_constructor();
+        match base {
+            TypeConstructor::I32
+            | TypeConstructor::I64
+            | TypeConstructor::ISize
+            | TypeConstructor::U32
+            | TypeConstructor::U64
+            | TypeConstructor::USize
+            | TypeConstructor::Bool
+            | TypeConstructor::Char
+            | TypeConstructor::Unit
+            | TypeConstructor::Nothing => true,
+            TypeConstructor::String | TypeConstructor::Str => true,
+            TypeConstructor::Custom(_) => true, // Assume custom types can be converted to string
+            // For composed types, assume they can be converted to string
+            _ => true,
+        }
+    }
 }
 
 impl VeltranoTypeChecker {
@@ -510,6 +193,7 @@ impl VeltranoTypeChecker {
         let mut checker = Self {
             env: TypeEnvironment::new(),
             trait_checker: RustInteropRegistry::new(),
+            builtin_registry: BuiltinRegistry::new(),
         };
 
         // Initialize built-in functions and methods
@@ -518,8 +202,12 @@ impl VeltranoTypeChecker {
     }
 
     fn init_builtin_functions(&mut self) {
-        // TODO: Register built-in function signatures from the builtin registry
-        // For now, we'll just handle built-ins in the call checking logic
+        // Register built-in function signatures from the builtin registry
+        let function_signatures = self.builtin_registry.get_function_signatures();
+
+        for signature in function_signatures {
+            self.env.declare_function(signature.name.clone(), signature);
+        }
     }
 
     /// Main entry point for type checking a program
@@ -858,7 +546,7 @@ impl VeltranoTypeChecker {
     fn check_call_expression(&mut self, call: &CallExpr) -> Result<VeltranoType, TypeCheckError> {
         if let Expr::Identifier(func_name) = call.callee.as_ref() {
             // Check if this is a built-in function first
-            if self.is_rust_macro(func_name) {
+            if self.builtin_registry.is_rust_macro(func_name) {
                 return self.check_rust_macro_call(func_name, call);
             }
 
@@ -931,14 +619,6 @@ impl VeltranoTypeChecker {
         }
     }
 
-    /// Check if a function is a Rust macro
-    fn is_rust_macro(&self, name: &str) -> bool {
-        matches!(
-            name,
-            "println" | "print" | "panic" | "assert" | "debug_assert"
-        )
-    }
-
     /// Check Rust macro call (skip type checking)
     fn check_rust_macro_call(
         &mut self,
@@ -970,17 +650,26 @@ impl VeltranoTypeChecker {
     ) -> Result<VeltranoType, TypeCheckError> {
         let receiver_type = self.check_expression(&method_call.object)?;
 
-        // Handle built-in conversion methods
-        match method_call.method.as_str() {
-            "ref" => self.check_ref_method(&receiver_type),
-            "mutRef" => self.check_mut_ref_method(&receiver_type),
-            "toSlice" => self.check_to_slice_method(&receiver_type),
-            "clone" => self.check_clone_method(&receiver_type),
-            _ => {
-                // Handle built-in methods
-                self.check_builtin_method(&receiver_type, &method_call.method)
-            }
+        // Check if this is a built-in method using the registry
+        if let Some(return_type) = self.builtin_registry.get_method_return_type(
+            &method_call.method,
+            &receiver_type,
+            &mut self.trait_checker,
+        ) {
+            return Ok(return_type);
         }
+
+        // If not found in builtin registry, return method not found error
+        Err(TypeCheckError::MethodNotFound {
+            receiver_type,
+            method: method_call.method.clone(),
+            location: SourceLocation {
+                file: "unknown".to_string(),
+                line: 0,
+                column: 0,
+                source_line: "".to_string(),
+            },
+        })
     }
 
     /// Check field access expression
@@ -1001,139 +690,6 @@ impl VeltranoTypeChecker {
                 source_line: "".to_string(),
             },
         })
-    }
-
-    /// Check .ref() method call (TODO: integrate with builtin registry)
-    fn check_ref_method(
-        &self,
-        receiver_type: &VeltranoType,
-    ) -> Result<VeltranoType, TypeCheckError> {
-        // Implement correct ref() semantics:
-        // Own<T> → T, T → Ref<T>, MutRef<T> → Ref<MutRef<T>>
-        match &receiver_type.constructor {
-            // Own<T> → T (remove the Own wrapper)
-            TypeConstructor::Own => {
-                if let Some(inner) = receiver_type.inner() {
-                    Ok(inner.clone())
-                } else {
-                    // Shouldn't happen with well-formed Own<T>
-                    Ok(VeltranoType::ref_(receiver_type.clone()))
-                }
-            }
-            // T → Ref<T> (add a Ref wrapper)
-            _ => Ok(VeltranoType::ref_(receiver_type.clone())),
-        }
-    }
-
-    /// Check .mutRef() method call (TODO: integrate with builtin registry)
-    fn check_mut_ref_method(
-        &self,
-        receiver_type: &VeltranoType,
-    ) -> Result<VeltranoType, TypeCheckError> {
-        // Implement correct mutRef() semantics:
-        // Available on owned and mutable types: Own<T> → MutRef<Own<T>>, MutRef<T> → MutRef<MutRef<T>>
-        match &receiver_type.constructor {
-            // Own<T> → MutRef<Own<T>>
-            TypeConstructor::Own => Ok(VeltranoType::mut_ref(receiver_type.clone())),
-            // MutRef<T> → MutRef<MutRef<T>>
-            TypeConstructor::MutRef => Ok(VeltranoType::mut_ref(receiver_type.clone())),
-            // All other types should fail
-            _ => Err(TypeCheckError::MethodNotFound {
-                receiver_type: receiver_type.clone(),
-                method: "mutRef".to_string(),
-                location: SourceLocation {
-                    file: "unknown".to_string(),
-                    line: 0,
-                    column: 0,
-                    source_line: "".to_string(),
-                },
-            }),
-        }
-    }
-
-    /// Check .toSlice() method call (TODO: integrate with builtin registry)
-    fn check_to_slice_method(
-        &self,
-        receiver_type: &VeltranoType,
-    ) -> Result<VeltranoType, TypeCheckError> {
-        // For now, just return a reference to the receiver
-        // This should be handled by builtin registry
-        Ok(VeltranoType::ref_(receiver_type.clone()))
-    }
-
-    /// Check .clone() method call (TODO: integrate with builtin registry)
-    fn check_clone_method(
-        &mut self,
-        receiver_type: &VeltranoType,
-    ) -> Result<VeltranoType, TypeCheckError> {
-        if receiver_type.can_clone() {
-            // Clone should preserve the exact type - cloning any type returns the same type
-            Ok(receiver_type.clone())
-        } else {
-            Err(TypeCheckError::MethodNotFound {
-                receiver_type: receiver_type.clone(),
-                method: "clone".to_string(),
-                location: SourceLocation {
-                    file: "unknown".to_string(),
-                    line: 0,
-                    column: 0,
-                    source_line: "".to_string(),
-                },
-            })
-        }
-    }
-
-    /// Check built-in methods on types
-    fn check_builtin_method(
-        &mut self,
-        receiver_type: &VeltranoType,
-        method: &str,
-    ) -> Result<VeltranoType, TypeCheckError> {
-        match method {
-            "toString" => self.check_tostring_method(receiver_type),
-            "length" => self.check_length_method(receiver_type),
-            _ => Err(TypeCheckError::MethodNotFound {
-                receiver_type: receiver_type.clone(),
-                method: method.to_string(),
-                location: SourceLocation {
-                    file: "unknown".to_string(),
-                    line: 0,
-                    column: 0,
-                    source_line: "".to_string(),
-                },
-            }),
-        }
-    }
-
-    /// Check .toString() method call (TODO: integrate with builtin registry)
-    fn check_tostring_method(
-        &mut self,
-        receiver_type: &VeltranoType,
-    ) -> Result<VeltranoType, TypeCheckError> {
-        if receiver_type.can_to_string() {
-            // toString returns an owned String
-            Ok(VeltranoType::own(VeltranoType::string()))
-        } else {
-            Err(TypeCheckError::MethodNotFound {
-                receiver_type: receiver_type.clone(),
-                method: "toString".to_string(),
-                location: SourceLocation {
-                    file: "unknown".to_string(),
-                    line: 0,
-                    column: 0,
-                    source_line: "".to_string(),
-                },
-            })
-        }
-    }
-
-    /// Check .length() method call (TODO: integrate with builtin registry)
-    fn check_length_method(
-        &self,
-        _receiver_type: &VeltranoType,
-    ) -> Result<VeltranoType, TypeCheckError> {
-        // For now, just return I64 for length method (should use builtin registry)
-        Ok(VeltranoType::i64())
     }
 
     /// Core type equality check - no implicit conversion logic

@@ -4,7 +4,7 @@
 /// 2. Parse Rust type signatures
 /// 3. Convert between Rust and Veltrano type representations
 /// 4. Dynamically query Rust toolchain for type information
-use crate::type_checker::VeltranoType;
+use crate::types::VeltranoType;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -251,7 +251,10 @@ impl RustInteropRegistry {
             // Primitive types that implement Copy and Clone
             "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64"
             | "u128" | "usize" | "f32" | "f64" | "bool" | "char" => {
-                matches!(trait_name, "Clone" | "Copy" | "Debug")
+                matches!(
+                    trait_name,
+                    "Clone" | "Copy" | "Debug" | "Display" | "ToString"
+                )
             }
             // String types
             "String" | "std::string::String" => {
