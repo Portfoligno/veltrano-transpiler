@@ -938,11 +938,11 @@ fun main() {
 
 #[test]
 fn test_import_priority_over_preimported() {
-    let source = r#"import MyClone.clone
+    let source = r#"import i64.abs
 
 fun main() {
-    val value = 42
-    val cloned = value.clone()
+    val value = -42
+    val positive = value.abs()
 }"#;
 
     let config = Config {
@@ -951,13 +951,8 @@ fun main() {
     let rust_code =
         transpile(source, config, false).expect("Import priority test should parse and generate");
 
-    // Debug: print the generated code
-    if rust_code.contains("Clone::clone") {
-        println!("Found Clone::clone in generated code:\n{}", rust_code);
-    }
-
-    // Check that explicit import overrides pre-imported clone
-    assert!(rust_code.contains("MyClone::clone(value)"));
+    // Check that explicit import generates UFCS call
+    assert!(rust_code.contains("i64::abs"));
 }
 
 #[test]

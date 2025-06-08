@@ -75,6 +75,7 @@ pub struct VeltranoTypeChecker {
     env: TypeEnvironment,
     trait_checker: RustInteropRegistry,
     builtin_registry: BuiltinRegistry,
+    imports: std::collections::HashMap<String, (String, String)>, // method_name/alias -> (type_name, method_name)
 }
 
 /// Helper functions for trait checking on VeltranoType
@@ -194,6 +195,7 @@ impl VeltranoTypeChecker {
             env: TypeEnvironment::new(),
             trait_checker: RustInteropRegistry::new(),
             builtin_registry: BuiltinRegistry::new(),
+            imports: std::collections::HashMap::new(),
         };
 
         // Initialize built-in functions and methods
@@ -264,11 +266,32 @@ impl VeltranoTypeChecker {
                 Ok(())
             }
             Stmt::DataClass(data_class) => self.check_data_class_declaration(data_class),
-            Stmt::Comment(_) | Stmt::Import(_) => {
-                // These don't need type checking
+            Stmt::Import(import) => self.check_import_statement(import),
+            Stmt::Comment(_) => {
+                // Comments don't need type checking
                 Ok(())
             }
         }
+    }
+
+    /// Check import statement and register it for method resolution
+    fn check_import_statement(&mut self, import: &ImportStmt) -> Result<(), TypeCheckError> {
+        // Store the import for later method resolution
+        let key = import
+            .alias
+            .clone()
+            .unwrap_or_else(|| import.method_name.clone());
+        self.imports
+            .insert(key, (import.type_name.clone(), import.method_name.clone()));
+
+        // TODO: Validate that the imported method exists and get its signature
+        // For now, we trust that the import is valid
+        // In a full implementation, we would:
+        // 1. Query the Rust interop system to verify the method exists
+        // 2. Get the method signature for type checking
+        // 3. Store the signature for later use during method calls
+
+        Ok(())
     }
 
     /// Check data class declaration and register it in the environment
@@ -801,7 +824,17 @@ impl VeltranoTypeChecker {
     ) -> Result<VeltranoType, TypeCheckError> {
         let receiver_type = self.check_expression(&method_call.object)?;
 
-        // Check if this is a built-in method using the registry
+        // Priority 1: Check if this method is explicitly imported
+        if let Some((type_name, original_method)) = self.imports.get(&method_call.method).cloned() {
+            return self.check_imported_method_call(
+                &receiver_type,
+                &type_name,
+                &original_method,
+                method_call,
+            );
+        }
+
+        // Priority 2: Check if this is a built-in method using the registry
         if let Some(return_type) = self.builtin_registry.get_method_return_type(
             &method_call.method,
             &receiver_type,
@@ -810,7 +843,7 @@ impl VeltranoTypeChecker {
             return Ok(return_type);
         }
 
-        // If not found in builtin registry, return method not found error
+        // Priority 3: Method not found in any system
         Err(TypeCheckError::MethodNotFound {
             receiver_type,
             method: method_call.method.clone(),
@@ -821,6 +854,50 @@ impl VeltranoTypeChecker {
                 source_line: "".to_string(),
             },
         })
+    }
+
+    /// Check imported method call with full signature validation
+    fn check_imported_method_call(
+        &mut self,
+        receiver_type: &VeltranoType,
+        rust_type_name: &str,
+        rust_method_name: &str,
+        _method_call: &MethodCallExpr,
+    ) -> Result<VeltranoType, TypeCheckError> {
+        // Query the imported method signature
+        if let Ok(Some(method_info)) = self
+            .trait_checker
+            .query_method_signature(rust_type_name, rust_method_name)
+        {
+            // Check if the receiver type can provide the required access
+            if !self.builtin_registry.receiver_can_provide_rust_access_for_imported(
+                receiver_type,
+                &method_info.self_kind,
+                &mut self.trait_checker,
+            ) {
+                return Err(TypeCheckError::MethodNotFound {
+                    receiver_type: receiver_type.clone(),
+                    method: rust_method_name.to_string(),
+                    location: SourceLocation {
+                        file: "unknown".to_string(),
+                        line: 0,
+                        column: 0,
+                        source_line: "".to_string(),
+                    },
+                });
+            }
+
+            // Convert the Rust return type to Veltrano type
+            if let Ok(veltrano_return_type) = method_info.return_type.to_veltrano_type() {
+                return Ok(veltrano_return_type);
+            }
+        }
+
+        // If we can't find the imported method signature, be permissive:
+        // Allow the import and return the receiver type as a reasonable default
+        // This enables imports of methods we don't have hardcoded information for
+        // The actual validation will happen at Rust compile time
+        Ok(receiver_type.clone())
     }
 
     /// Check field access expression

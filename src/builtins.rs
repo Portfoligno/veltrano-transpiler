@@ -623,7 +623,7 @@ impl BuiltinRegistry {
     /// Check if a Veltrano receiver type can provide the required Rust access for imported methods
     /// This is similar to receiver_can_provide_rust_access but doesn't require trait checking
     /// since we already know the method exists from the imported signature
-    fn receiver_can_provide_rust_access_for_imported(
+    pub fn receiver_can_provide_rust_access_for_imported(
         &self,
         receiver_type: &VeltranoType,
         rust_self_kind: &SelfKind,
