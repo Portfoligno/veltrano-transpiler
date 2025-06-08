@@ -10,6 +10,7 @@ fn test_registry_caching() {
     let mut registry = DynamicRustRegistry::new();
 
     // Create a mock querier that tracks calls
+    #[derive(Debug)]
     struct CallCountingQuerier {
         call_count: std::cell::RefCell<usize>,
     }
@@ -82,6 +83,7 @@ fn test_error_handling_and_fallback() {
     let mut registry = DynamicRustRegistry::new();
 
     // Create queriers with different behaviors
+    #[derive(Debug)]
     struct FailingQuerier;
     impl RustQuerier for FailingQuerier {
         fn query_crate(&mut self, _: &str) -> Result<CrateInfo, RustInteropError> {
@@ -95,6 +97,7 @@ fn test_error_handling_and_fallback() {
         } // Highest priority
     }
 
+    #[derive(Debug)]
     struct SuccessQuerier;
     impl RustQuerier for SuccessQuerier {
         fn query_crate(&mut self, _: &str) -> Result<CrateInfo, RustInteropError> {
@@ -178,6 +181,7 @@ fn test_querier_priority_ordering() {
     let mut registry = DynamicRustRegistry::new();
 
     // Add a higher priority querier
+    #[derive(Debug)]
     struct MockQuerier(u32);
     impl RustQuerier for MockQuerier {
         fn query_crate(&mut self, _: &str) -> Result<CrateInfo, RustInteropError> {

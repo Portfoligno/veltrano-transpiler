@@ -170,14 +170,18 @@ impl RustType {
 }
 
 /// Registry for external Rust items
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct RustInteropRegistry {
     items: HashMap<String, ExternItem>,
+    dynamic_registry: DynamicRustRegistry,
 }
 
 impl RustInteropRegistry {
     pub fn new() -> Self {
-        let mut registry = Self::default();
+        let mut registry = Self {
+            items: HashMap::new(),
+            dynamic_registry: DynamicRustRegistry::new(),
+        };
         registry.register_stdlib();
         registry
     }
@@ -363,7 +367,7 @@ impl RustInteropRegistry {
     /// Query method signature dynamically from crate metadata
     /// This integrates with the DynamicRustRegistry for full method resolution
     pub fn query_method_signature(
-        &self,
+        &mut self,
         type_path: &str,
         method_name: &str,
     ) -> Result<Option<ImportedMethodInfo>, RustInteropError> {
@@ -373,19 +377,75 @@ impl RustInteropRegistry {
         }
 
         // For other types, use the dynamic registry to query method signatures
-        // This would integrate with DynamicRustRegistry to:
-        // 1. Parse the type_path to determine which crate it comes from
-        // 2. Query the crate's metadata for type information
-        // 3. Find the method in either inherent impl blocks or trait implementations
-        // 4. Parse the method signature to extract SelfKind, parameters, and return type
-        // 5. Return the complete method information
-        
-        // For now, we return None for non-hardcoded methods since the full integration
-        // would require instantiating a DynamicRustRegistry and managing its lifecycle
-        // The user interrupted the hardcoding approach, indicating they want a more
-        // scalable solution which would involve proper integration of the dynamic system
+        self.query_dynamic_method_signature(type_path, method_name)
+    }
 
+    /// Query method signature using the dynamic registry system
+    fn query_dynamic_method_signature(
+        &mut self,
+        type_path: &str,
+        method_name: &str,
+    ) -> Result<Option<ImportedMethodInfo>, RustInteropError> {
+        // Parse the type_path to determine which crate it comes from
+        // For standard library types like "i64", "String", we assume they're from "std"
+        let crate_name = if self.is_stdlib_type(type_path) {
+            "std"
+        } else if type_path.contains("::") {
+            // For paths like "serde::Serialize", extract the crate name
+            type_path.split("::").next().unwrap_or("unknown")
+        } else {
+            // For simple names, assume they're from the current crate or std
+            "std"
+        };
+
+        // Try to get type information from the dynamic registry
+        let full_type_path = if type_path.contains("::") {
+            type_path.to_string()
+        } else {
+            format!("{}::{}", crate_name, type_path)
+        };
+
+        if let Ok(Some(type_info)) = self.dynamic_registry.get_type(&full_type_path) {
+            // Look for the method in the type's inherent methods
+            for method in &type_info.methods {
+                if method.name == method_name {
+                    return Ok(Some(ImportedMethodInfo {
+                        method_name: method.name.clone(),
+                        self_kind: method.self_kind.clone(),
+                        parameters: self.convert_parameters(&method.parameters),
+                        return_type: self.convert_rust_type_signature(&method.return_type),
+                        trait_name: None, // Inherent method
+                    }));
+                }
+            }
+        }
+
+        // If not found in inherent methods, this is where we'd search trait implementations
+        // For now, return None for methods we can't find
         Ok(None)
+    }
+
+    /// Check if a type is a standard library type
+    fn is_stdlib_type(&self, type_path: &str) -> bool {
+        matches!(
+            type_path,
+            "i8" | "i16" | "i32" | "i64" | "i128" | "isize"
+            | "u8" | "u16" | "u32" | "u64" | "u128" | "usize"
+            | "f32" | "f64" | "bool" | "char" | "str" | "String"
+            | "()" | "Vec" | "Option" | "Result"
+        )
+    }
+
+    /// Convert method parameters from the dynamic registry format
+    fn convert_parameters(&self, parameters: &[Parameter]) -> Vec<RustType> {
+        parameters.iter()
+            .filter_map(|param| param.param_type.parsed.clone())
+            .collect()
+    }
+
+    /// Convert return type from the dynamic registry format
+    fn convert_rust_type_signature(&self, return_type: &RustTypeSignature) -> RustType {
+        return_type.parsed.clone().unwrap_or(RustType::Unit)
     }
 }
 
@@ -614,13 +674,14 @@ pub struct RustTypeSignature {
 }
 
 /// Trait for querying Rust type information
-pub trait RustQuerier {
+pub trait RustQuerier: std::fmt::Debug {
     fn query_crate(&mut self, crate_name: &str) -> Result<CrateInfo, RustInteropError>;
     fn supports_crate(&self, crate_name: &str) -> bool;
     fn priority(&self) -> u32; // Higher priority queriers tried first
 }
 
 /// rustdoc JSON-based querier - Phase 1 implementation
+#[derive(Debug)]
 pub struct RustdocQuerier {
     output_dir: PathBuf,
     cache: HashMap<String, CrateInfo>,
@@ -716,6 +777,7 @@ impl RustQuerier for RustdocQuerier {
 }
 
 /// Unified interface for dynamic Rust type querying
+#[derive(Debug)]
 pub struct DynamicRustRegistry {
     pub queriers: Vec<Box<dyn RustQuerier>>,
     cache: HashMap<String, CrateInfo>,
@@ -989,6 +1051,7 @@ impl Default for DynamicRustRegistry {
 }
 
 /// syn-based querier - Phase 2 implementation for comprehensive source parsing
+#[derive(Debug)]
 pub struct SynQuerier {
     cargo_metadata: Option<cargo_metadata::Metadata>,
     source_cache: HashMap<PathBuf, syn::File>,
