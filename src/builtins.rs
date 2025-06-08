@@ -1,7 +1,7 @@
 /// Centralized built-in functions and methods for Veltrano
 /// This module consolidates all built-in function definitions that were previously
 /// scattered across codegen.rs, rust_interop.rs, and implicit in type checking
-use crate::rust_interop::RustInteropRegistry;
+use crate::rust_interop::{RustInteropRegistry, SelfKind};
 use crate::types::{FunctionSignature, MethodSignature, TypeConstructor, VeltranoType};
 use std::collections::HashMap;
 
@@ -21,10 +21,11 @@ pub enum BuiltinFunctionKind {
 /// Categories of built-in methods
 #[derive(Debug, Clone, PartialEq)]
 pub enum BuiltinMethodKind {
-    /// Universal methods that require trait checking
+    /// Methods that require trait checking with proper receiver semantics
     TraitMethod {
         method_name: String,
         required_trait: String,
+        rust_self_kind: SelfKind, // How the Rust method takes self
         parameters: Vec<VeltranoType>,
         return_type_strategy: MethodReturnTypeStrategy,
     },
@@ -112,12 +113,13 @@ impl BuiltinRegistry {
 
     /// Register built-in methods
     fn register_builtin_methods(&mut self) {
-        // Universal trait methods
+        // Universal trait methods with proper receiver semantics
         self.register_method(
             "clone",
             BuiltinMethodKind::TraitMethod {
                 method_name: "clone".to_string(),
                 required_trait: "Clone".to_string(),
+                rust_self_kind: SelfKind::Ref, // clone takes &self in Rust
                 parameters: vec![],
                 return_type_strategy: MethodReturnTypeStrategy::CloneSemantics,
             },
@@ -128,6 +130,7 @@ impl BuiltinRegistry {
             BuiltinMethodKind::TraitMethod {
                 method_name: "toString".to_string(),
                 required_trait: "ToString".to_string(),
+                rust_self_kind: SelfKind::Ref, // to_string takes &self in Rust
                 parameters: vec![],
                 return_type_strategy: MethodReturnTypeStrategy::FixedType(VeltranoType::own(
                     VeltranoType::string(),
@@ -331,6 +334,86 @@ impl BuiltinRegistry {
         None
     }
 
+    /// Check if a Veltrano receiver type can provide the required Rust access
+    /// and if the underlying type implements the required trait
+    fn receiver_can_provide_rust_access(
+        &self,
+        receiver_type: &VeltranoType,
+        rust_self_kind: &SelfKind,
+        required_trait: &str,
+        trait_checker: &mut RustInteropRegistry,
+    ) -> bool {
+        match rust_self_kind {
+            SelfKind::Ref => {
+                // Rust method takes &self - ONLY Ref<T> can provide this in Veltrano's explicit system
+                match &receiver_type.constructor {
+                    // Ref<T> can provide &T - check if T implements the trait
+                    TypeConstructor::Ref => {
+                        if let Some(inner_type) = receiver_type.args.first() {
+                            let inner_rust_type = inner_type.to_rust_type_name();
+                            trait_checker
+                                .type_implements_trait(&inner_rust_type, required_trait)
+                                .unwrap_or(false)
+                        } else {
+                            false
+                        }
+                    }
+                    // Own<T> CANNOT auto-borrow - explicit conversion required
+                    TypeConstructor::Own => false,
+                    // T (naturally referenced types) can provide &T - check if T implements the trait
+                    _ => {
+                        let rust_type_name = receiver_type.to_rust_type_name();
+                        trait_checker
+                            .type_implements_trait(&rust_type_name, required_trait)
+                            .unwrap_or(false)
+                    }
+                }
+            }
+            SelfKind::MutRef => {
+                // Rust method takes &mut self - only MutRef<T> can provide this
+                match &receiver_type.constructor {
+                    TypeConstructor::MutRef => {
+                        if let Some(inner_type) = receiver_type.args.first() {
+                            let inner_rust_type = inner_type.to_rust_type_name();
+                            trait_checker
+                                .type_implements_trait(&inner_rust_type, required_trait)
+                                .unwrap_or(false)
+                        } else {
+                            false
+                        }
+                    }
+                    _ => false, // Only MutRef<T> can provide &mut access
+                }
+            }
+            SelfKind::Value => {
+                // Rust method takes self (consumes the value) - only owned types work
+                match &receiver_type.constructor {
+                    TypeConstructor::Own => {
+                        if let Some(inner_type) = receiver_type.args.first() {
+                            let inner_rust_type = inner_type.to_rust_type_name();
+                            trait_checker
+                                .type_implements_trait(&inner_rust_type, required_trait)
+                                .unwrap_or(false)
+                        } else {
+                            false
+                        }
+                    }
+                    // For naturally owned types (Int, Bool, etc.), check the type directly
+                    _ => {
+                        let rust_type_name = receiver_type.to_rust_type_name();
+                        trait_checker
+                            .type_implements_trait(&rust_type_name, required_trait)
+                            .unwrap_or(false)
+                    }
+                }
+            }
+            SelfKind::None => {
+                // Associated function - no receiver check needed
+                true
+            }
+        }
+    }
+
     /// Check if a method variant matches the receiver type
     fn method_matches_receiver(
         &self,
@@ -339,12 +422,19 @@ impl BuiltinRegistry {
         trait_checker: &mut RustInteropRegistry,
     ) -> bool {
         match method_kind {
-            BuiltinMethodKind::TraitMethod { required_trait, .. } => {
-                // Check if receiver type implements the required trait
-                let rust_type_name = receiver_type.to_rust_type_name();
-                trait_checker
-                    .type_implements_trait(&rust_type_name, required_trait)
-                    .unwrap_or(false)
+            BuiltinMethodKind::TraitMethod {
+                required_trait,
+                rust_self_kind,
+                ..
+            } => {
+                // Check if the Veltrano receiver type can provide the required Rust access
+                // and if the underlying type implements the trait
+                self.receiver_can_provide_rust_access(
+                    receiver_type,
+                    rust_self_kind,
+                    required_trait,
+                    trait_checker,
+                )
             }
             BuiltinMethodKind::SpecialMethod {
                 receiver_type_filter,
