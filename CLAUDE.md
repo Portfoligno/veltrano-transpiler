@@ -87,6 +87,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - Remove completed tasks from the list
    - Preserve context for future sessions
 
+5. **Formatting Conventions**
+   - **Avoid emoji checkmarks** (✅, ❌, ☑️, ✓) - they add clutter
+   - **Remove completed items** rather than marking them as done
+   - **Use "IN PROGRESS" sparingly** - only for the current active task
+   - **Keep formatting simple** for better readability and token efficiency
+
 ### Value-Driven Update Strategy
 
 **Goal:** Store information that maximizes context reuse for future sessions, regardless of format.
