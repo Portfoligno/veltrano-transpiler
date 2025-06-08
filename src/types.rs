@@ -310,10 +310,24 @@ pub struct SourceLocation {
     pub source_line: String,
 }
 
-/// Type environment for tracking variables and functions
+/// Data class definition with field information
+#[derive(Debug, Clone)]
+pub struct DataClassDefinition {
+    pub name: String,
+    pub fields: Vec<DataClassFieldSignature>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DataClassFieldSignature {
+    pub name: String,
+    pub field_type: VeltranoType,
+}
+
+/// Type environment for tracking variables, functions, and data classes
 pub struct TypeEnvironment {
     variables: HashMap<String, VeltranoType>,
     functions: HashMap<String, FunctionSignature>,
+    data_classes: HashMap<String, DataClassDefinition>,
     scopes: Vec<HashMap<String, VeltranoType>>,
 }
 
@@ -322,6 +336,7 @@ impl TypeEnvironment {
         Self {
             variables: HashMap::new(),
             functions: HashMap::new(),
+            data_classes: HashMap::new(),
             scopes: Vec::new(),
         }
     }
@@ -360,5 +375,13 @@ impl TypeEnvironment {
 
     pub fn exit_scope(&mut self) {
         self.scopes.pop();
+    }
+
+    pub fn declare_data_class(&mut self, name: String, definition: DataClassDefinition) {
+        self.data_classes.insert(name, definition);
+    }
+
+    pub fn lookup_data_class(&self, name: &str) -> Option<&DataClassDefinition> {
+        self.data_classes.get(name)
     }
 }

@@ -263,11 +263,46 @@ impl VeltranoTypeChecker {
                 self.env.exit_scope();
                 Ok(())
             }
-            Stmt::Comment(_) | Stmt::Import(_) | Stmt::DataClass(_) => {
+            Stmt::DataClass(data_class) => self.check_data_class_declaration(data_class),
+            Stmt::Comment(_) | Stmt::Import(_) => {
                 // These don't need type checking
                 Ok(())
             }
         }
+    }
+
+    /// Check data class declaration and register it in the environment
+    fn check_data_class_declaration(
+        &mut self,
+        data_class: &DataClassStmt,
+    ) -> Result<(), TypeCheckError> {
+        use crate::types::{DataClassDefinition, DataClassFieldSignature};
+
+        // Validate all field types
+        for field in &data_class.fields {
+            self.validate_type(&field.field_type)?;
+        }
+
+        // Create data class definition
+        let fields: Vec<DataClassFieldSignature> = data_class
+            .fields
+            .iter()
+            .map(|f| DataClassFieldSignature {
+                name: f.name.clone(),
+                field_type: f.field_type.clone(),
+            })
+            .collect();
+
+        let definition = DataClassDefinition {
+            name: data_class.name.clone(),
+            fields,
+        };
+
+        // Register the data class in the environment
+        self.env
+            .declare_data_class(data_class.name.clone(), definition);
+
+        Ok(())
     }
 
     /// Validate a type recursively, checking for invalid type constructor usage
@@ -550,6 +585,11 @@ impl VeltranoTypeChecker {
                 return self.check_rust_macro_call(func_name, call);
             }
 
+            // Check if this is a data class constructor
+            if let Some(data_class) = self.env.lookup_data_class(func_name).cloned() {
+                return self.check_data_class_constructor_call(func_name, &data_class, call);
+            }
+
             // Check user-defined functions
             let func_sig = self
                 .env
@@ -587,7 +627,7 @@ impl VeltranoTypeChecker {
                 let actual_param = match arg {
                     Argument::Bare(expr, _) => self.check_expression(expr)?,
                     Argument::Named(_, expr, _) => self.check_expression(expr)?,
-                    Argument::Shorthand(_, _) => continue, // Type checking happens in codegen via variable lookup
+                    Argument::Shorthand(var_name, _) => self.check_identifier(var_name)?,
                     Argument::StandaloneComment(_, _) => continue, // Skip comments
                 };
 
@@ -618,6 +658,115 @@ impl VeltranoTypeChecker {
                 },
             })
         }
+    }
+
+    /// Check data class constructor call
+    fn check_data_class_constructor_call(
+        &mut self,
+        class_name: &str,
+        data_class: &DataClassDefinition,
+        call: &CallExpr,
+    ) -> Result<VeltranoType, TypeCheckError> {
+        use crate::types::TypeConstructor;
+
+        // Filter out comments to get actual arguments
+        let actual_args: Vec<&Argument> = call
+            .args
+            .iter()
+            .filter(|arg| !matches!(arg, Argument::StandaloneComment(_, _)))
+            .collect();
+
+        // Check argument count
+        if actual_args.len() != data_class.fields.len() {
+            return Err(TypeCheckError::ArgumentCountMismatch {
+                function: class_name.to_string(),
+                expected: data_class.fields.len(),
+                actual: actual_args.len(),
+                location: SourceLocation {
+                    file: "unknown".to_string(),
+                    line: 0,
+                    column: 0,
+                    source_line: "".to_string(),
+                },
+            });
+        }
+
+        // Check argument types, handling named arguments and field order
+        for (i, arg) in actual_args.iter().enumerate() {
+            let (expected_field, actual_type) = match arg {
+                Argument::Bare(expr, _) => {
+                    // Positional argument - match by index
+                    let field = &data_class.fields[i];
+                    let actual_type = self.check_expression(expr)?;
+                    (field, actual_type)
+                }
+                Argument::Named(field_name, expr, _) => {
+                    // Named argument - find matching field
+                    let field = data_class
+                        .fields
+                        .iter()
+                        .find(|f| f.name == *field_name)
+                        .ok_or_else(|| TypeCheckError::FieldNotFound {
+                            object_type: VeltranoType {
+                                constructor: TypeConstructor::Custom(class_name.to_string()),
+                                args: vec![],
+                            },
+                            field: field_name.clone(),
+                            location: SourceLocation {
+                                file: "unknown".to_string(),
+                                line: 0,
+                                column: 0,
+                                source_line: "".to_string(),
+                            },
+                        })?;
+                    let actual_type = self.check_expression(expr)?;
+                    (field, actual_type)
+                }
+                Argument::Shorthand(var_name, _) => {
+                    // Shorthand argument - field name is the variable name
+                    let field = data_class
+                        .fields
+                        .iter()
+                        .find(|f| f.name == *var_name)
+                        .ok_or_else(|| TypeCheckError::FieldNotFound {
+                            object_type: VeltranoType {
+                                constructor: TypeConstructor::Custom(class_name.to_string()),
+                                args: vec![],
+                            },
+                            field: var_name.clone(),
+                            location: SourceLocation {
+                                file: "unknown".to_string(),
+                                line: 0,
+                                column: 0,
+                                source_line: "".to_string(),
+                            },
+                        })?;
+                    let actual_type = self.check_identifier(var_name)?;
+                    (field, actual_type)
+                }
+                Argument::StandaloneComment(_, _) => unreachable!(), // Filtered out above
+            };
+
+            // Check type compatibility
+            if !self.types_equal(&expected_field.field_type, &actual_type) {
+                return Err(TypeCheckError::TypeMismatch {
+                    expected: expected_field.field_type.clone(),
+                    actual: actual_type,
+                    location: SourceLocation {
+                        file: "unknown".to_string(),
+                        line: 0,
+                        column: 0,
+                        source_line: "".to_string(),
+                    },
+                });
+            }
+        }
+
+        // Return the data class type
+        Ok(VeltranoType {
+            constructor: TypeConstructor::Custom(class_name.to_string()),
+            args: vec![],
+        })
     }
 
     /// Check Rust macro call (skip type checking)

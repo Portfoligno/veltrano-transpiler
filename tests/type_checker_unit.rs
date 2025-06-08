@@ -166,3 +166,72 @@ fn test_error_analyzer_suggestions() {
         _ => panic!("Should have been enhanced with suggestion"),
     }
 }
+
+#[test]
+fn test_shorthand_argument_type_checking() {
+    let code = r#"
+    data class Person(val name: String, val age: I64)
+    
+    fun main() {
+        val name: String = "Alice"
+        val age: String = "not a number"  // Wrong type for age field
+        val person = Person(.name, .age)  // Should fail type checking
+    }
+    "#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let result = common::parse_and_type_check(code, config).map(|_| ());
+
+    assert!(
+        result.is_err(),
+        "Type checking should fail for shorthand argument with wrong type"
+    );
+
+    if let Err(errors) = result {
+        let has_type_mismatch = errors.iter().any(|err| {
+            matches!(
+                err,
+                TypeCheckError::TypeMismatch { .. }
+                    | TypeCheckError::TypeMismatchWithSuggestion { .. }
+            )
+        });
+        assert!(
+            has_type_mismatch,
+            "Should have a type mismatch error for shorthand argument"
+        );
+    }
+}
+
+#[test]
+fn test_shorthand_argument_field_not_found() {
+    let code = r#"
+    data class Person(val name: String, val age: I64)
+    
+    fun main() {
+        val name: String = "Alice"
+        val person = Person(.name, .undefinedField)  // Should fail - field not found
+    }
+    "#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let result = common::parse_and_type_check(code, config).map(|_| ());
+
+    assert!(
+        result.is_err(),
+        "Type checking should fail for shorthand argument with undefined field"
+    );
+
+    if let Err(errors) = result {
+        let has_field_not_found = errors
+            .iter()
+            .any(|err| matches!(err, TypeCheckError::FieldNotFound { .. }));
+        assert!(
+            has_field_not_found,
+            "Should have a field not found error for shorthand argument"
+        );
+    }
+}
