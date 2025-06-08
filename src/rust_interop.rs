@@ -292,76 +292,11 @@ impl RustInteropRegistry {
     /// This includes both inherent methods and trait methods
     pub fn get_method_info(
         &self,
-        type_path: &str,
-        method_name: &str,
+        _type_path: &str,
+        _method_name: &str,
     ) -> Option<ImportedMethodInfo> {
-        // For now, provide hardcoded information for common built-in methods
-        // In a full implementation, this would query crate metadata
-        match (type_path, method_name) {
-            // Clone methods for built-in types
-            ("i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64"
-             | "u128" | "usize" | "f32" | "f64" | "bool" | "char", "clone") => {
-                Some(ImportedMethodInfo {
-                    method_name: method_name.to_string(),
-                    self_kind: SelfKind::Ref,
-                    parameters: vec![],
-                    return_type: RustTypeParser::parse(type_path).unwrap_or(RustType::Custom {
-                        name: type_path.to_string(),
-                        generics: vec![],
-                    }),
-                    trait_name: Some("Clone".to_string()),
-                })
-            }
-            ("String" | "std::string::String", "clone") => {
-                Some(ImportedMethodInfo {
-                    method_name: method_name.to_string(),
-                    self_kind: SelfKind::Ref,
-                    parameters: vec![],
-                    return_type: RustType::String,
-                    trait_name: Some("Clone".to_string()),
-                })
-            }
-            // ToString methods for built-in types
-            ("i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64"
-             | "u128" | "usize" | "f32" | "f64" | "bool" | "char" | "String" | "&str" | "str", "to_string") => {
-                Some(ImportedMethodInfo {
-                    method_name: method_name.to_string(),
-                    self_kind: SelfKind::Ref,
-                    parameters: vec![],
-                    return_type: RustType::String,
-                    trait_name: Some("ToString".to_string()),
-                })
-            }
-            // Example of a more complex imported method with custom return type
-            // This demonstrates how we handle arbitrary return types from imported crates
-            ("Vec", "len") => {
-                Some(ImportedMethodInfo {
-                    method_name: method_name.to_string(),
-                    self_kind: SelfKind::Ref, // len() takes &self
-                    parameters: vec![],
-                    return_type: RustType::USize, // len() returns usize
-                    trait_name: None, // This is an inherent method, not a trait method
-                })
-            }
-            // Another example: as_ref() method that returns &T
-            ("String", "as_ref") => {
-                Some(ImportedMethodInfo {
-                    method_name: method_name.to_string(),
-                    self_kind: SelfKind::Ref, // as_ref() takes &self
-                    parameters: vec![],
-                    return_type: RustType::Ref {
-                        lifetime: None,
-                        inner: Box::new(RustType::Str), // as_ref() returns &str for String
-                    },
-                    trait_name: Some("AsRef".to_string()),
-                })
-            }
-            _ => {
-                // For other methods, try to query using the dynamic registry
-                // This would use the DynamicRustRegistry to look up method signatures
-                None
-            }
-        }
+        // No hardcoded method signatures - rely entirely on dynamic registry
+        None
     }
 
     /// Query method signature dynamically from crate metadata

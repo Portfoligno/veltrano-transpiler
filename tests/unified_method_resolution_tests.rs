@@ -89,12 +89,15 @@ fn test_imported_clone_methods() {
 fn test_imported_tostring_methods() {
     // Test that imported ToString trait methods work
     let code = r#"
+    import I64.toString
+    import Bool.toString
+    
     fun main() {
         val num: I64 = 42
-        val num_str: String = num.to_string()  // Imported ToString::to_string() -> String
+        val num_str: String = num.toString()  // Imported ToString::to_string() -> String
         
         val flag: Bool = true
-        val flag_str: String = flag.to_string()  // Imported ToString::to_string() -> String
+        val flag_str: String = flag.toString()  // Imported ToString::to_string() -> String
     }
     "#;
 
@@ -109,6 +112,8 @@ fn test_imported_tostring_methods() {
 fn test_imported_complex_return_types() {
     // Test imported methods with complex return types
     let code = r#"
+    import String.asRef
+    
     fun main() {
         // Test Vec::len() -> usize
         // Note: This is a placeholder test since we don't have Vec support yet
@@ -116,7 +121,7 @@ fn test_imported_complex_return_types() {
         
         // Test String::as_ref() -> &str (Ref<Str>)
         val text: String = "hello"
-        val text_ref: Ref<Str> = text.as_ref()  // Imported AsRef::as_ref() -> &str
+        val text_ref: Ref<Str> = text.asRef()  // Imported AsRef::as_ref() -> &str
     }
     "#;
 
@@ -166,9 +171,37 @@ fn test_explicit_conversion_enforcement_imported() {
 }
 
 #[test]
+fn test_imported_method_permissive_behavior() {
+    // Test that imported methods without hardcoded signatures are permissive
+    // Since we removed hardcoded signatures, the type checker allows imports
+    // and defers validation to Rust compile time
+    let code = r#"
+    import String.toString
+    
+    fun main() {
+        val text = "hello"
+        val result = text.toString()  // Type inferred - validation deferred to Rust
+    }
+    "#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let result = parse_and_type_check(code, config);
+    
+    if let Err(errors) = &result {
+        println!("Unexpected error: {:?}", errors);
+    }
+    
+    assert!(result.is_ok(), "Imported methods should be permissive without hardcoded signatures");
+}
+
+#[test]
 fn test_explicit_conversion_works_for_both() {
     // Explicit conversion should work for both built-in and imported methods
     let code = r#"
+    import String.toString
+    
     fun main() {
         val owned: Own<String> = "hello".toString()
         
@@ -176,7 +209,7 @@ fn test_explicit_conversion_works_for_both() {
         val cloned: Own<String> = owned.ref().clone()
         
         // Imported method with explicit conversion  
-        val string_result: String = owned.ref().to_string()
+        val string_result: String = owned.ref().toString()
     }
     "#;
 
@@ -224,17 +257,19 @@ fn test_method_not_found_unified() {
 fn test_receiver_validation_consistency() {
     // Test that both built-in and imported methods use same receiver validation
     let code = r#"
+    import I64.toString
+    
     fun main() {
         val x: I64 = 42
         val ref_x: Ref<I64> = x.ref()
         
         // Both should work with Ref<I64> receiver
         val cloned1: I64 = ref_x.clone()      // Unified method resolution
-        val string1: String = ref_x.to_string()  // Unified method resolution
+        val string1: String = ref_x.toString()  // Unified method resolution
         
         // Both should work with I64 receiver (naturally owned)
         val cloned2: I64 = x.clone()          // Unified method resolution
-        val string2: String = x.to_string()   // Unified method resolution
+        val string2: String = x.toString()   // Unified method resolution
     }
     "#;
 
@@ -280,11 +315,13 @@ fn test_mutref_receiver_validation() {
 fn test_mixed_method_calls() {
     // Test mixing built-in and imported method calls in same expression
     let code = r#"
+    import String.toString
+    
     fun main() {
         val owned: Own<String> = "hello".toString()  // Built-in toString
         val borrowed: String = owned.ref()           // Built-in ref
         val cloned: Own<String> = borrowed.clone()   // Built-in or imported clone
-        val as_string: String = cloned.ref().to_string()  // Imported to_string
+        val as_string: String = cloned.ref().toString()  // Imported toString
     }
     "#;
 
@@ -299,11 +336,13 @@ fn test_mixed_method_calls() {
 fn test_method_chaining_mixed() {
     // Test method chaining with both built-in and imported methods
     let code = r#"
+    import String.toString
+    
     fun main() {
         val text: String = "hello"
         
-        // Chain: String -> Own<String> (clone) -> String (ref) -> String (to_string)
-        val result: String = text.clone().ref().to_string()
+        // Chain: String -> Own<String> (clone) -> String (ref) -> String (toString)
+        val result: String = text.clone().ref().toString()
     }
     "#;
 
