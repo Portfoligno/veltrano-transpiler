@@ -297,12 +297,14 @@ impl BuiltinRegistry {
     }
 
     /// Check if a method is available on a given receiver type (with trait checking)
+    /// This checks both built-in methods and imported methods
     pub fn is_method_available(
         &self,
         method_name: &str,
         receiver_type: &VeltranoType,
         trait_checker: &mut RustInteropRegistry,
     ) -> bool {
+        // First check built-in methods
         if let Some(method_variants) = self.methods.get(method_name) {
             for method_kind in method_variants {
                 if self.method_matches_receiver(method_kind, receiver_type, trait_checker) {
@@ -310,16 +312,20 @@ impl BuiltinRegistry {
                 }
             }
         }
-        false
+
+        // If not found in built-ins, check imported methods
+        self.is_imported_method_available(method_name, receiver_type, trait_checker)
     }
 
     /// Get the return type for a method call (with trait checking)
+    /// This checks both built-in methods and imported methods
     pub fn get_method_return_type(
         &self,
         method_name: &str,
         receiver_type: &VeltranoType,
         trait_checker: &mut RustInteropRegistry,
     ) -> Option<VeltranoType> {
+        // First check built-in methods
         if let Some(method_variants) = self.methods.get(method_name) {
             for method_kind in method_variants {
                 if self.method_matches_receiver(method_kind, receiver_type, trait_checker) {
@@ -331,7 +337,9 @@ impl BuiltinRegistry {
                 }
             }
         }
-        None
+
+        // If not found in built-ins, check imported methods
+        self.get_imported_method_return_type(method_name, receiver_type, trait_checker)
     }
 
     /// Check if a Veltrano receiver type can provide the required Rust access
@@ -538,6 +546,89 @@ impl BuiltinRegistry {
                     // T → Ref<T> (add a Ref wrapper)
                     _ => VeltranoType::ref_(receiver_type.clone()),
                 }
+            }
+        }
+    }
+
+    /// Check if an imported method is available on the receiver type
+    fn is_imported_method_available(
+        &self,
+        method_name: &str,
+        receiver_type: &VeltranoType,
+        trait_checker: &mut RustInteropRegistry,
+    ) -> bool {
+        let rust_type_name = receiver_type.to_rust_type_name();
+        
+        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type_name, method_name) {
+            // Check if the Veltrano receiver type can provide the required Rust access
+            self.receiver_can_provide_rust_access_for_imported(
+                receiver_type,
+                &method_info.self_kind,
+                trait_checker,
+            )
+        } else {
+            false
+        }
+    }
+
+    /// Get return type for an imported method
+    fn get_imported_method_return_type(
+        &self,
+        method_name: &str,
+        receiver_type: &VeltranoType,
+        trait_checker: &mut RustInteropRegistry,
+    ) -> Option<VeltranoType> {
+        let rust_type_name = receiver_type.to_rust_type_name();
+        
+        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type_name, method_name) {
+            // Check if the receiver can provide the required access
+            if self.receiver_can_provide_rust_access_for_imported(
+                receiver_type,
+                &method_info.self_kind,
+                trait_checker,
+            ) {
+                // Convert the Rust return type to Veltrano type
+                if let Ok(veltrano_return_type) = method_info.return_type.to_veltrano_type() {
+                    return Some(veltrano_return_type);
+                }
+            }
+        }
+        
+        None
+    }
+
+    /// Check if a Veltrano receiver type can provide the required Rust access for imported methods
+    /// This is similar to receiver_can_provide_rust_access but doesn't require trait checking
+    /// since we already know the method exists from the imported signature
+    fn receiver_can_provide_rust_access_for_imported(
+        &self,
+        receiver_type: &VeltranoType,
+        rust_self_kind: &SelfKind,
+        _trait_checker: &mut RustInteropRegistry,
+    ) -> bool {
+        match rust_self_kind {
+            SelfKind::Ref => {
+                // Rust method takes &self - ONLY Ref<T> and naturally referenced types can provide this
+                match &receiver_type.constructor {
+                    TypeConstructor::Ref => true,
+                    TypeConstructor::Own => false, // No auto-borrow from Own<T>
+                    _ => true, // Naturally referenced types (String, etc.) can provide &self
+                }
+            }
+            SelfKind::MutRef => {
+                // Rust method takes &mut self - only MutRef<T> can provide this
+                matches!(&receiver_type.constructor, TypeConstructor::MutRef)
+            }
+            SelfKind::Value => {
+                // Rust method takes self (consumes the value) - only owned types work
+                match &receiver_type.constructor {
+                    TypeConstructor::Own => true,
+                    _ => true, // Naturally owned types (I64, Bool, etc.) can be consumed
+                }
+            }
+            SelfKind::None => {
+                // Associated function - no receiver check needed
+                true
             }
         }
     }
