@@ -543,7 +543,7 @@ impl CodeGenerator {
             TypeConstructor::Ref | TypeConstructor::MutRef => true,
             // Use trait checking for base types
             _ if veltrano_type.args.is_empty() => {
-                veltrano_type.is_naturally_referenced(&mut self.trait_checker)
+                !veltrano_type.implements_copy(&mut self.trait_checker)
             }
             // Composed types need further analysis
             _ => false,
@@ -555,7 +555,7 @@ impl CodeGenerator {
     fn generate_owned_version(&mut self, type_annotation: &VeltranoType) {
         use crate::type_checker::TypeConstructor;
 
-        if type_annotation.is_naturally_referenced(&mut self.trait_checker) {
+        if !type_annotation.implements_copy(&mut self.trait_checker) {
             // For naturally referenced types, generate without the & prefix
             match &type_annotation.constructor {
                 TypeConstructor::String => self.output.push_str("String"),

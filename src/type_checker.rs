@@ -268,23 +268,13 @@ impl VeltranoType {
             .unwrap_or(false)
     }
 
-    /// Check if this is a naturally owned type (Copy types)
-    pub fn is_naturally_owned(&self, trait_checker: &mut RustInteropRegistry) -> bool {
-        self.implements_copy(trait_checker)
-    }
-
-    /// Check if this is a naturally referenced type (non-Copy types by default)
-    pub fn is_naturally_referenced(&self, trait_checker: &mut RustInteropRegistry) -> bool {
-        !self.is_naturally_owned(trait_checker) && self.args.is_empty()
-    }
-
     /// Validate if Own<T> type constructor is valid with the given inner type
     pub fn validate_own_constructor(
         inner: &VeltranoType,
         trait_checker: &mut RustInteropRegistry,
     ) -> Result<(), String> {
         // Check if the inner type implements Copy (is naturally owned)
-        let is_copy = inner.is_naturally_owned(trait_checker);
+        let is_copy = inner.implements_copy(trait_checker);
 
         if is_copy {
             return Err(format!(
@@ -1077,12 +1067,8 @@ impl VeltranoTypeChecker {
         receiver_type: &VeltranoType,
     ) -> Result<VeltranoType, TypeCheckError> {
         if receiver_type.can_clone() {
-            // Clone returns an owned version - use builtin registry logic instead
-            if receiver_type.is_naturally_referenced(&mut self.trait_checker) {
-                Ok(VeltranoType::own(receiver_type.clone()))
-            } else {
-                Ok(receiver_type.clone()) // Already owned for value types
-            }
+            // Clone should preserve the exact type - cloning any type returns the same type
+            Ok(receiver_type.clone())
         } else {
             Err(TypeCheckError::MethodNotFound {
                 receiver_type: receiver_type.clone(),

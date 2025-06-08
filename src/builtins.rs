@@ -386,7 +386,7 @@ impl BuiltinRegistry {
                 VeltranoType::mut_ref(receiver_type.clone())
             }
             MethodReturnTypeStrategy::OwnedVersion => {
-                if receiver_type.is_naturally_referenced(trait_checker) {
+                if !receiver_type.implements_copy(trait_checker) {
                     VeltranoType::own(receiver_type.clone())
                 } else {
                     receiver_type.clone() // Already owned for value types
@@ -394,12 +394,8 @@ impl BuiltinRegistry {
             }
             MethodReturnTypeStrategy::FixedType(fixed_type) => fixed_type.clone(),
             MethodReturnTypeStrategy::CloneSemantics => {
-                // Clone returns an owned version based on trait checking
-                if receiver_type.is_naturally_referenced(trait_checker) {
-                    VeltranoType::own(receiver_type.clone())
-                } else {
-                    receiver_type.clone() // Already owned for value types
-                }
+                // Clone should preserve the exact type - cloning any type returns the same type
+                receiver_type.clone()
             }
         }
     }
