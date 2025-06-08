@@ -80,20 +80,6 @@ pub struct VeltranoTypeChecker {
 
 /// Helper functions for trait checking on VeltranoType
 impl VeltranoType {
-    /// Check if this type implements Copy trait (should be naturally owned/value types)
-    pub fn implements_copy(&self, trait_checker: &mut RustInteropRegistry) -> bool {
-        // Only base types (no type arguments) can implement Copy directly
-        if !self.args.is_empty() {
-            return false;
-        }
-
-        let rust_type_name = self.to_rust_type_name();
-
-        // Use the trait checker to determine Copy implementation
-        trait_checker
-            .type_implements_trait(&rust_type_name, "Copy")
-            .unwrap_or(false)
-    }
 
     /// Validate if Own<T> type constructor is valid with the given inner type
     pub fn validate_own_constructor(
@@ -129,9 +115,10 @@ impl VeltranoType {
     pub fn can_clone(&self, trait_checker: &mut RustInteropRegistry) -> bool {
         // For base types (no type arguments), use trait checker
         if self.args.is_empty() {
-            let rust_type_name = self.to_rust_type_name();
+            let rust_type = self.to_rust_type(trait_checker);
+            let type_name = rust_type.to_type_name_for_lookup();
             return trait_checker
-                .type_implements_trait(&rust_type_name, "Clone")
+                .type_implements_trait(&type_name, "Clone")
                 .unwrap_or(false);
         }
 
@@ -161,9 +148,10 @@ impl VeltranoType {
     pub fn can_to_string(&self, trait_checker: &mut RustInteropRegistry) -> bool {
         // For base types (no type arguments), use trait checker
         if self.args.is_empty() {
-            let rust_type_name = self.to_rust_type_name();
+            let rust_type = self.to_rust_type(trait_checker);
+            let type_name = rust_type.to_type_name_for_lookup();
             return trait_checker
-                .type_implements_trait(&rust_type_name, "ToString")
+                .type_implements_trait(&type_name, "ToString")
                 .unwrap_or(false);
         }
 

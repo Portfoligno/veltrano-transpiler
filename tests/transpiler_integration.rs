@@ -1,6 +1,7 @@
 use std::fs;
 use veltrano::codegen::CodeGenerator;
 use veltrano::config::Config;
+use veltrano::rust_interop::camel_to_snake_case;
 
 mod common;
 mod test_configs;
@@ -12,31 +13,29 @@ use common::{
 
 #[test]
 fn test_camel_to_snake_case() {
-    let codegen = CodeGenerator::with_config(Config::default());
-
-    assert_eq!(codegen.camel_to_snake_case("camelCase"), "camel_case");
-    assert_eq!(codegen.camel_to_snake_case("CamelCase"), "_camel_case");
-    assert_eq!(codegen.camel_to_snake_case("simpleVar"), "simple_var");
+    assert_eq!(camel_to_snake_case("camelCase"), "camel_case");
+    assert_eq!(camel_to_snake_case("CamelCase"), "_camel_case");
+    assert_eq!(camel_to_snake_case("simpleVar"), "simple_var");
     assert_eq!(
-        codegen.camel_to_snake_case("veryLongCamelCaseVariableName"),
+        camel_to_snake_case("veryLongCamelCaseVariableName"),
         "very_long_camel_case_variable_name"
     );
-    assert_eq!(codegen.camel_to_snake_case("a"), "a");
-    assert_eq!(codegen.camel_to_snake_case("aB"), "a_b");
-    assert_eq!(codegen.camel_to_snake_case("aBc"), "a_bc");
-    assert_eq!(codegen.camel_to_snake_case("XMLParser"), "_x_m_l_parser");
+    assert_eq!(camel_to_snake_case("a"), "a");
+    assert_eq!(camel_to_snake_case("aB"), "a_b");
+    assert_eq!(camel_to_snake_case("aBc"), "a_bc");
+    assert_eq!(camel_to_snake_case("XMLParser"), "_x_m_l_parser");
     assert_eq!(
-        codegen.camel_to_snake_case("httpURLConnection"),
+        camel_to_snake_case("httpURLConnection"),
         "http_u_r_l_connection"
     );
-    assert_eq!(codegen.camel_to_snake_case("main"), "main");
-    assert_eq!(codegen.camel_to_snake_case("calculateSum"), "calculate_sum");
+    assert_eq!(camel_to_snake_case("main"), "main");
+    assert_eq!(camel_to_snake_case("calculateSum"), "calculate_sum");
     assert_eq!(
-        codegen.camel_to_snake_case("calculate_sum"),
+        camel_to_snake_case("calculate_sum"),
         "calculate__sum"
     );
     assert_eq!(
-        codegen.camel_to_snake_case("calculate_Sum"),
+        camel_to_snake_case("calculate_Sum"),
         "calculate___sum"
     );
 }

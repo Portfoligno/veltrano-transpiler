@@ -352,6 +352,9 @@ fn test_i64_vs_string_clone_comparison() {
     };
     let result = parse_and_type_check(code, config).map(|_| ());
 
+    if let Err(ref errors) = result {
+        eprintln!("Type check errors: {:?}", errors);
+    }
     assert!(result.is_ok(), "Both I64 and String should support direct cloning");
 }
 

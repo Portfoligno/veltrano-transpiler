@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::config::Config;
+use crate::rust_interop::camel_to_snake_case;
 use crate::rust_interop::RustInteropRegistry;
 use crate::types::VeltranoType;
 use std::collections::{HashMap, HashSet};
@@ -157,7 +158,7 @@ impl CodeGenerator {
 
         self.output.push_str("let ");
 
-        let snake_name = self.camel_to_snake_case(&var_decl.name);
+        let snake_name = camel_to_snake_case(&var_decl.name);
         self.output.push_str(&snake_name);
 
         if let Some(type_annotation) = &var_decl.type_annotation {
@@ -201,7 +202,7 @@ impl CodeGenerator {
     fn generate_function_declaration(&mut self, fun_decl: &FunDeclStmt) {
         self.indent();
         self.output.push_str("fn ");
-        let snake_name = self.camel_to_snake_case(&fun_decl.name);
+        let snake_name = camel_to_snake_case(&fun_decl.name);
         self.output.push_str(&snake_name);
 
         // Add lifetime parameter if this function has a hidden bump parameter
@@ -316,7 +317,7 @@ impl CodeGenerator {
         for field in &data_class.fields {
             self.indent();
             self.output.push_str("pub ");
-            self.output.push_str(&self.camel_to_snake_case(&field.name));
+            self.output.push_str(&camel_to_snake_case(&field.name));
             self.output.push_str(": ");
 
             // Generate the field type with lifetime if needed
@@ -339,7 +340,7 @@ impl CodeGenerator {
                 self.generate_literal(literal);
             }
             Expr::Identifier(name) => {
-                let snake_name = self.camel_to_snake_case(name);
+                let snake_name = camel_to_snake_case(name);
                 self.output.push_str(&snake_name);
             }
             Expr::Unary(unary) => {
@@ -640,25 +641,6 @@ impl CodeGenerator {
         )
     }
 
-    pub fn camel_to_snake_case(&self, name: &str) -> String {
-        let mut result = String::new();
-
-        for ch in name.chars() {
-            if ch == '_' {
-                // Underscore becomes double underscore
-                result.push_str("__");
-            } else if ch.is_uppercase() {
-                // Uppercase becomes underscore + lowercase
-                result.push('_');
-                result.push(ch.to_lowercase().next().unwrap_or(ch));
-            } else {
-                // Lowercase stays as is
-                result.push(ch);
-            }
-        }
-
-        result
-    }
 
     fn generate_comma_separated_params(&mut self, params: &[Parameter], include_bump: bool) {
         let mut first = true;
@@ -673,7 +655,7 @@ impl CodeGenerator {
                 self.output.push_str(", ");
             }
             first = false;
-            let snake_name = self.camel_to_snake_case(&param.name);
+            let snake_name = camel_to_snake_case(&param.name);
             self.output.push_str(&snake_name);
             self.output.push_str(": ");
             self.generate_type(&param.param_type);
@@ -696,7 +678,7 @@ impl CodeGenerator {
 
         for (i, param) in params.iter().enumerate() {
             self.indent();
-            let snake_name = self.camel_to_snake_case(&param.name);
+            let snake_name = camel_to_snake_case(&param.name);
             self.output.push_str(&snake_name);
             self.output.push_str(": ");
             self.generate_type(&param.param_type);
@@ -727,14 +709,14 @@ impl CodeGenerator {
                     panic!("Data class constructors don't support positional arguments. Use named arguments or .field shorthand syntax");
                 }
                 Argument::Named(name, expr, comment) => {
-                    self.output.push_str(&self.camel_to_snake_case(name));
+                    self.output.push_str(&camel_to_snake_case(name));
                     self.output.push_str(": ");
                     self.generate_expression(expr);
                     self.generate_inline_comment(comment);
                 }
                 Argument::Shorthand(field_name, comment) => {
                     // Shorthand: generate field_name (variable matches field name)
-                    self.output.push_str(&self.camel_to_snake_case(field_name));
+                    self.output.push_str(&camel_to_snake_case(field_name));
                     self.generate_inline_comment(comment);
                 }
                 Argument::StandaloneComment(_, _) => {
@@ -879,7 +861,7 @@ impl CodeGenerator {
                     }
                     Argument::Shorthand(field_name, _) => {
                         // Shorthand behaves like Bare - just generate the identifier
-                        let snake_name = self.camel_to_snake_case(field_name);
+                        let snake_name = camel_to_snake_case(field_name);
                         self.output.push_str(&snake_name);
                     }
                     Argument::Named(_, _, _) => {
@@ -892,7 +874,7 @@ impl CodeGenerator {
                 self.output.push_str(").clone()");
             } else if self.local_functions.contains(name) {
                 // Locally defined function: regular call with snake_case conversion
-                let snake_name = self.camel_to_snake_case(name);
+                let snake_name = camel_to_snake_case(name);
                 self.output.push_str(&snake_name);
                 self.output.push('(');
 
@@ -911,7 +893,7 @@ impl CodeGenerator {
                 self.output.push(')');
             } else if let Some((type_name, original_method)) = self.imports.get(name) {
                 // Imported function/constructor: use UFCS
-                let snake_method = self.camel_to_snake_case(original_method);
+                let snake_method = camel_to_snake_case(original_method);
                 self.output.push_str(type_name);
                 self.output.push_str("::");
                 self.output.push_str(&snake_method);
@@ -959,7 +941,7 @@ impl CodeGenerator {
     fn generate_method_call_expression(&mut self, method_call: &MethodCallExpr) {
         if let Some((type_name, original_method)) = self.imports.get(&method_call.method) {
             // Imported method: use UFCS (explicit imports have highest priority)
-            let snake_method = self.camel_to_snake_case(original_method);
+            let snake_method = camel_to_snake_case(original_method);
             self.output.push_str(type_name);
             self.output.push_str("::");
             self.output.push_str(&snake_method);
@@ -1004,7 +986,7 @@ impl CodeGenerator {
             self.output.push(')');
         } else {
             // Regular method call: obj.method(args)
-            let snake_method = self.camel_to_snake_case(&method_call.method);
+            let snake_method = camel_to_snake_case(&method_call.method);
             self.generate_expression(&method_call.object);
             self.output.push('.');
             self.output.push_str(&snake_method);
@@ -1073,7 +1055,7 @@ impl CodeGenerator {
         self.generate_expression(&field_access.object);
         self.output.push('.');
         self.output
-            .push_str(&self.camel_to_snake_case(&field_access.field));
+            .push_str(&camel_to_snake_case(&field_access.field));
     }
 
     fn uses_bump_allocation(&self, stmt: &Stmt) -> bool {

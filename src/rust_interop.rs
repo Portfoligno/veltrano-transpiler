@@ -11,6 +11,27 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+/// Convert camelCase to snake_case for Rust naming conventions
+pub fn camel_to_snake_case(name: &str) -> String {
+    let mut result = String::new();
+
+    for ch in name.chars() {
+        if ch == '_' {
+            // Underscore becomes double underscore
+            result.push_str("__");
+        } else if ch.is_uppercase() {
+            // Uppercase becomes underscore + lowercase
+            result.push('_');
+            result.push(ch.to_lowercase().next().unwrap_or(ch));
+        } else {
+            // Lowercase stays as is
+            result.push(ch);
+        }
+    }
+
+    result
+}
+
 /// Represents an external Rust item (function, method, or type)
 #[derive(Debug, Clone)]
 pub enum ExternItem {
@@ -108,6 +129,45 @@ pub struct ImportedMethodInfo {
 }
 
 impl RustType {
+    /// Remove reference layers from a Rust type
+    /// Used for method lookup since methods are defined on base types
+    pub fn deref(&self) -> &RustType {
+        match self {
+            RustType::Ref { inner, .. } | RustType::MutRef { inner, .. } => inner.deref(),
+            _ => self,
+        }
+    }
+
+    /// Get the base type name for method lookup
+    /// Recursively removes all reference layers to find where methods are defined
+    pub fn to_type_name_for_lookup(&self) -> String {
+        match self {
+            RustType::Ref { inner, .. } | RustType::MutRef { inner, .. } => {
+                inner.to_type_name_for_lookup()
+            }
+            RustType::I32 => "i32".to_string(),
+            RustType::I64 => "i64".to_string(),
+            RustType::ISize => "isize".to_string(),
+            RustType::U32 => "u32".to_string(),
+            RustType::U64 => "u64".to_string(),
+            RustType::USize => "usize".to_string(),
+            RustType::Bool => "bool".to_string(),
+            RustType::Char => "char".to_string(),
+            RustType::Unit => "()".to_string(),
+            RustType::Never => "!".to_string(),
+            RustType::Str => "str".to_string(),
+            RustType::String => "String".to_string(),
+            RustType::Box(_) => "Box".to_string(),
+            RustType::Rc(_) => "Rc".to_string(),
+            RustType::Arc(_) => "Arc".to_string(),
+            RustType::Vec(_) => "Vec".to_string(),
+            RustType::Option(_) => "Option".to_string(),
+            RustType::Result { .. } => "Result".to_string(),
+            RustType::Custom { name, .. } => name.clone(),
+            RustType::Generic(name) => name.clone(),
+        }
+    }
+
     /// Convert a Rust type to a Veltrano type
     pub fn to_veltrano_type(&self) -> Result<VeltranoType, String> {
         match self {
@@ -124,8 +184,8 @@ impl RustType {
             RustType::Never => Ok(VeltranoType::nothing()),
 
             // String types
-            RustType::Str => Ok(VeltranoType::str()),
-            RustType::String => Ok(VeltranoType::string()),
+            RustType::Str => Ok(VeltranoType::own(VeltranoType::str())), // Rust's str as return type is owned
+            RustType::String => Ok(VeltranoType::own(VeltranoType::string())), // Rust's String is owned
 
             // References
             RustType::Ref { inner, .. } => {
@@ -321,6 +381,10 @@ impl RustInteropRegistry {
         type_path: &str,
         method_name: &str,
     ) -> Result<Option<ImportedMethodInfo>, RustInteropError> {
+        // Convert Veltrano method name (camelCase) to Rust method name (snake_case)
+        let rust_method_name = camel_to_snake_case(method_name);
+        eprintln!("DEBUG: query_dynamic_method_signature - type_path: {}, method_name: {} -> rust_method_name: {}", type_path, method_name, rust_method_name);
+        
         // Parse the type_path to determine which crate it comes from
         // For standard library types like "i64", "String", we assume they're from "std"
         let crate_name = if self.is_stdlib_type(type_path) {
@@ -343,9 +407,9 @@ impl RustInteropRegistry {
         if let Ok(Some(type_info)) = self.dynamic_registry.get_type(&full_type_path) {
             // Look for the method in the type's inherent methods
             for method in &type_info.methods {
-                if method.name == method_name {
+                if method.name == rust_method_name {
                     return Ok(Some(ImportedMethodInfo {
-                        method_name: method.name.clone(),
+                        method_name: method_name.to_string(), // Keep original Veltrano name
                         self_kind: method.self_kind.clone(),
                         parameters: self.convert_parameters(&method.parameters),
                         return_type: self.convert_rust_type_signature(&method.return_type),
@@ -355,9 +419,8 @@ impl RustInteropRegistry {
             }
         }
 
-        // If not found in inherent methods, this is where we'd search trait implementations
-        // For now, return None for methods we can't find
-        Ok(None)
+        // If not found in inherent methods, search trait methods
+        self.query_trait_method_signature(type_path, method_name)
     }
 
     /// Check if a type is a standard library type
@@ -381,6 +444,61 @@ impl RustInteropRegistry {
     /// Convert return type from the dynamic registry format
     fn convert_rust_type_signature(&self, return_type: &RustTypeSignature) -> RustType {
         return_type.parsed.clone().unwrap_or(RustType::Unit)
+    }
+
+    /// Query trait method signature for a type
+    fn query_trait_method_signature(
+        &mut self,
+        type_path: &str,
+        method_name: &str,
+    ) -> Result<Option<ImportedMethodInfo>, RustInteropError> {
+        // Convert Veltrano method name (camelCase) to Rust method name (snake_case)
+        let rust_method_name = camel_to_snake_case(method_name);
+        
+        // Get list of traits implemented by this type
+        let traits = self.dynamic_registry.get_implemented_traits(type_path)?;
+        
+        // Search each trait for the method
+        for trait_name in traits {
+            let trait_path = format!("std::{}", trait_name); // Assuming std library traits
+            
+            if let Ok(Some(trait_info)) = self.dynamic_registry.get_trait(&trait_path) {
+                for method in &trait_info.methods {
+                    if method.name == rust_method_name {
+                        // Found the method in this trait
+                        return Ok(Some(ImportedMethodInfo {
+                            method_name: method_name.to_string(), // Keep original Veltrano name
+                            self_kind: method.self_kind.clone(),
+                            parameters: self.convert_parameters(&method.parameters),
+                            return_type: if method.return_type.raw == "Self" {
+                                // For trait methods returning Self, return the concrete type
+                                // Need to properly map to the correct RustType
+                                match type_path {
+                                    "String" => RustType::String,
+                                    "i32" => RustType::I32,
+                                    "i64" => RustType::I64,
+                                    "isize" => RustType::ISize,
+                                    "u32" => RustType::U32,
+                                    "u64" => RustType::U64,
+                                    "usize" => RustType::USize,
+                                    "bool" => RustType::Bool,
+                                    "char" => RustType::Char,
+                                    _ => RustType::Custom {
+                                        name: type_path.to_string(),
+                                        generics: vec![],
+                                    }
+                                }
+                            } else {
+                                self.convert_rust_type_signature(&method.return_type)
+                            },
+                            trait_name: Some(trait_name.clone()),
+                        }));
+                    }
+                }
+            }
+        }
+        
+        Ok(None)
     }
 }
 
@@ -615,6 +733,117 @@ pub trait RustQuerier: std::fmt::Debug {
     fn priority(&self) -> u32; // Higher priority queriers tried first
 }
 
+/// Standard library querier with minimal hardcoded knowledge
+/// This will be replaced with proper rustdoc parsing in the future
+#[derive(Debug)]
+pub struct StdLibQuerier {
+    cache: Option<CrateInfo>,
+}
+
+impl StdLibQuerier {
+    pub fn new() -> Self {
+        Self { 
+            cache: None,
+        }
+    }
+
+    fn create_std_crate_info(&self) -> CrateInfo {
+        let mut crate_info = CrateInfo {
+            name: "std".to_string(),
+            version: "1.0.0".to_string(),
+            functions: HashMap::new(),
+            types: HashMap::new(),
+            traits: HashMap::new(),
+            trait_implementations: HashMap::new(),
+        };
+
+        // Add Clone trait
+        let clone_trait = TraitInfo {
+            name: "Clone".to_string(),
+            full_path: "std::clone::Clone".to_string(),
+            methods: vec![MethodInfo {
+                name: "clone".to_string(),
+                self_kind: SelfKind::Ref,
+                generics: vec![],
+                parameters: vec![],
+                return_type: RustTypeSignature {
+                    raw: "Self".to_string(),
+                    parsed: None, // Self type
+                    lifetimes: vec![],
+                    bounds: vec![],
+                },
+                is_unsafe: false,
+                is_const: false,
+            }],
+            associated_types: vec![],
+        };
+        // Store with just "Clone" since that's what will be looked up after parse_path("std::Clone")
+        crate_info.traits.insert("Clone".to_string(), clone_trait);
+
+        // Add ToString trait
+        let to_string_trait = TraitInfo {
+            name: "ToString".to_string(),
+            full_path: "std::string::ToString".to_string(),
+            methods: vec![MethodInfo {
+                name: "to_string".to_string(),
+                self_kind: SelfKind::Ref,
+                generics: vec![],
+                parameters: vec![],
+                return_type: RustTypeSignature {
+                    raw: "String".to_string(),
+                    parsed: Some(RustType::String),
+                    lifetimes: vec![],
+                    bounds: vec![],
+                },
+                is_unsafe: false,
+                is_const: false,
+            }],
+            associated_types: vec![],
+        };
+        // Store with just "ToString" since that's what will be looked up after parse_path("std::ToString")
+        crate_info.traits.insert("ToString".to_string(), to_string_trait);
+
+        // Add trait implementations for common types
+        for typ in &["i8", "i16", "i32", "i64", "i128", "isize", 
+                     "u8", "u16", "u32", "u64", "u128", "usize",
+                     "f32", "f64", "bool", "char"] {
+            let mut traits = HashSet::new();
+            traits.insert("Clone".to_string());
+            traits.insert("ToString".to_string());
+            crate_info.trait_implementations.insert(typ.to_string(), traits);
+        }
+
+        // String implements Clone and ToString
+        let mut string_traits = HashSet::new();
+        string_traits.insert("Clone".to_string());
+        string_traits.insert("ToString".to_string());
+        crate_info.trait_implementations.insert("String".to_string(), string_traits);
+
+        crate_info
+    }
+}
+
+impl RustQuerier for StdLibQuerier {
+    fn query_crate(&mut self, crate_name: &str) -> Result<CrateInfo, RustInteropError> {
+        if crate_name == "std" {
+            if self.cache.is_none() {
+                self.cache = Some(self.create_std_crate_info());
+            }
+            Ok(self.cache.as_ref().unwrap().clone())
+        } else {
+            Err(RustInteropError::CrateNotFound(crate_name.to_string()))
+        }
+    }
+
+    fn supports_crate(&self, crate_name: &str) -> bool {
+        crate_name == "std"
+    }
+
+    fn priority(&self) -> u32 {
+        200 // Higher priority than rustdoc and syn queriers
+    }
+}
+
 /// rustdoc JSON-based querier - Phase 1 implementation
 #[derive(Debug)]
 pub struct RustdocQuerier {
@@ -726,6 +955,10 @@ impl DynamicRustRegistry {
         };
 
         // Add queriers in priority order (highest priority first)
+        // First add the standard library querier with built-in knowledge
+        registry.add_querier(Box::new(StdLibQuerier::new()));
+        
+        // Then add general purpose queriers
         registry.add_querier(Box::new(RustdocQuerier::new(None)));
 
         // Add SynQuerier if possible (may fail if not in a Cargo project)
@@ -792,6 +1025,35 @@ impl DynamicRustRegistry {
                 match querier.query_crate(&crate_name) {
                     Ok(crate_info) => {
                         let result = crate_info.types.get(&type_path).cloned();
+                        // Cache the result
+                        self.cache.insert(crate_name, crate_info);
+                        return Ok(result);
+                    }
+                    Err(_) => continue, // Try next querier
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Get trait information by path
+    pub fn get_trait(&mut self, path: &str) -> Result<Option<TraitInfo>, RustInteropError> {
+        let (crate_name, trait_path) = self.parse_path(path)?;
+        let crate_name = crate_name.to_string();
+        let trait_path = trait_path.to_string();
+
+        // Try cache first
+        if let Some(cached) = self.cache.get(&crate_name) {
+            return Ok(cached.traits.get(&trait_path).cloned());
+        }
+
+        // Query dynamically
+        for querier in &mut self.queriers {
+            if querier.supports_crate(&crate_name) {
+                match querier.query_crate(&crate_name) {
+                    Ok(crate_info) => {
+                        let result = crate_info.traits.get(&trait_path).cloned();
                         // Cache the result
                         self.cache.insert(crate_name, crate_info);
                         return Ok(result);
@@ -876,6 +1138,7 @@ impl DynamicRustRegistry {
                 "Eq",
                 "PartialOrd",
                 "Ord",
+                "ToString",
             ]
             .into_iter()
             .map(String::from)
