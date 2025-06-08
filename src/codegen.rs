@@ -469,9 +469,9 @@ impl CodeGenerator {
             // Type constructors
             TypeConstructor::Own => {
                 // Own<T> generates the owned version of T in Rust
-                if let Some(inner) = type_annotation.inner() {
-                    self.generate_owned_version(inner);
-                }
+                let inner = type_annotation.inner()
+                    .expect("Own<T> must have exactly one type argument");
+                self.generate_owned_version(inner);
             }
             TypeConstructor::Ref => {
                 if self.generating_bump_function {
@@ -479,9 +479,9 @@ impl CodeGenerator {
                 } else {
                     self.output.push('&');
                 }
-                if let Some(inner) = type_annotation.inner() {
-                    self.generate_type(inner);
-                }
+                let inner = type_annotation.inner()
+                    .expect("Ref<T> must have exactly one type argument");
+                self.generate_type(inner);
             }
             TypeConstructor::MutRef => {
                 if self.generating_bump_function {
@@ -489,45 +489,46 @@ impl CodeGenerator {
                 } else {
                     self.output.push_str("&mut ");
                 }
-                if let Some(inner) = type_annotation.inner() {
-                    self.generate_type(inner);
-                }
+                let inner = type_annotation.inner()
+                    .expect("MutRef<T> must have exactly one type argument");
+                self.generate_type(inner);
             }
             TypeConstructor::Box => {
                 self.output.push_str("Box<");
-                if let Some(inner) = type_annotation.inner() {
-                    self.generate_type(inner);
-                }
+                let inner = type_annotation.inner()
+                    .expect("Box<T> must have exactly one type argument");
+                self.generate_type(inner);
                 self.output.push('>');
             }
             TypeConstructor::Vec => {
                 self.output.push_str("Vec<");
-                if let Some(inner) = type_annotation.inner() {
-                    self.generate_type(inner);
-                }
+                let inner = type_annotation.inner()
+                    .expect("Vec<T> must have exactly one type argument");
+                self.generate_type(inner);
                 self.output.push('>');
             }
             TypeConstructor::Option => {
                 self.output.push_str("Option<");
-                if let Some(inner) = type_annotation.inner() {
-                    self.generate_type(inner);
-                }
+                let inner = type_annotation.inner()
+                    .expect("Option<T> must have exactly one type argument");
+                self.generate_type(inner);
                 self.output.push('>');
             }
             TypeConstructor::Result => {
                 self.output.push_str("Result<");
-                if type_annotation.args.len() == 2 {
-                    self.generate_type(&type_annotation.args[0]);
-                    self.output.push_str(", ");
-                    self.generate_type(&type_annotation.args[1]);
+                if type_annotation.args.len() != 2 {
+                    panic!("Result<T, E> must have exactly two type arguments, got {}", type_annotation.args.len());
                 }
+                self.generate_type(&type_annotation.args[0]);
+                self.output.push_str(", ");
+                self.generate_type(&type_annotation.args[1]);
                 self.output.push('>');
             }
             TypeConstructor::Array(size) => {
                 self.output.push('[');
-                if let Some(inner) = type_annotation.inner() {
-                    self.generate_type(inner);
-                }
+                let inner = type_annotation.inner()
+                    .expect("Array<T, N> must have exactly one type argument");
+                self.generate_type(inner);
                 self.output.push_str(&format!("; {}]", size));
             }
         }
@@ -567,11 +568,10 @@ impl CodeGenerator {
                         self.output.push_str("<'a>");
                     }
                 }
-                _ => self.generate_type(type_annotation), // Fallback
+                _ => panic!("Unexpected naturally referenced type: {:?}", type_annotation.constructor),
             }
         } else {
-            // For naturally owned types, generate normally
-            self.generate_type(type_annotation);
+            panic!("Own<T> should only be used with naturally referenced types, got: {:?}", type_annotation.constructor);
         }
     }
 
@@ -594,15 +594,15 @@ impl CodeGenerator {
             // Type constructors that need special handling in data classes
             TypeConstructor::Ref => {
                 self.output.push_str("&'a ");
-                if let Some(inner) = type_annotation.inner() {
-                    self.generate_type(inner);
-                }
+                let inner = type_annotation.inner()
+                    .expect("Ref<T> must have exactly one type argument");
+                self.generate_type(inner);
             }
             TypeConstructor::MutRef => {
                 self.output.push_str("&'a mut ");
-                if let Some(inner) = type_annotation.inner() {
-                    self.generate_type(inner);
-                }
+                let inner = type_annotation.inner()
+                    .expect("MutRef<T> must have exactly one type argument");
+                self.generate_type(inner);
             }
             // For other types, use normal generation
             _ => self.generate_type(type_annotation),

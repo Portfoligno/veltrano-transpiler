@@ -118,6 +118,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 🔧 Development Workflow
 
+### Code Quality Principles
+
+#### Fail-Fast Behavior
+- **Prefer explicit panics over silent failures** - when code reaches an impossible state
+- **Use `panic!()` for "should never happen" scenarios** rather than fallback logic
+- **Example cases for panics:**
+  - Type system inconsistencies (unexpected type constructors)
+  - Invalid invariants (Own<T> used with naturally owned types)
+  - Unreachable code paths that indicate bugs
+- **Benefits:** Catches bugs early, makes assumptions explicit, prevents silent corruption
+- **When NOT to panic:** User input validation, external API failures, recoverable errors
+
 ### Code Formatting
 
 #### Rust Code Formatting
