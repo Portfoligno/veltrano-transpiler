@@ -557,9 +557,21 @@ impl BuiltinRegistry {
         receiver_type: &VeltranoType,
         trait_checker: &mut RustInteropRegistry,
     ) -> bool {
-        let rust_type_name = receiver_type.to_rust_type_name();
+        // For trait methods, we need to look up the method on the underlying type
+        // For example, Ref<I64>.to_string() should look up to_string on i64, not &i64
+        let lookup_type_name = match &receiver_type.constructor {
+            TypeConstructor::Ref | TypeConstructor::MutRef => {
+                // For reference types, look up the method on the inner type
+                if let Some(inner) = receiver_type.inner() {
+                    inner.to_rust_type_name()
+                } else {
+                    receiver_type.to_rust_type_name()
+                }
+            }
+            _ => receiver_type.to_rust_type_name()
+        };
         
-        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type_name, method_name) {
+        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&lookup_type_name, method_name) {
             // Check if the Veltrano receiver type can provide the required Rust access
             self.receiver_can_provide_rust_access_for_imported(
                 receiver_type,
@@ -578,9 +590,20 @@ impl BuiltinRegistry {
         receiver_type: &VeltranoType,
         trait_checker: &mut RustInteropRegistry,
     ) -> Option<VeltranoType> {
-        let rust_type_name = receiver_type.to_rust_type_name();
+        // Use same lookup logic as is_imported_method_available
+        let lookup_type_name = match &receiver_type.constructor {
+            TypeConstructor::Ref | TypeConstructor::MutRef => {
+                // For reference types, look up the method on the inner type
+                if let Some(inner) = receiver_type.inner() {
+                    inner.to_rust_type_name()
+                } else {
+                    receiver_type.to_rust_type_name()
+                }
+            }
+            _ => receiver_type.to_rust_type_name()
+        };
         
-        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type_name, method_name) {
+        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&lookup_type_name, method_name) {
             // Check if the receiver can provide the required access
             if self.receiver_can_provide_rust_access_for_imported(
                 receiver_type,
