@@ -30,6 +30,8 @@ fn test_owned_to_borrowed_suggestion() {
 
 #[test]
 fn test_owned_string_to_str_suggestion() {
+    // Str to String conversions are no longer a special case
+    // This test now expects no suggestion to be provided
     let error = TypeCheckError::TypeMismatch {
         expected: VeltranoType::str(),                     // Str
         actual: VeltranoType::own(VeltranoType::string()), // Own<String>
@@ -45,15 +47,17 @@ fn test_owned_string_to_str_suggestion() {
     let enhanced = analyzer.enhance_error(error);
 
     match enhanced {
-        TypeCheckError::TypeMismatchWithSuggestion { suggestion, .. } => {
-            assert_eq!(suggestion, ".ref().ref()");
+        TypeCheckError::TypeMismatch { .. } => {
+            // Good, no suggestion provided
         }
-        _ => panic!("Should have been enhanced with .ref().ref() suggestion"),
+        _ => panic!("Should not have provided a suggestion for Str/String conversion"),
     }
 }
 
 #[test]
 fn test_borrowed_string_to_str_suggestion() {
+    // Str to String conversions are no longer a special case
+    // This test now expects no suggestion to be provided
     let error = TypeCheckError::TypeMismatch {
         expected: VeltranoType::str(),  // Str
         actual: VeltranoType::string(), // String (naturally referenced)
@@ -69,10 +73,10 @@ fn test_borrowed_string_to_str_suggestion() {
     let enhanced = analyzer.enhance_error(error);
 
     match enhanced {
-        TypeCheckError::TypeMismatchWithSuggestion { suggestion, .. } => {
-            assert_eq!(suggestion, ".ref()");
+        TypeCheckError::TypeMismatch { .. } => {
+            // Good, no suggestion provided
         }
-        _ => panic!("Should have been enhanced with .ref() suggestion"),
+        _ => panic!("Should not have provided a suggestion for Str/String conversion"),
     }
 }
 

@@ -554,10 +554,9 @@ impl CodeGenerator {
         use crate::type_checker::TypeConstructor;
 
         match &type_annotation.constructor {
-            // Special case: Str -> String (owned version of string slice)
             TypeConstructor::Str => {
-                self.output.push_str("String");
-                VeltranoType::string()
+                self.output.push_str("Str");
+                type_annotation.clone()
             }
             // Use trait checking to determine if this is naturally referenced
             _ if type_annotation.args.is_empty() => {

@@ -1255,24 +1255,6 @@ impl ErrorAnalyzer {
             }
         }
 
-        // Pattern 3: String to Str conversion
-        if expected.constructor == TypeConstructor::Str
-            && actual.constructor == TypeConstructor::String
-        {
-            return Some(".ref()".to_string());
-        }
-
-        // Pattern 4: Own<String> to Str (remove ownership then convert to str)
-        if expected.constructor == TypeConstructor::Str
-            && actual.constructor == TypeConstructor::Own
-        {
-            if let Some(inner) = actual.inner() {
-                if inner.constructor == TypeConstructor::String {
-                    return Some(".ref().ref()".to_string());
-                }
-            }
-        }
-
         // Pattern 5: Vec<T> to slice conversion -> .toSlice()
         if actual.constructor == TypeConstructor::Vec
             && expected.constructor == TypeConstructor::Ref
