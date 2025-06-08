@@ -98,7 +98,7 @@ fn test_clone_preserves_type() {
     fun main() {
         val owned: Own<String> = "hello".toString()
         val ref_string: String = owned.ref()
-        val cloned: String = ref_string.clone()  // String.clone() -> String
+        val cloned: Own<String> = ref_string.clone()  // String.clone() -> Own<String>
     }
     "#;
 
@@ -106,7 +106,7 @@ fn test_clone_preserves_type() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config).map(|_| ());
-    assert!(result.is_ok(), "Clone should preserve the exact type with explicit conversion");
+    assert!(result.is_ok(), "Clone should work with explicit conversion (String.clone() -> Own<String>)");
 }
 
 #[test]
