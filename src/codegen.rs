@@ -1,6 +1,6 @@
 use crate::ast::*;
 use crate::config::Config;
-use crate::rust_interop;
+use crate::rust_interop::RustInteropRegistry;
 use crate::type_checker::VeltranoType;
 use std::collections::{HashMap, HashSet};
 
@@ -13,7 +13,7 @@ pub struct CodeGenerator {
     data_classes_with_lifetime: HashSet<String>, // Track data classes that need lifetime parameters
     data_classes: HashSet<String>,              // Track all data classes
     generating_bump_function: bool, // Track when generating function with bump parameter
-    trait_checker: rust_interop::RustInteropRegistry, // For trait-based type checking
+    trait_checker: RustInteropRegistry, // For trait-based type checking
     config: Config,
 }
 
@@ -28,7 +28,7 @@ impl CodeGenerator {
             data_classes_with_lifetime: HashSet::new(),
             data_classes: HashSet::new(),
             generating_bump_function: false,
-            trait_checker: rust_interop::RustInteropRegistry::new(),
+            trait_checker: RustInteropRegistry::new(),
             config,
         }
     }

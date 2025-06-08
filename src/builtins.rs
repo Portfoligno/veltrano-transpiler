@@ -1,6 +1,7 @@
 /// Centralized built-in functions and methods for Veltrano
 /// This module consolidates all built-in function definitions that were previously
 /// scattered across codegen.rs, rust_interop.rs, and implicit in type checking
+use crate::rust_interop::RustInteropRegistry;
 use crate::type_checker::{FunctionSignature, MethodSignature, TypeConstructor, VeltranoType};
 use std::collections::HashMap;
 
@@ -246,7 +247,7 @@ impl BuiltinRegistry {
     pub fn get_method_signatures_for_type(
         &self,
         receiver_type: &VeltranoType,
-        trait_checker: &mut crate::rust_interop::RustInteropRegistry,
+        trait_checker: &mut RustInteropRegistry,
     ) -> Vec<MethodSignature> {
         let mut signatures = Vec::new();
 
@@ -284,7 +285,7 @@ impl BuiltinRegistry {
         &self,
         method_name: &str,
         receiver_type: &VeltranoType,
-        trait_checker: &mut crate::rust_interop::RustInteropRegistry,
+        trait_checker: &mut RustInteropRegistry,
     ) -> bool {
         if let Some(method_variants) = self.methods.get(method_name) {
             for method_kind in method_variants {
@@ -301,7 +302,7 @@ impl BuiltinRegistry {
         &self,
         method_name: &str,
         receiver_type: &VeltranoType,
-        trait_checker: &mut crate::rust_interop::RustInteropRegistry,
+        trait_checker: &mut RustInteropRegistry,
     ) -> Option<VeltranoType> {
         if let Some(method_variants) = self.methods.get(method_name) {
             for method_kind in method_variants {
@@ -322,7 +323,7 @@ impl BuiltinRegistry {
         &self,
         method_kind: &BuiltinMethodKind,
         receiver_type: &VeltranoType,
-        trait_checker: &mut crate::rust_interop::RustInteropRegistry,
+        trait_checker: &mut RustInteropRegistry,
     ) -> bool {
         match method_kind {
             BuiltinMethodKind::TraitMethod { required_trait, .. } => {
@@ -344,7 +345,7 @@ impl BuiltinRegistry {
         &self,
         filter: &TypeFilter,
         receiver_type: &VeltranoType,
-        trait_checker: &mut crate::rust_interop::RustInteropRegistry,
+        trait_checker: &mut RustInteropRegistry,
     ) -> bool {
         match filter {
             TypeFilter::All => true,
@@ -365,7 +366,7 @@ impl BuiltinRegistry {
         &self,
         method_kind: &BuiltinMethodKind,
         receiver_type: &VeltranoType,
-        trait_checker: &mut crate::rust_interop::RustInteropRegistry,
+        trait_checker: &mut RustInteropRegistry,
     ) -> VeltranoType {
         let strategy = match method_kind {
             BuiltinMethodKind::TraitMethod {

@@ -1,5 +1,5 @@
 use crate::ast::*;
-use crate::rust_interop;
+use crate::rust_interop::RustInteropRegistry;
 use std::collections::HashMap;
 
 /// A type in the Veltrano type system supporting higher-kinded types
@@ -254,7 +254,7 @@ impl VeltranoType {
     }
 
     /// Check if this type implements Copy trait (should be naturally owned/value types)
-    pub fn implements_copy(&self, trait_checker: &mut rust_interop::RustInteropRegistry) -> bool {
+    pub fn implements_copy(&self, trait_checker: &mut RustInteropRegistry) -> bool {
         // Only base types (no type arguments) can implement Copy directly
         if !self.args.is_empty() {
             return false;
@@ -269,25 +269,19 @@ impl VeltranoType {
     }
 
     /// Check if this is a naturally owned type (Copy types)
-    pub fn is_naturally_owned(
-        &self,
-        trait_checker: &mut rust_interop::RustInteropRegistry,
-    ) -> bool {
+    pub fn is_naturally_owned(&self, trait_checker: &mut RustInteropRegistry) -> bool {
         self.implements_copy(trait_checker)
     }
 
     /// Check if this is a naturally referenced type (non-Copy types by default)
-    pub fn is_naturally_referenced(
-        &self,
-        trait_checker: &mut rust_interop::RustInteropRegistry,
-    ) -> bool {
+    pub fn is_naturally_referenced(&self, trait_checker: &mut RustInteropRegistry) -> bool {
         !self.is_naturally_owned(trait_checker) && self.args.is_empty()
     }
 
     /// Validate if Own<T> type constructor is valid with the given inner type
     pub fn validate_own_constructor(
         inner: &VeltranoType,
-        trait_checker: &mut rust_interop::RustInteropRegistry,
+        trait_checker: &mut RustInteropRegistry,
     ) -> Result<(), String> {
         // Check if the inner type implements Copy (is naturally owned)
         let is_copy = inner.is_naturally_owned(trait_checker);
@@ -518,14 +512,14 @@ impl TypeEnvironment {
 /// Main type checker with strict type checking (no implicit conversions)
 pub struct VeltranoTypeChecker {
     env: TypeEnvironment,
-    trait_checker: rust_interop::RustInteropRegistry,
+    trait_checker: RustInteropRegistry,
 }
 
 impl VeltranoTypeChecker {
     pub fn new() -> Self {
         let mut checker = Self {
             env: TypeEnvironment::new(),
-            trait_checker: rust_interop::RustInteropRegistry::new(),
+            trait_checker: RustInteropRegistry::new(),
         };
 
         // Initialize built-in functions and methods
