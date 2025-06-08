@@ -126,6 +126,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Code Quality Principles
 
+#### Prioritize Proper System Design Over Quick Fixes
+- **Always implement the correct architecture first** - Avoid hardcoding data that should be dynamically queried
+- **Resist shortcuts that create technical debt** - Quick fixes often become permanent problems
+- **When facing complex system integrations:**
+  - First understand what the ideal solution would be
+  - Research available tools, APIs, and existing infrastructure
+  - Design the system to be extensible and maintainable
+  - Implement proper abstractions even if they take longer initially
+- **Common anti-patterns to avoid:**
+  - Hardcoding external API responses or metadata
+  - Duplicating information that exists elsewhere in the system
+  - Creating "temporary" workarounds without clear migration paths
+  - Building rigid systems that can't adapt to new requirements
+- **Better approaches:**
+  - Design plugin-based architectures for extensibility
+  - Query authoritative sources for dynamic information
+  - Build proper abstraction layers between components
+  - Create clear interfaces that can evolve over time
+  - Document assumptions and future improvement paths
+
 #### Fail-Fast Behavior
 - **Prefer explicit panics over silent failures** - when code reaches an impossible state
 - **Use `panic!()` for "should never happen" scenarios** rather than fallback logic
