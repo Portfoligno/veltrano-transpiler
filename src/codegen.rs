@@ -470,7 +470,7 @@ impl CodeGenerator {
             TypeConstructor::Own => {
                 // Own<T> generates the owned version of T in Rust
                 if let Some(inner) = type_annotation.inner() {
-                    let _ = self.generate_owned_type(inner);
+                    self.generate_owned_version(inner);
                 }
             }
             TypeConstructor::Ref => {
@@ -549,51 +549,29 @@ impl CodeGenerator {
         }
     }
 
-    // Generate owned version of a type (strips references for naturally referenced types)
-    fn generate_owned_type(&mut self, type_annotation: &VeltranoType) -> VeltranoType {
+    /// Generate the owned version of a type (for Own<T> -> T conversion)
+    /// For naturally referenced types, this strips the & prefix
+    fn generate_owned_version(&mut self, type_annotation: &VeltranoType) {
         use crate::type_checker::TypeConstructor;
 
-        match &type_annotation.constructor {
-            TypeConstructor::Str => {
-                self.output.push_str("Str");
-                type_annotation.clone()
-            }
-            // Use trait checking to determine if this is naturally referenced
-            _ if type_annotation.args.is_empty() => {
-                if type_annotation.is_naturally_referenced(&mut self.trait_checker) {
-                    // For naturally referenced types, generate the owned version
-                    match &type_annotation.constructor {
-                        TypeConstructor::String => {
-                            self.output.push_str("String");
-                            type_annotation.clone()
-                        }
-                        TypeConstructor::Custom(name) => {
-                            self.output.push_str(name);
-                            // Add lifetime parameter for custom types in bump functions if they need lifetime
-                            if self.generating_bump_function
-                                && self.data_classes_with_lifetime.contains(name)
-                            {
-                                self.output.push_str("<'a>");
-                            }
-                            type_annotation.clone()
-                        }
-                        _ => {
-                            // Fallback: generate the type as-is
-                            self.generate_type(type_annotation);
-                            type_annotation.clone()
-                        }
+        if type_annotation.is_naturally_referenced(&mut self.trait_checker) {
+            // For naturally referenced types, generate without the & prefix
+            match &type_annotation.constructor {
+                TypeConstructor::String => self.output.push_str("String"),
+                TypeConstructor::Str => self.output.push_str("str"),
+                TypeConstructor::Custom(name) => {
+                    self.output.push_str(name);
+                    if self.generating_bump_function
+                        && self.data_classes_with_lifetime.contains(name)
+                    {
+                        self.output.push_str("<'a>");
                     }
-                } else {
-                    // For naturally owned types, generate as-is
-                    self.generate_type(type_annotation);
-                    type_annotation.clone()
                 }
+                _ => self.generate_type(type_annotation), // Fallback
             }
-            // For other types, use normal generation (they're already owned)
-            _ => {
-                self.generate_type(type_annotation);
-                type_annotation.clone()
-            }
+        } else {
+            // For naturally owned types, generate normally
+            self.generate_type(type_annotation);
         }
     }
 
