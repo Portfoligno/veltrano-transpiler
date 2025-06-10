@@ -148,8 +148,8 @@ fn test_error_analyzer_suggestions() {
         location: SourceLocation {
             file: "test.vl".to_string(),
             line: 1,
-            column: 1,
-            source_line: "test".to_string(),
+            _column: 1,
+            _source_line: "test".to_string(),
         },
     };
 

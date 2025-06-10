@@ -2,7 +2,7 @@
 /// This module consolidates all built-in function definitions that were previously
 /// scattered across codegen.rs, rust_interop.rs, and implicit in type checking
 use crate::rust_interop::{RustInteropRegistry, SelfKind};
-use crate::types::{FunctionSignature, MethodSignature, TypeConstructor, VeltranoType};
+use crate::types::{FunctionSignature, TypeConstructor, VeltranoType};
 use std::collections::HashMap;
 
 /// Categories of built-in functions
@@ -46,12 +46,8 @@ pub enum MethodReturnTypeStrategy {
     RefToReceiver,
     /// Return a mutable reference to the receiver type
     MutRefToReceiver,
-    /// Return an owned version (Own<T> for naturally referenced types, T for value types)
-    OwnedVersion,
     /// Return a specific type regardless of receiver
     FixedType(VeltranoType),
-    /// For clone: return owned version based on trait checking
-    CloneSemantics,
     /// For ref(): Own<T> → T, T → Ref<T>
     RefSemantics,
 }
@@ -63,8 +59,6 @@ pub enum TypeFilter {
     All,
     /// Method applies only to specific type constructors
     TypeConstructors(Vec<TypeConstructor>),
-    /// Method applies only to types that implement a specific trait
-    HasTrait(String),
 }
 
 /// Registry for all built-in functions and methods
@@ -195,26 +189,6 @@ impl BuiltinRegistry {
             .push(method_kind);
     }
 
-    /// Check if a function is a built-in
-    pub fn is_builtin_function(&self, name: &str) -> bool {
-        self.functions.contains_key(name)
-    }
-
-    /// Get built-in function kind
-    pub fn get_builtin_function(&self, name: &str) -> Option<&BuiltinFunctionKind> {
-        self.functions.get(name)
-    }
-
-    /// Check if a method is a built-in
-    pub fn is_builtin_method(&self, name: &str) -> bool {
-        self.methods.contains_key(name)
-    }
-
-    /// Get built-in method variants
-    pub fn get_builtin_methods(&self, name: &str) -> Option<&Vec<BuiltinMethodKind>> {
-        self.methods.get(name)
-    }
-
     /// Check if a function is a Rust macro (skips type checking)
     pub fn is_rust_macro(&self, name: &str) -> bool {
         if let Some(BuiltinFunctionKind::RustMacro { .. }) = self.functions.get(name) {
@@ -248,72 +222,6 @@ impl BuiltinRegistry {
         }
 
         signatures
-    }
-
-    /// Get method signatures for a specific receiver type (with trait checking)
-    pub fn get_method_signatures_for_type(
-        &self,
-        receiver_type: &VeltranoType,
-        trait_checker: &mut RustInteropRegistry,
-    ) -> Vec<MethodSignature> {
-        let mut signatures = Vec::new();
-
-        for (_method_name, method_variants) in &self.methods {
-            for method_kind in method_variants {
-                if self.method_matches_receiver(method_kind, receiver_type, trait_checker) {
-                    let method_name = match method_kind {
-                        BuiltinMethodKind::TraitMethod { method_name, .. } => method_name,
-                        BuiltinMethodKind::SpecialMethod { method_name, .. } => method_name,
-                    };
-
-                    let parameters = match method_kind {
-                        BuiltinMethodKind::TraitMethod { .. } => {
-                            // For trait methods, try to get parameters from dynamic lookup
-                            self.get_dynamic_method_parameters(
-                                method_name,
-                                receiver_type,
-                                trait_checker,
-                            )
-                            .unwrap_or_else(|| vec![]) // Default to empty if lookup fails
-                        }
-                        BuiltinMethodKind::SpecialMethod { parameters, .. } => parameters.clone(),
-                    };
-
-                    let return_type =
-                        self.compute_return_type(method_kind, receiver_type, trait_checker);
-
-                    signatures.push(MethodSignature {
-                        name: method_name.clone(),
-                        receiver_type: receiver_type.clone(),
-                        parameters,
-                        return_type,
-                    });
-                }
-            }
-        }
-
-        signatures
-    }
-
-    /// Check if a method is available on a given receiver type (with trait checking)
-    /// This checks both built-in methods and imported methods
-    pub fn is_method_available(
-        &self,
-        method_name: &str,
-        receiver_type: &VeltranoType,
-        trait_checker: &mut RustInteropRegistry,
-    ) -> bool {
-        // First check built-in methods
-        if let Some(method_variants) = self.methods.get(method_name) {
-            for method_kind in method_variants {
-                if self.method_matches_receiver(method_kind, receiver_type, trait_checker) {
-                    return true;
-                }
-            }
-        }
-
-        // If not found in built-ins, check imported methods
-        self.is_imported_method_available(method_name, receiver_type, trait_checker)
     }
 
     /// Get the return type for a method call (with trait checking)
@@ -454,27 +362,16 @@ impl BuiltinRegistry {
             BuiltinMethodKind::SpecialMethod {
                 receiver_type_filter,
                 ..
-            } => self.type_filter_matches(receiver_type_filter, receiver_type, trait_checker),
+            } => self.type_filter_matches(receiver_type_filter, receiver_type),
         }
     }
 
     /// Check if a type filter matches the receiver type
-    fn type_filter_matches(
-        &self,
-        filter: &TypeFilter,
-        receiver_type: &VeltranoType,
-        trait_checker: &mut RustInteropRegistry,
-    ) -> bool {
+    fn type_filter_matches(&self, filter: &TypeFilter, receiver_type: &VeltranoType) -> bool {
         match filter {
             TypeFilter::All => true,
             TypeFilter::TypeConstructors(constructors) => {
                 constructors.contains(&receiver_type.constructor)
-            }
-            TypeFilter::HasTrait(trait_name) => {
-                let rust_type = receiver_type.to_rust_type(trait_checker);
-                trait_checker
-                    .type_implements_trait(&rust_type, trait_name)
-                    .unwrap_or(false)
             }
         }
     }
@@ -514,40 +411,7 @@ impl BuiltinRegistry {
             MethodReturnTypeStrategy::MutRefToReceiver => {
                 VeltranoType::mut_ref(receiver_type.clone())
             }
-            MethodReturnTypeStrategy::OwnedVersion => {
-                if !receiver_type.implements_copy(trait_checker) {
-                    VeltranoType::own(receiver_type.clone())
-                } else {
-                    receiver_type.clone() // Already owned for value types
-                }
-            }
             MethodReturnTypeStrategy::FixedType(fixed_type) => fixed_type.clone(),
-            MethodReturnTypeStrategy::CloneSemantics => {
-                // Clone semantics: unwrap reference types, wrap naturally referenced types
-                // Ref<T>.clone() -> T, T.clone() -> Own<T>
-                // Note: Own<T>.clone() is not possible due to explicit conversion enforcement
-                match &receiver_type.constructor {
-                    TypeConstructor::Ref | TypeConstructor::MutRef => {
-                        // Ref<T>.clone() or MutRef<T>.clone() returns T
-                        if let Some(inner) = receiver_type.inner() {
-                            inner.clone()
-                        } else {
-                            // Fallback to receiver type if no inner type
-                            receiver_type.clone()
-                        }
-                    }
-                    _ => {
-                        // T.clone() returns Own<T> for naturally referenced types, T for value types
-                        if receiver_type.implements_copy(trait_checker) {
-                            // Value types (I64, Bool, etc.) return themselves
-                            receiver_type.clone()
-                        } else {
-                            // Naturally referenced types (String, etc.) return Own<T>
-                            VeltranoType::own(receiver_type.clone())
-                        }
-                    }
-                }
-            }
             MethodReturnTypeStrategy::RefSemantics => {
                 // Implement correct ref() semantics:
                 // Own<T> → T, T → Ref<T>, MutRef<T> → Ref<MutRef<T>>
@@ -565,31 +429,6 @@ impl BuiltinRegistry {
                     _ => VeltranoType::ref_(receiver_type.clone()),
                 }
             }
-        }
-    }
-
-    /// Check if an imported method is available on the receiver type
-    fn is_imported_method_available(
-        &self,
-        method_name: &str,
-        receiver_type: &VeltranoType,
-        trait_checker: &mut RustInteropRegistry,
-    ) -> bool {
-        // For trait methods, we need to look up the method on the underlying type
-        // For example, Ref<I64>.to_string() should look up to_string on i64, not &i64
-        // Get the appropriate type for method lookup
-        let rust_type = receiver_type.to_rust_type(trait_checker);
-
-        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name)
-        {
-            // Check if the Veltrano receiver type can provide the required Rust access
-            self.receiver_can_provide_rust_access_for_imported(
-                receiver_type,
-                &method_info.self_kind,
-                trait_checker,
-            )
-        } else {
-            false
         }
     }
 
@@ -628,13 +467,15 @@ impl BuiltinRegistry {
                         }
                         _ => {
                             // For other types, use normal conversion
-                            if let Ok(veltrano_return_type) = method_info.return_type.to_veltrano_type() {
+                            if let Ok(veltrano_return_type) =
+                                method_info.return_type.to_veltrano_type()
+                            {
                                 return Some(veltrano_return_type);
                             }
                         }
                     }
                 }
-                
+
                 // For non-clone methods, use normal conversion
                 if let Ok(veltrano_return_type) = method_info.return_type.to_veltrano_type() {
                     return Some(veltrano_return_type);
@@ -678,30 +519,6 @@ impl BuiltinRegistry {
                 // Associated function - no receiver check needed
                 true
             }
-        }
-    }
-
-    /// Get dynamic method parameters from Rust interop system
-    fn get_dynamic_method_parameters(
-        &self,
-        method_name: &str,
-        receiver_type: &VeltranoType,
-        trait_checker: &mut RustInteropRegistry,
-    ) -> Option<Vec<VeltranoType>> {
-        let rust_type = receiver_type.to_rust_type(trait_checker);
-
-        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name)
-        {
-            // Convert Rust parameter types to Veltrano types
-            let mut veltrano_params = Vec::new();
-            for rust_param in &method_info.parameters {
-                if let Ok(veltrano_type) = rust_param.to_veltrano_type() {
-                    veltrano_params.push(veltrano_type);
-                }
-            }
-            Some(veltrano_params)
-        } else {
-            None
         }
     }
 
@@ -753,7 +570,7 @@ impl BuiltinRegistry {
                     }
                 }
             }
-            
+
             // For non-clone methods, use normal conversion
             method_info.return_type.to_veltrano_type().ok()
         } else {

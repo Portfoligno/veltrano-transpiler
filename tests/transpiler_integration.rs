@@ -1,5 +1,4 @@
 use std::fs;
-use veltrano::codegen::CodeGenerator;
 use veltrano::config::Config;
 use veltrano::rust_interop::camel_to_snake_case;
 

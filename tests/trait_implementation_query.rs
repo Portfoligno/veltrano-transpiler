@@ -5,21 +5,23 @@ fn test_built_in_type_trait_implementations() {
     let mut registry = DynamicRustRegistry::new();
 
     // Test primitive types implement Clone
-    assert!(registry.type_implements_trait("i32", "Clone").unwrap());
-    assert!(registry.type_implements_trait("bool", "Clone").unwrap());
-    assert!(registry.type_implements_trait("()", "Clone").unwrap());
+    assert!(registry._type_implements_trait("i32", "Clone").unwrap());
+    assert!(registry._type_implements_trait("bool", "Clone").unwrap());
+    assert!(registry._type_implements_trait("()", "Clone").unwrap());
 
     // Test String implements Clone and ToString
-    assert!(registry.type_implements_trait("String", "Clone").unwrap());
+    assert!(registry._type_implements_trait("String", "Clone").unwrap());
     assert!(registry
-        .type_implements_trait("String", "ToString")
+        ._type_implements_trait("String", "ToString")
         .unwrap());
-    assert!(registry.type_implements_trait("String", "Display").unwrap());
+    assert!(registry
+        ._type_implements_trait("String", "Display")
+        .unwrap());
 
     // Test &str doesn't implement Clone but does implement Display
-    assert!(!registry.type_implements_trait("&str", "Clone").unwrap());
-    assert!(registry.type_implements_trait("&str", "Display").unwrap());
-    assert!(registry.type_implements_trait("&str", "ToString").unwrap());
+    assert!(!registry._type_implements_trait("&str", "Clone").unwrap());
+    assert!(registry._type_implements_trait("&str", "Display").unwrap());
+    assert!(registry._type_implements_trait("&str", "ToString").unwrap());
 }
 
 #[test]

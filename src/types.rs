@@ -234,17 +234,6 @@ impl VeltranoType {
     /// Convert this VeltranoType to its corresponding Rust type name
     /// This method requires a trait checker to determine if types implement Copy
 
-    /// Get the ultimate base type constructor (recursively unwrap constructors)
-    pub fn get_base_constructor(&self) -> &TypeConstructor {
-        if self.args.is_empty() {
-            &self.constructor
-        } else if let Some(inner) = self.inner() {
-            inner.get_base_constructor()
-        } else {
-            &self.constructor
-        }
-    }
-
     /// Convert VeltranoType to RustType
     pub fn to_rust_type(
         &self,
@@ -444,7 +433,7 @@ pub struct FunctionSignature {
 
 /// Method signature for type checking
 #[derive(Debug, Clone)]
-pub struct MethodSignature {
+pub struct _MethodSignature {
     pub name: String,
     pub receiver_type: VeltranoType,
     pub parameters: Vec<VeltranoType>,
@@ -456,14 +445,14 @@ pub struct MethodSignature {
 pub struct SourceLocation {
     pub file: String,
     pub line: usize,
-    pub column: usize,
-    pub source_line: String,
+    pub _column: usize,
+    pub _source_line: String,
 }
 
 /// Data class definition with field information
 #[derive(Debug, Clone)]
 pub struct DataClassDefinition {
-    pub name: String,
+    pub _name: String,
     pub fields: Vec<DataClassFieldSignature>,
 }
 

@@ -1002,7 +1002,7 @@ fn test_realistic_transpiler_workflow() {
     let mut registry = DynamicRustRegistry::new();
 
     // Step 1: Try to resolve a common function call
-    let result = registry.get_function("std::println");
+    let result = registry._get_function("std::println");
     match result {
         Ok(Some(func_info)) => {
             println!("Found println: {:?}", func_info);
@@ -1032,7 +1032,7 @@ fn test_realistic_transpiler_workflow() {
     }
 
     // Step 3: Test fallback behavior when crate doesn't exist
-    let bad_result = registry.get_function("nonexistent::function");
+    let bad_result = registry._get_function("nonexistent::function");
     match bad_result {
         Ok(None) => {
             println!("✓ Correctly returned None for nonexistent function");

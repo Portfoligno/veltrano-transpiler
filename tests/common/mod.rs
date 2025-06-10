@@ -90,8 +90,8 @@ fn default_source_location() -> veltrano::types::SourceLocation {
     veltrano::types::SourceLocation {
         file: "test".to_string(),
         line: 0,
-        column: 0,
-        source_line: "".to_string(),
+        _column: 0,
+        _source_line: "".to_string(),
     }
 }
 

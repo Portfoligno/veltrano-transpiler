@@ -37,20 +37,20 @@ pub fn camel_to_snake_case(name: &str) -> String {
 pub enum ExternItem {
     Function {
         name: String,
-        path: String, // Full Rust path e.g., "std::vec::Vec::new"
-        params: Vec<(String, RustType)>,
-        return_type: RustType,
-        is_unsafe: bool,
+        _path: String, // Full Rust path e.g., "std::vec::Vec::new"
+        _params: Vec<(String, RustType)>,
+        _return_type: RustType,
+        _is_unsafe: bool,
     },
     Method {
         type_name: String,
         method_name: String,
-        self_kind: SelfKind,
-        params: Vec<(String, RustType)>,
-        return_type: RustType,
-        is_unsafe: bool,
+        _self_kind: SelfKind,
+        _params: Vec<(String, RustType)>,
+        _return_type: RustType,
+        _is_unsafe: bool,
     },
-    Type {
+    _Type {
         name: String,
         rust_path: String,
         generic_params: Vec<String>,
@@ -121,23 +121,14 @@ pub enum RustType {
 /// Information about an imported method with full signature details
 #[derive(Debug, Clone)]
 pub struct ImportedMethodInfo {
-    pub method_name: String,
+    pub _method_name: String,
     pub self_kind: SelfKind,
-    pub parameters: Vec<RustType>,
+    pub _parameters: Vec<RustType>,
     pub return_type: RustType, // The actual parsed return type from Rust
-    pub trait_name: Option<String>, // Which trait this method comes from (if any)
+    pub _trait_name: Option<String>, // Which trait this method comes from (if any)
 }
 
 impl RustType {
-    /// Remove reference layers from a Rust type
-    /// Used for method lookup since methods are defined on base types
-    pub fn deref(&self) -> &RustType {
-        match self {
-            RustType::Ref { inner, .. } | RustType::MutRef { inner, .. } => inner.deref(),
-            _ => self,
-        }
-    }
-
     /// Convert RustType to its string representation for crate info queries
     /// This preserves references and is only used at the lowest level
     pub fn to_crate_query_string(&self) -> String {
@@ -277,42 +268,42 @@ impl RustInteropRegistry {
         // println! macro
         self.register(ExternItem::Function {
             name: "println".to_string(),
-            path: "std::println!".to_string(),
-            params: vec![(
+            _path: "std::println!".to_string(),
+            _params: vec![(
                 "format".to_string(),
                 RustType::Ref {
                     lifetime: None,
                     inner: Box::new(RustType::Str),
                 },
             )],
-            return_type: RustType::Unit,
-            is_unsafe: false,
+            _return_type: RustType::Unit,
+            _is_unsafe: false,
         });
 
         // Vec::new
         self.register(ExternItem::Method {
             type_name: "Vec".to_string(),
             method_name: "new".to_string(),
-            self_kind: SelfKind::None,
-            params: vec![],
-            return_type: RustType::Vec(Box::new(RustType::Generic("T".to_string()))),
-            is_unsafe: false,
+            _self_kind: SelfKind::None,
+            _params: vec![],
+            _return_type: RustType::Vec(Box::new(RustType::Generic("T".to_string()))),
+            _is_unsafe: false,
         });
 
         // String::from
         self.register(ExternItem::Method {
             type_name: "String".to_string(),
             method_name: "from".to_string(),
-            self_kind: SelfKind::None,
-            params: vec![(
+            _self_kind: SelfKind::None,
+            _params: vec![(
                 "s".to_string(),
                 RustType::Ref {
                     lifetime: None,
                     inner: Box::new(RustType::Str),
                 },
             )],
-            return_type: RustType::String,
-            is_unsafe: false,
+            _return_type: RustType::String,
+            _is_unsafe: false,
         });
     }
 
@@ -326,18 +317,9 @@ impl RustInteropRegistry {
             } => {
                 format!("{}::{}", type_name, method_name)
             }
-            ExternItem::Type { name, .. } => format!("type::{}", name),
+            ExternItem::_Type { name, .. } => format!("type::{}", name),
         };
         self.items.insert(key, item);
-    }
-
-    pub fn get_function(&self, name: &str) -> Option<&ExternItem> {
-        self.items.get(name)
-    }
-
-    pub fn get_method(&self, type_name: &str, method_name: &str) -> Option<&ExternItem> {
-        let key = format!("{}::{}", type_name, method_name);
-        self.items.get(&key)
     }
 
     /// Check if a type implements a specific trait
@@ -480,11 +462,11 @@ impl RustInteropRegistry {
             for method in &type_info.methods {
                 if method.name == rust_method_name {
                     return Ok(Some(ImportedMethodInfo {
-                        method_name: method_name.to_string(), // Keep original Veltrano name
+                        _method_name: method_name.to_string(), // Keep original Veltrano name
                         self_kind: method.self_kind.clone(),
-                        parameters: self.convert_parameters(&method.parameters),
+                        _parameters: self.convert_parameters(&method.parameters),
                         return_type: self.convert_rust_type_signature(&method.return_type),
-                        trait_name: None, // Inherent method
+                        _trait_name: None, // Inherent method
                     }));
                 }
             }
@@ -598,9 +580,9 @@ impl RustInteropRegistry {
                     if method.name == rust_method_name {
                         // Found the method in this trait
                         return Ok(Some(ImportedMethodInfo {
-                            method_name: method_name.to_string(), // Keep original Veltrano name
+                            _method_name: method_name.to_string(), // Keep original Veltrano name
                             self_kind: method.self_kind.clone(),
-                            parameters: self.convert_parameters(&method.parameters),
+                            _parameters: self.convert_parameters(&method.parameters),
                             return_type: if method.return_type.raw == "Self" {
                                 // For trait methods returning Self, return the concrete type
                                 // Special case: &T.clone() returns T, not &T
@@ -644,7 +626,7 @@ impl RustInteropRegistry {
                             } else {
                                 self.convert_rust_type_signature(&method.return_type)
                             },
-                            trait_name: Some(trait_name.clone()),
+                            _trait_name: Some(trait_name.clone()),
                         }));
                     }
                 }
@@ -786,7 +768,6 @@ pub enum RustInteropError {
     CargoError(String),
     ParseError(String),
     IoError(String),
-    SerdeError(String),
     CrateNotFound(String),
 }
 
@@ -796,7 +777,6 @@ impl std::fmt::Display for RustInteropError {
             RustInteropError::CargoError(msg) => write!(f, "Cargo error: {}", msg),
             RustInteropError::ParseError(msg) => write!(f, "Parse error: {}", msg),
             RustInteropError::IoError(msg) => write!(f, "IO error: {}", msg),
-            RustInteropError::SerdeError(msg) => write!(f, "Serialization error: {}", msg),
             RustInteropError::CrateNotFound(name) => write!(f, "Crate not found: {}", name),
         }
     }
@@ -1171,7 +1151,7 @@ impl DynamicRustRegistry {
         self.queriers.insert(insert_pos, querier);
     }
 
-    pub fn get_function(&mut self, path: &str) -> Result<Option<FunctionInfo>, RustInteropError> {
+    pub fn _get_function(&mut self, path: &str) -> Result<Option<FunctionInfo>, RustInteropError> {
         let (crate_name, function_path) = self.parse_path(path)?;
         let crate_name = crate_name.to_string();
         let function_path = function_path.to_string();
@@ -1257,7 +1237,7 @@ impl DynamicRustRegistry {
     }
 
     /// Check if a type implements a specific trait
-    pub fn type_implements_trait(
+    pub fn _type_implements_trait(
         &mut self,
         type_path: &str,
         trait_name: &str,

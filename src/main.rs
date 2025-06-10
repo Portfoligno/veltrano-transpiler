@@ -94,7 +94,7 @@ fn format_type_error(error: &TypeCheckError) -> String {
                 function, expected, actual, location.file, location.line
             )
         }
-        TypeCheckError::IndexingNotSupported {
+        TypeCheckError::_IndexingNotSupported {
             object_type,
             index_type,
             location,
@@ -104,7 +104,7 @@ fn format_type_error(error: &TypeCheckError) -> String {
                 object_type, index_type, location.file, location.line
             )
         }
-        TypeCheckError::BinaryOperatorNotSupported {
+        TypeCheckError::_BinaryOperatorNotSupported {
             operator,
             left_type,
             right_type,

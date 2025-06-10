@@ -6,79 +6,6 @@ use veltrano::types::VeltranoType;
 /// These tests use mocks and don't require external toolchain components
 
 #[test]
-fn test_registry_caching() {
-    let mut registry = DynamicRustRegistry::new();
-
-    // Create a mock querier that tracks calls
-    #[derive(Debug)]
-    struct CallCountingQuerier {
-        call_count: std::cell::RefCell<usize>,
-    }
-
-    impl RustQuerier for CallCountingQuerier {
-        fn query_crate(&mut self, crate_name: &str) -> Result<CrateInfo, RustInteropError> {
-            *self.call_count.borrow_mut() += 1;
-
-            let mut functions = HashMap::new();
-            functions.insert(
-                "test_function".to_string(),
-                FunctionInfo {
-                    name: "test_function".to_string(),
-                    full_path: format!("{}::test_function", crate_name),
-                    generics: vec![],
-                    parameters: vec![],
-                    return_type: RustTypeSignature {
-                        raw: "()".to_string(),
-                        parsed: Some(RustType::Unit),
-                        lifetimes: vec![],
-                        bounds: vec![],
-                    },
-                    is_unsafe: false,
-                    is_const: false,
-                    documentation: None,
-                },
-            );
-
-            Ok(CrateInfo {
-                name: crate_name.to_string(),
-                version: "1.0.0".to_string(),
-                functions,
-                types: HashMap::new(),
-                traits: HashMap::new(),
-                trait_implementations: HashMap::new(),
-            })
-        }
-
-        fn supports_crate(&self, _: &str) -> bool {
-            true
-        }
-
-        fn priority(&self) -> u32 {
-            150 // Higher than rustdoc to ensure it's used first
-        }
-    }
-
-    let counter = CallCountingQuerier {
-        call_count: std::cell::RefCell::new(0),
-    };
-    registry.add_querier(Box::new(counter));
-
-    // First call should query the crate
-    let result1 = registry.get_function("test_crate::test_function");
-    assert!(result1.is_ok());
-    assert!(result1.unwrap().is_some());
-
-    // Second call should use cache (counter should not increment)
-    let result2 = registry.get_function("test_crate::other_function");
-    assert!(result2.is_ok());
-    assert!(result2.unwrap().is_none()); // Function doesn't exist, but crate was cached
-
-    // Verify only one call was made to the querier
-    // Note: We can't easily access the counter after moving it into the Box,
-    // but we can verify caching works by checking that subsequent calls are fast
-}
-
-#[test]
 fn test_error_handling_and_fallback() {
     let mut registry = DynamicRustRegistry::new();
 
@@ -101,31 +28,38 @@ fn test_error_handling_and_fallback() {
     struct SuccessQuerier;
     impl RustQuerier for SuccessQuerier {
         fn query_crate(&mut self, _: &str) -> Result<CrateInfo, RustInteropError> {
-            let mut functions = HashMap::new();
-            functions.insert(
-                "fallback_function".to_string(),
-                FunctionInfo {
-                    name: "fallback_function".to_string(),
-                    full_path: "test::fallback_function".to_string(),
+            let mut types = HashMap::new();
+            types.insert(
+                "TestType".to_string(),
+                TypeInfo {
+                    name: "TestType".to_string(),
+                    full_path: "test::TestType".to_string(),
+                    kind: TypeKind::Struct,
                     generics: vec![],
-                    parameters: vec![],
-                    return_type: RustTypeSignature {
-                        raw: "i32".to_string(),
-                        parsed: Some(RustType::I32),
-                        lifetimes: vec![],
-                        bounds: vec![],
-                    },
-                    is_unsafe: false,
-                    is_const: false,
-                    documentation: Some("Fallback function".to_string()),
+                    methods: vec![MethodInfo {
+                        name: "test_method".to_string(),
+                        self_kind: SelfKind::Ref,
+                        generics: vec![],
+                        parameters: vec![],
+                        return_type: RustTypeSignature {
+                            raw: "i32".to_string(),
+                            parsed: Some(RustType::I32),
+                            lifetimes: vec![],
+                            bounds: vec![],
+                        },
+                        is_unsafe: false,
+                        is_const: false,
+                    }],
+                    fields: vec![],
+                    variants: vec![],
                 },
             );
 
             Ok(CrateInfo {
                 name: "test".to_string(),
                 version: "1.0.0".to_string(),
-                functions,
-                types: HashMap::new(),
+                functions: HashMap::new(),
+                types,
                 traits: HashMap::new(),
                 trait_implementations: HashMap::new(),
             })
@@ -141,12 +75,15 @@ fn test_error_handling_and_fallback() {
     registry.add_querier(Box::new(FailingQuerier));
     registry.add_querier(Box::new(SuccessQuerier));
 
-    // Should fallback to SuccessQuerier when FailingQuerier fails
-    let result = registry.get_function("test::fallback_function");
+    // Test that the fallback mechanism works - FailingQuerier fails first, then SuccessQuerier provides the type
+    let result = registry.get_type("test::TestType");
     assert!(result.is_ok());
-    let function_info = result.unwrap();
-    assert!(function_info.is_some());
-    assert_eq!(function_info.unwrap().name, "fallback_function");
+    let type_info = result.unwrap();
+    assert!(type_info.is_some());
+    let type_info = type_info.unwrap();
+    assert_eq!(type_info.name, "TestType");
+    assert_eq!(type_info.methods.len(), 1);
+    assert_eq!(type_info.methods[0].name, "test_method");
 }
 
 #[test]
@@ -211,6 +148,77 @@ fn test_querier_priority_ordering() {
     assert!(registry.queriers[1].priority() >= 80);
     // The last querier should be the lowest priority (50)
     assert_eq!(registry.queriers.last().unwrap().priority(), 50);
+}
+
+#[test]
+fn test_registry_caching() {
+    let mut registry = DynamicRustRegistry::new();
+
+    // Create a custom querier that tracks how many times it's called
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    #[derive(Debug)]
+    struct CountingQuerier {
+        call_count: Rc<RefCell<usize>>,
+    }
+
+    impl RustQuerier for CountingQuerier {
+        fn query_crate(&mut self, _: &str) -> Result<CrateInfo, RustInteropError> {
+            *self.call_count.borrow_mut() += 1;
+
+            let mut types = HashMap::new();
+            types.insert(
+                "CachedType".to_string(),
+                TypeInfo {
+                    name: "CachedType".to_string(),
+                    full_path: "test::CachedType".to_string(),
+                    kind: TypeKind::Struct,
+                    generics: vec![],
+                    methods: vec![],
+                    fields: vec![],
+                    variants: vec![],
+                },
+            );
+
+            Ok(CrateInfo {
+                name: "test".to_string(),
+                version: "1.0.0".to_string(),
+                functions: HashMap::new(),
+                types,
+                traits: HashMap::new(),
+                trait_implementations: HashMap::new(),
+            })
+        }
+
+        fn supports_crate(&self, crate_name: &str) -> bool {
+            crate_name == "test"
+        }
+
+        fn priority(&self) -> u32 {
+            250 // High priority to ensure it's used
+        }
+    }
+
+    let call_count = Rc::new(RefCell::new(0));
+    let querier = CountingQuerier {
+        call_count: call_count.clone(),
+    };
+
+    registry.add_querier(Box::new(querier));
+
+    // First call should query the crate
+    let result1 = registry.get_type("test::CachedType").unwrap();
+    assert!(result1.is_some());
+    assert_eq!(*call_count.borrow(), 1);
+
+    // Second call should use the cache
+    let result2 = registry.get_type("test::CachedType").unwrap();
+    assert!(result2.is_some());
+    assert_eq!(*call_count.borrow(), 1); // Still 1, not 2!
+
+    // Verify the results are the same
+    assert_eq!(result1.unwrap().name, result2.unwrap().name);
 }
 
 #[test]
@@ -326,9 +334,6 @@ fn test_comprehensive_error_types() {
     let io_error = RustInteropError::IoError("io failed".to_string());
     assert!(io_error.to_string().contains("IO error"));
 
-    let serde_error = RustInteropError::SerdeError("serde failed".to_string());
-    assert!(serde_error.to_string().contains("Serialization error"));
-
     let crate_error = RustInteropError::CrateNotFound("test_crate".to_string());
     assert!(crate_error.to_string().contains("Crate not found"));
 
@@ -430,13 +435,20 @@ fn test_integration_with_existing_registry() {
     let static_registry = RustInteropRegistry::new();
     let mut dynamic_registry = DynamicRustRegistry::new();
 
-    // Test that static registry has pre-registered items
-    assert!(static_registry.get_function("println").is_some());
-    assert!(static_registry.get_method("Vec", "new").is_some());
-    assert!(static_registry.get_method("String", "from").is_some());
+    // Test that registries are created successfully
+    assert!(dynamic_registry.queriers.len() >= 2); // Should have at least StdLibQuerier and RustdocQuerier
+    assert!(dynamic_registry.queriers.len() <= 3); // May also have SynQuerier
 
-    // Test dynamic registry fallback behavior
-    let result = dynamic_registry.get_function("nonexistent::function");
-    assert!(result.is_ok());
-    assert!(result.unwrap().is_none());
+    // Test that we can query traits from the standard library
+    let clone_trait = dynamic_registry.get_trait("std::Clone");
+    assert!(clone_trait.is_ok());
+    let trait_info = clone_trait.unwrap();
+    assert!(trait_info.is_some());
+    let trait_info = trait_info.unwrap();
+    assert_eq!(trait_info.name, "Clone");
+    assert_eq!(trait_info.methods.len(), 1);
+    assert_eq!(trait_info.methods[0].name, "clone");
+
+    // The static registry should be initialized (though we can't test private fields directly)
+    drop(static_registry); // Just to use it
 }

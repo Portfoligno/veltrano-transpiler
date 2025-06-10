@@ -12,8 +12,8 @@ fn test_owned_to_borrowed_suggestion() {
         location: SourceLocation {
             file: "test.vl".to_string(),
             line: 1,
-            column: 1,
-            source_line: "test".to_string(),
+            _column: 1,
+            _source_line: "test".to_string(),
         },
     };
 
@@ -38,8 +38,8 @@ fn test_owned_string_to_str_suggestion() {
         location: SourceLocation {
             file: "test.vl".to_string(),
             line: 1,
-            column: 1,
-            source_line: "test".to_string(),
+            _column: 1,
+            _source_line: "test".to_string(),
         },
     };
 
@@ -64,8 +64,8 @@ fn test_borrowed_string_to_str_suggestion() {
         location: SourceLocation {
             file: "test.vl".to_string(),
             line: 1,
-            column: 1,
-            source_line: "test".to_string(),
+            _column: 1,
+            _source_line: "test".to_string(),
         },
     };
 
@@ -88,8 +88,8 @@ fn test_mutref_to_borrowed_suggestion() {
         location: SourceLocation {
             file: "test.vl".to_string(),
             line: 1,
-            column: 1,
-            source_line: "test".to_string(),
+            _column: 1,
+            _source_line: "test".to_string(),
         },
     };
 
@@ -114,8 +114,8 @@ fn test_vec_to_slice_suggestion() {
         location: SourceLocation {
             file: "test.vl".to_string(),
             line: 1,
-            column: 1,
-            source_line: "test".to_string(),
+            _column: 1,
+            _source_line: "test".to_string(),
         },
     };
 
@@ -140,8 +140,8 @@ fn test_array_to_slice_suggestion() {
         location: SourceLocation {
             file: "test.vl".to_string(),
             line: 1,
-            column: 1,
-            source_line: "test".to_string(),
+            _column: 1,
+            _source_line: "test".to_string(),
         },
     };
 
@@ -166,8 +166,8 @@ fn test_owned_array_to_slice_suggestion() {
         location: SourceLocation {
             file: "test.vl".to_string(),
             line: 1,
-            column: 1,
-            source_line: "test".to_string(),
+            _column: 1,
+            _source_line: "test".to_string(),
         },
     };
 
@@ -192,8 +192,8 @@ fn test_method_not_found_suggestion() {
         location: SourceLocation {
             file: "test.vl".to_string(),
             line: 1,
-            column: 1,
-            source_line: "test".to_string(),
+            _column: 1,
+            _source_line: "test".to_string(),
         },
     };
 
@@ -218,8 +218,8 @@ fn test_field_not_found_suggestion() {
         location: SourceLocation {
             file: "test.vl".to_string(),
             line: 1,
-            column: 1,
-            source_line: "test".to_string(),
+            _column: 1,
+            _source_line: "test".to_string(),
         },
     };
 
@@ -242,8 +242,8 @@ fn test_no_suggestion_for_unrelated_types() {
         location: SourceLocation {
             file: "test.vl".to_string(),
             line: 1,
-            column: 1,
-            source_line: "test".to_string(),
+            _column: 1,
+            _source_line: "test".to_string(),
         },
     };
 

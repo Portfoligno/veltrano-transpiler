@@ -45,12 +45,12 @@ pub enum TypeCheckError {
         actual: usize,
         location: SourceLocation,
     },
-    IndexingNotSupported {
+    _IndexingNotSupported {
         object_type: VeltranoType,
         index_type: VeltranoType,
         location: SourceLocation,
     },
-    BinaryOperatorNotSupported {
+    _BinaryOperatorNotSupported {
         operator: BinaryOp,
         left_type: VeltranoType,
         right_type: VeltranoType,
@@ -117,69 +117,6 @@ impl VeltranoType {
                 Err("Cannot use Own<Own<T>>. This creates double ownership.".to_string())
             }
             _ => Ok(()),
-        }
-    }
-
-    /// Check if this can be cloned (integrated with trait system)
-    pub fn can_clone(&self, trait_checker: &mut RustInteropRegistry) -> bool {
-        // For base types (no type arguments), use trait checker
-        if self.args.is_empty() {
-            let rust_type = self.to_rust_type(trait_checker);
-            return trait_checker
-                .type_implements_trait(&rust_type, "Clone")
-                .unwrap_or(false);
-        }
-
-        // For complex types, assume they can be cloned if their base can be cloned
-        // This is a simplification - in reality we'd need to check all type parameters
-        let base = self.get_base_constructor();
-        match base {
-            TypeConstructor::I32
-            | TypeConstructor::I64
-            | TypeConstructor::ISize
-            | TypeConstructor::U32
-            | TypeConstructor::U64
-            | TypeConstructor::USize
-            | TypeConstructor::Bool
-            | TypeConstructor::Char
-            | TypeConstructor::Unit
-            | TypeConstructor::Nothing => true,
-            TypeConstructor::String => true,
-            TypeConstructor::Str => false, // &str is Copy, not Clone
-            TypeConstructor::Custom(_) => true, // Assume custom types can be cloned
-            // For composed types (Vec, Array, etc.), assume they can be cloned
-            _ => true,
-        }
-    }
-
-    /// Check if this can be converted to string (integrated with trait system)
-    pub fn can_to_string(&self, trait_checker: &mut RustInteropRegistry) -> bool {
-        // For base types (no type arguments), use trait checker
-        if self.args.is_empty() {
-            let rust_type = self.to_rust_type(trait_checker);
-            return trait_checker
-                .type_implements_trait(&rust_type, "ToString")
-                .unwrap_or(false);
-        }
-
-        // For complex types, assume they can be converted to string if their base can
-        // This is a simplification - in reality we'd need to check all type parameters
-        let base = self.get_base_constructor();
-        match base {
-            TypeConstructor::I32
-            | TypeConstructor::I64
-            | TypeConstructor::ISize
-            | TypeConstructor::U32
-            | TypeConstructor::U64
-            | TypeConstructor::USize
-            | TypeConstructor::Bool
-            | TypeConstructor::Char
-            | TypeConstructor::Unit
-            | TypeConstructor::Nothing => true,
-            TypeConstructor::String | TypeConstructor::Str => true,
-            TypeConstructor::Custom(_) => true, // Assume custom types can be converted to string
-            // For composed types, assume they can be converted to string
-            _ => true,
         }
     }
 }
@@ -281,8 +218,8 @@ impl VeltranoTypeChecker {
                 location: SourceLocation {
                     file: "unknown".to_string(),
                     line: 0,
-                    column: 0,
-                    source_line: "".to_string(),
+                    _column: 0,
+                    _source_line: "".to_string(),
                 },
             })?;
 
@@ -305,8 +242,8 @@ impl VeltranoTypeChecker {
                 location: SourceLocation {
                     file: "unknown".to_string(),
                     line: 0,
-                    column: 0,
-                    source_line: "".to_string(),
+                    _column: 0,
+                    _source_line: "".to_string(),
                 },
             });
         }
@@ -337,7 +274,7 @@ impl VeltranoTypeChecker {
             .collect();
 
         let definition = DataClassDefinition {
-            name: data_class.name.clone(),
+            _name: data_class.name.clone(),
             fields,
         };
 
@@ -366,8 +303,8 @@ impl VeltranoTypeChecker {
                             location: SourceLocation {
                                 file: "unknown".to_string(),
                                 line: 0,
-                                column: 0,
-                                source_line: "".to_string(),
+                                _column: 0,
+                                _source_line: "".to_string(),
                             },
                         });
                     }
@@ -377,8 +314,8 @@ impl VeltranoTypeChecker {
                         location: SourceLocation {
                             file: "unknown".to_string(),
                             line: 0,
-                            column: 0,
-                            source_line: "".to_string(),
+                            _column: 0,
+                            _source_line: "".to_string(),
                         },
                     });
                 }
@@ -414,8 +351,8 @@ impl VeltranoTypeChecker {
                         location: SourceLocation {
                             file: "unknown".to_string(),
                             line: 0,
-                            column: 0,
-                            source_line: "".to_string(),
+                            _column: 0,
+                            _source_line: "".to_string(),
                         },
                     });
                 }
@@ -513,8 +450,8 @@ impl VeltranoTypeChecker {
                 location: SourceLocation {
                     file: "unknown".to_string(),
                     line: 0,
-                    column: 0,
-                    source_line: "".to_string(),
+                    _column: 0,
+                    _source_line: "".to_string(),
                 },
             })
     }
@@ -544,8 +481,8 @@ impl VeltranoTypeChecker {
                         location: SourceLocation {
                             file: "unknown".to_string(),
                             line: 0,
-                            column: 0,
-                            source_line: "".to_string(),
+                            _column: 0,
+                            _source_line: "".to_string(),
                         },
                     });
                 }
@@ -557,8 +494,8 @@ impl VeltranoTypeChecker {
                         location: SourceLocation {
                             file: "unknown".to_string(),
                             line: 0,
-                            column: 0,
-                            source_line: "".to_string(),
+                            _column: 0,
+                            _source_line: "".to_string(),
                         },
                     });
                 }
@@ -579,8 +516,8 @@ impl VeltranoTypeChecker {
                         location: SourceLocation {
                             file: "unknown".to_string(),
                             line: 0,
-                            column: 0,
-                            source_line: "".to_string(),
+                            _column: 0,
+                            _source_line: "".to_string(),
                         },
                     });
                 }
@@ -609,8 +546,8 @@ impl VeltranoTypeChecker {
                         location: SourceLocation {
                             file: "unknown".to_string(),
                             line: 0,
-                            column: 0,
-                            source_line: "".to_string(),
+                            _column: 0,
+                            _source_line: "".to_string(),
                         },
                     });
                 }
@@ -643,8 +580,8 @@ impl VeltranoTypeChecker {
                     location: SourceLocation {
                         file: "unknown".to_string(),
                         line: 0,
-                        column: 0,
-                        source_line: "".to_string(),
+                        _column: 0,
+                        _source_line: "".to_string(),
                     },
                 })?;
 
@@ -657,8 +594,8 @@ impl VeltranoTypeChecker {
                     location: SourceLocation {
                         file: "unknown".to_string(),
                         line: 0,
-                        column: 0,
-                        source_line: "".to_string(),
+                        _column: 0,
+                        _source_line: "".to_string(),
                     },
                 });
             }
@@ -681,8 +618,8 @@ impl VeltranoTypeChecker {
                         location: SourceLocation {
                             file: "unknown".to_string(),
                             line: 0,
-                            column: 0,
-                            source_line: "".to_string(),
+                            _column: 0,
+                            _source_line: "".to_string(),
                         },
                     });
                 }
@@ -696,8 +633,8 @@ impl VeltranoTypeChecker {
                 location: SourceLocation {
                     file: "unknown".to_string(),
                     line: 0,
-                    column: 0,
-                    source_line: "".to_string(),
+                    _column: 0,
+                    _source_line: "".to_string(),
                 },
             })
         }
@@ -728,8 +665,8 @@ impl VeltranoTypeChecker {
                 location: SourceLocation {
                     file: "unknown".to_string(),
                     line: 0,
-                    column: 0,
-                    source_line: "".to_string(),
+                    _column: 0,
+                    _source_line: "".to_string(),
                 },
             });
         }
@@ -758,8 +695,8 @@ impl VeltranoTypeChecker {
                             location: SourceLocation {
                                 file: "unknown".to_string(),
                                 line: 0,
-                                column: 0,
-                                source_line: "".to_string(),
+                                _column: 0,
+                                _source_line: "".to_string(),
                             },
                         })?;
                     let actual_type = self.check_expression(expr)?;
@@ -780,8 +717,8 @@ impl VeltranoTypeChecker {
                             location: SourceLocation {
                                 file: "unknown".to_string(),
                                 line: 0,
-                                column: 0,
-                                source_line: "".to_string(),
+                                _column: 0,
+                                _source_line: "".to_string(),
                             },
                         })?;
                     let actual_type = self.check_identifier(var_name)?;
@@ -798,8 +735,8 @@ impl VeltranoTypeChecker {
                     location: SourceLocation {
                         file: "unknown".to_string(),
                         line: 0,
-                        column: 0,
-                        source_line: "".to_string(),
+                        _column: 0,
+                        _source_line: "".to_string(),
                     },
                 });
             }
@@ -870,8 +807,8 @@ impl VeltranoTypeChecker {
             location: SourceLocation {
                 file: "unknown".to_string(),
                 line: 0,
-                column: 0,
-                source_line: "".to_string(),
+                _column: 0,
+                _source_line: "".to_string(),
             },
         })
     }
@@ -904,8 +841,8 @@ impl VeltranoTypeChecker {
                     location: SourceLocation {
                         file: "unknown".to_string(),
                         line: 0,
-                        column: 0,
-                        source_line: "".to_string(),
+                        _column: 0,
+                        _source_line: "".to_string(),
                     },
                 });
             }
@@ -937,8 +874,8 @@ impl VeltranoTypeChecker {
             location: SourceLocation {
                 file: "unknown".to_string(),
                 line: 0,
-                column: 0,
-                source_line: "".to_string(),
+                _column: 0,
+                _source_line: "".to_string(),
             },
         })
     }
