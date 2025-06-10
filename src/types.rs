@@ -239,6 +239,15 @@ impl VeltranoType {
         &self,
         trait_checker: &mut crate::rust_interop::RustInteropRegistry,
     ) -> crate::rust_interop::RustType {
+        self.to_rust_type_with_lifetime(trait_checker, None)
+    }
+
+    /// Convert VeltranoType to RustType with optional lifetime
+    pub fn to_rust_type_with_lifetime(
+        &self,
+        trait_checker: &mut crate::rust_interop::RustInteropRegistry,
+        lifetime: Option<String>,
+    ) -> crate::rust_interop::RustType {
         use crate::rust_interop::RustType;
 
         match &self.constructor {
@@ -253,13 +262,13 @@ impl VeltranoType {
             TypeConstructor::Unit => RustType::Unit,
             TypeConstructor::Nothing => RustType::Never,
             TypeConstructor::Str => RustType::Ref {
-                lifetime: None,
+                lifetime: lifetime.clone(),
                 inner: Box::new(RustType::Str),
             },
             TypeConstructor::String => {
                 // String is naturally referenced in Veltrano
                 RustType::Ref {
-                    lifetime: None,
+                    lifetime: lifetime.clone(),
                     inner: Box::new(RustType::String),
                 }
             }
@@ -272,7 +281,7 @@ impl VeltranoType {
                 } else {
                     // Naturally referenced custom types
                     RustType::Ref {
-                        lifetime: None,
+                        lifetime: lifetime.clone(),
                         inner: Box::new(RustType::Custom {
                             name: name.clone(),
                             generics: vec![],
@@ -283,7 +292,7 @@ impl VeltranoType {
             TypeConstructor::Own => {
                 if let Some(inner) = self.inner() {
                     // Own<T> removes one level of reference
-                    let inner_rust = inner.to_rust_type(trait_checker);
+                    let inner_rust = inner.to_rust_type_with_lifetime(trait_checker, lifetime);
                     match inner_rust {
                         RustType::Ref { inner, .. } => *inner,
                         other => other,
@@ -295,8 +304,8 @@ impl VeltranoType {
             TypeConstructor::Ref => {
                 if let Some(inner) = self.inner() {
                     RustType::Ref {
-                        lifetime: None,
-                        inner: Box::new(inner.to_rust_type(trait_checker)),
+                        lifetime: lifetime.clone(),
+                        inner: Box::new(inner.to_rust_type_with_lifetime(trait_checker, lifetime)),
                     }
                 } else {
                     RustType::Never // Error case
@@ -305,8 +314,8 @@ impl VeltranoType {
             TypeConstructor::MutRef => {
                 if let Some(inner) = self.inner() {
                     RustType::MutRef {
-                        lifetime: None,
-                        inner: Box::new(inner.to_rust_type(trait_checker)),
+                        lifetime: lifetime.clone(),
+                        inner: Box::new(inner.to_rust_type_with_lifetime(trait_checker, lifetime)),
                     }
                 } else {
                     RustType::Never // Error case
@@ -314,21 +323,27 @@ impl VeltranoType {
             }
             TypeConstructor::Box => {
                 if let Some(inner) = self.inner() {
-                    RustType::Box(Box::new(inner.to_rust_type(trait_checker)))
+                    RustType::Box(Box::new(
+                        inner.to_rust_type_with_lifetime(trait_checker, lifetime),
+                    ))
                 } else {
                     RustType::Never // Error case
                 }
             }
             TypeConstructor::Vec => {
                 if let Some(inner) = self.inner() {
-                    RustType::Vec(Box::new(inner.to_rust_type(trait_checker)))
+                    RustType::Vec(Box::new(
+                        inner.to_rust_type_with_lifetime(trait_checker, lifetime),
+                    ))
                 } else {
                     RustType::Never // Error case
                 }
             }
             TypeConstructor::Option => {
                 if let Some(inner) = self.inner() {
-                    RustType::Option(Box::new(inner.to_rust_type(trait_checker)))
+                    RustType::Option(Box::new(
+                        inner.to_rust_type_with_lifetime(trait_checker, lifetime),
+                    ))
                 } else {
                     RustType::Never // Error case
                 }
@@ -336,14 +351,31 @@ impl VeltranoType {
             TypeConstructor::Result => {
                 if self.args.len() == 2 {
                     RustType::Result {
-                        ok: Box::new(self.args[0].to_rust_type(trait_checker)),
-                        err: Box::new(self.args[1].to_rust_type(trait_checker)),
+                        ok: Box::new(
+                            self.args[0]
+                                .to_rust_type_with_lifetime(trait_checker, lifetime.clone()),
+                        ),
+                        err: Box::new(
+                            self.args[1].to_rust_type_with_lifetime(trait_checker, lifetime),
+                        ),
                     }
                 } else {
                     RustType::Never // Error case
                 }
             }
-            TypeConstructor::Array(_) => RustType::Never, // Not implemented yet
+            TypeConstructor::Array(size) => {
+                // Arrays in Rust don't have a direct RustType representation
+                // We'll need to handle this specially in codegen
+                // For now, return a Custom type that represents the array
+                if let Some(inner) = self.inner() {
+                    RustType::Custom {
+                        name: format!("[_; {}]", size), // Placeholder
+                        generics: vec![inner.to_rust_type_with_lifetime(trait_checker, lifetime)],
+                    }
+                } else {
+                    RustType::Never // Error case
+                }
+            }
         }
     }
 

@@ -428,121 +428,32 @@ impl CodeGenerator {
     fn generate_type(&mut self, type_annotation: &VeltranoType) {
         use crate::types::TypeConstructor;
 
-        match &type_annotation.constructor {
-            // Base types
-            TypeConstructor::I32 => self.output.push_str("i32"),
-            TypeConstructor::I64 => self.output.push_str("i64"),
-            TypeConstructor::ISize => self.output.push_str("isize"),
-            TypeConstructor::U32 => self.output.push_str("u32"),
-            TypeConstructor::U64 => self.output.push_str("u64"),
-            TypeConstructor::USize => self.output.push_str("usize"),
-            TypeConstructor::Bool => self.output.push_str("bool"),
-            TypeConstructor::Char => self.output.push_str("char"),
-            TypeConstructor::Unit => self.output.push_str("()"),
-            TypeConstructor::Nothing => self.output.push_str("!"),
-            TypeConstructor::Str => {
-                if self.generating_bump_function {
-                    self.output.push_str("&'a str");
-                } else {
-                    self.output.push_str("&str");
-                }
-            }
-            TypeConstructor::String => {
-                if self.generating_bump_function {
-                    self.output.push_str("&'a String");
-                } else {
-                    self.output.push_str("&String");
-                }
-            }
-            TypeConstructor::Custom(name) => {
-                // Custom types are naturally referenced in Veltrano
+        // For data class types that need lifetime parameters, we need special handling
+        if let TypeConstructor::Custom(name) = &type_annotation.constructor {
+            if self.data_classes_with_lifetime.contains(name) {
+                // For naturally referenced custom types with lifetime parameters
                 self.output.push('&');
                 if self.generating_bump_function {
                     self.output.push_str("'a ");
                 }
                 self.output.push_str(name);
-                // Add lifetime parameter for custom types in bump functions if they need lifetime
-                if self.generating_bump_function && self.data_classes_with_lifetime.contains(name) {
+                if self.generating_bump_function {
                     self.output.push_str("<'a>");
                 }
-            }
-
-            // Type constructors
-            TypeConstructor::Own => {
-                // Own<T> generates the owned version of T in Rust
-                let inner = type_annotation
-                    .inner()
-                    .expect("Own<T> must have exactly one type argument");
-                self.generate_owned_version(inner);
-            }
-            TypeConstructor::Ref => {
-                if self.generating_bump_function {
-                    self.output.push_str("&'a ");
-                } else {
-                    self.output.push('&');
-                }
-                let inner = type_annotation
-                    .inner()
-                    .expect("Ref<T> must have exactly one type argument");
-                self.generate_type(inner);
-            }
-            TypeConstructor::MutRef => {
-                if self.generating_bump_function {
-                    self.output.push_str("&'a mut ");
-                } else {
-                    self.output.push_str("&mut ");
-                }
-                let inner = type_annotation
-                    .inner()
-                    .expect("MutRef<T> must have exactly one type argument");
-                self.generate_type(inner);
-            }
-            TypeConstructor::Box => {
-                self.output.push_str("Box<");
-                let inner = type_annotation
-                    .inner()
-                    .expect("Box<T> must have exactly one type argument");
-                self.generate_type(inner);
-                self.output.push('>');
-            }
-            TypeConstructor::Vec => {
-                self.output.push_str("Vec<");
-                let inner = type_annotation
-                    .inner()
-                    .expect("Vec<T> must have exactly one type argument");
-                self.generate_type(inner);
-                self.output.push('>');
-            }
-            TypeConstructor::Option => {
-                self.output.push_str("Option<");
-                let inner = type_annotation
-                    .inner()
-                    .expect("Option<T> must have exactly one type argument");
-                self.generate_type(inner);
-                self.output.push('>');
-            }
-            TypeConstructor::Result => {
-                self.output.push_str("Result<");
-                if type_annotation.args.len() != 2 {
-                    panic!(
-                        "Result<T, E> must have exactly two type arguments, got {}",
-                        type_annotation.args.len()
-                    );
-                }
-                self.generate_type(&type_annotation.args[0]);
-                self.output.push_str(", ");
-                self.generate_type(&type_annotation.args[1]);
-                self.output.push('>');
-            }
-            TypeConstructor::Array(size) => {
-                self.output.push('[');
-                let inner = type_annotation
-                    .inner()
-                    .expect("Array<T, N> must have exactly one type argument");
-                self.generate_type(inner);
-                self.output.push_str(&format!("; {}]", size));
+                return;
             }
         }
+
+        // Use the new to_rust_type_with_lifetime method
+        let lifetime = if self.generating_bump_function {
+            Some("'a".to_string())
+        } else {
+            None
+        };
+
+        let rust_type =
+            type_annotation.to_rust_type_with_lifetime(&mut self.trait_checker, lifetime);
+        self.output.push_str(&rust_type.to_rust_syntax());
     }
 
     /// Check if a type needs lifetime parameters (is naturally referenced)
@@ -561,71 +472,37 @@ impl CodeGenerator {
         }
     }
 
-    /// Generate the owned version of a type (for Own<T> -> T conversion)
-    /// For naturally referenced types, this strips the & prefix
-    fn generate_owned_version(&mut self, type_annotation: &VeltranoType) {
-        use crate::types::TypeConstructor;
-
-        if !type_annotation.implements_copy(&mut self.trait_checker) {
-            // For naturally referenced types, generate without the & prefix
-            match &type_annotation.constructor {
-                TypeConstructor::String => self.output.push_str("String"),
-                TypeConstructor::Str => self.output.push_str("str"),
-                TypeConstructor::Custom(name) => {
-                    self.output.push_str(name);
-                    if self.generating_bump_function
-                        && self.data_classes_with_lifetime.contains(name)
-                    {
-                        self.output.push_str("<'a>");
-                    }
-                }
-                _ => panic!(
-                    "Unexpected naturally referenced type: {:?}",
-                    type_annotation.constructor
-                ),
-            }
-        } else {
-            panic!(
-                "Own<T> should only be used with naturally referenced types, got: {:?}",
-                type_annotation.constructor
-            );
-        }
-    }
-
-    // Removed generate_base_type - now handled in generate_type
-
     fn generate_data_class_field_type(&mut self, type_annotation: &VeltranoType) {
         use crate::types::TypeConstructor;
 
-        match &type_annotation.constructor {
-            // Reference types in data classes need lifetime annotations
-            TypeConstructor::Str => self.output.push_str("&'a str"),
-            TypeConstructor::String => self.output.push_str("&'a String"),
-            TypeConstructor::Custom(name) => {
+        // For data class fields, we always need lifetime 'a for reference types
+        // Special handling for custom types with lifetime parameters
+        if let TypeConstructor::Custom(name) = &type_annotation.constructor {
+            if self.data_classes_with_lifetime.contains(name) {
                 self.output.push_str("&'a ");
                 self.output.push_str(name);
-                if self.data_classes_with_lifetime.contains(name) {
-                    self.output.push_str("<'a>");
+                self.output.push_str("<'a>");
+                return;
+            }
+        }
+
+        // For owned custom types in data class fields
+        if let TypeConstructor::Own = &type_annotation.constructor {
+            if let Some(inner) = type_annotation.inner() {
+                if let TypeConstructor::Custom(name) = &inner.constructor {
+                    self.output.push_str(name);
+                    if self.data_classes_with_lifetime.contains(name) {
+                        self.output.push_str("<'a>");
+                    }
+                    return;
                 }
             }
-            // Type constructors that need special handling in data classes
-            TypeConstructor::Ref => {
-                self.output.push_str("&'a ");
-                let inner = type_annotation
-                    .inner()
-                    .expect("Ref<T> must have exactly one type argument");
-                self.generate_type(inner);
-            }
-            TypeConstructor::MutRef => {
-                self.output.push_str("&'a mut ");
-                let inner = type_annotation
-                    .inner()
-                    .expect("MutRef<T> must have exactly one type argument");
-                self.generate_type(inner);
-            }
-            // For other types, use normal generation
-            _ => self.generate_type(type_annotation),
         }
+
+        // For all other types, use the standard conversion with lifetime 'a
+        let rust_type = type_annotation
+            .to_rust_type_with_lifetime(&mut self.trait_checker, Some("'a".to_string()));
+        self.output.push_str(&rust_type.to_rust_syntax());
     }
 
     fn indent(&mut self) {

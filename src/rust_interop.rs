@@ -129,9 +129,8 @@ pub struct ImportedMethodInfo {
 }
 
 impl RustType {
-    /// Convert RustType to its string representation for crate info queries
-    /// This preserves references and is only used at the lowest level
-    pub fn to_crate_query_string(&self) -> String {
+    /// Convert RustType to its Rust syntax representation
+    pub fn to_rust_syntax(&self) -> String {
         match self {
             RustType::I32 => "i32".to_string(),
             RustType::I64 => "i64".to_string(),
@@ -145,18 +144,28 @@ impl RustType {
             RustType::Never => "!".to_string(),
             RustType::Str => "str".to_string(),
             RustType::String => "String".to_string(),
-            RustType::Ref { inner, .. } => format!("&{}", inner.to_crate_query_string()),
-            RustType::MutRef { inner, .. } => format!("&mut {}", inner.to_crate_query_string()),
-            RustType::Box(inner) => format!("Box<{}>", inner.to_crate_query_string()),
-            RustType::Rc(inner) => format!("Rc<{}>", inner.to_crate_query_string()),
-            RustType::Arc(inner) => format!("Arc<{}>", inner.to_crate_query_string()),
-            RustType::Vec(inner) => format!("Vec<{}>", inner.to_crate_query_string()),
-            RustType::Option(inner) => format!("Option<{}>", inner.to_crate_query_string()),
-            RustType::Result { ok, err } => format!(
-                "Result<{}, {}>",
-                ok.to_crate_query_string(),
-                err.to_crate_query_string()
-            ),
+            RustType::Ref { lifetime, inner } => {
+                if let Some(lt) = lifetime {
+                    format!("&{} {}", lt, inner.to_rust_syntax())
+                } else {
+                    format!("&{}", inner.to_rust_syntax())
+                }
+            }
+            RustType::MutRef { lifetime, inner } => {
+                if let Some(lt) = lifetime {
+                    format!("&{} mut {}", lt, inner.to_rust_syntax())
+                } else {
+                    format!("&mut {}", inner.to_rust_syntax())
+                }
+            }
+            RustType::Box(inner) => format!("Box<{}>", inner.to_rust_syntax()),
+            RustType::Rc(inner) => format!("Rc<{}>", inner.to_rust_syntax()),
+            RustType::Arc(inner) => format!("Arc<{}>", inner.to_rust_syntax()),
+            RustType::Vec(inner) => format!("Vec<{}>", inner.to_rust_syntax()),
+            RustType::Option(inner) => format!("Option<{}>", inner.to_rust_syntax()),
+            RustType::Result { ok, err } => {
+                format!("Result<{}, {}>", ok.to_rust_syntax(), err.to_rust_syntax())
+            }
             RustType::Custom { name, generics } => {
                 if generics.is_empty() {
                     name.clone()
@@ -166,7 +175,7 @@ impl RustType {
                         name,
                         generics
                             .iter()
-                            .map(|g| g.to_crate_query_string())
+                            .map(|g| g.to_rust_syntax())
                             .collect::<Vec<_>>()
                             .join(", ")
                     )
@@ -329,7 +338,7 @@ impl RustInteropRegistry {
         trait_name: &str,
     ) -> Result<bool, RustInteropError> {
         // Convert to string only at the lowest level
-        let type_path = rust_type.to_crate_query_string();
+        let type_path = rust_type.to_rust_syntax();
 
         // For built-in types, we can have hardcoded knowledge
         let implements = match type_path.as_str() {
@@ -383,7 +392,7 @@ impl RustInteropRegistry {
 
         for candidate_type in type_sequence {
             // Convert to string only at the lowest level for CrateInfo query
-            let type_path = candidate_type.to_crate_query_string();
+            let type_path = candidate_type.to_rust_syntax();
             eprintln!(
                 "DEBUG: query_method_signature - trying candidate_type: {:?} -> type_path: {}",
                 candidate_type, type_path
