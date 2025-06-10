@@ -14,12 +14,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 🚨 Critical Protocols
 
 ### Session Start Protocol - MANDATORY
-- **FIRST ACTION:** Always read `WORKSPACE.md` using Read tool to load project context and memory
+- **FIRST ACTION:** Always attempt to read `WORKSPACE.md` using Read tool to load project context and memory
   - This MUST happen before ANY other action, even if the user gives a specific request
   - NO EXCEPTIONS: Even for "quick" tasks or urgent requests
-  - If you haven't read WORKSPACE.md yet, stop and read it first
-  - **ENFORCEMENT:** Start every response by checking if you've read WORKSPACE.md
-  - **VIOLATION CONSEQUENCE:** Session restart required if WORKSPACE.md not read first
+  - **If WORKSPACE.md exists:** Read it completely and use the context
+  - **If WORKSPACE.md doesn't exist:** Create it immediately with basic project structure
+  - **ENFORCEMENT:** Start every response by checking if you've loaded/created WORKSPACE.md
+  - **VIOLATION CONSEQUENCE:** Session restart required if WORKSPACE.md not handled first
+
+### WORKSPACE.md Creation Protocol (when missing)
+When WORKSPACE.md doesn't exist, create it immediately with:
+1. **Project identification** (name, version, current branch)
+2. **Empty TODO section** ready for use
+3. **Architecture Notes section** for discoveries
+4. **Development Gotchas section** for important patterns
+5. **Current Project State** placeholder
 
 ### Critical Tool Limitation - Write/Edit Cannot Add Trailing Newlines
 - **FACT:** The Write and Edit tools have a fundamental limitation - they CANNOT add trailing newlines
