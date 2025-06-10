@@ -4,7 +4,7 @@
 /// 2. Parse Rust type signatures
 /// 3. Convert between Rust and Veltrano type representations
 /// 4. Dynamically query Rust toolchain for type information
-use crate::types::VeltranoType;
+use crate::types::{TypeConstructor, VeltranoType};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -207,32 +207,41 @@ impl RustType {
             // References
             RustType::Ref { inner, .. } => {
                 let inner_type = inner.to_veltrano_type()?;
-                Ok(VeltranoType::ref_(inner_type))
+                // Ref cancels out with Own
+                if let TypeConstructor::Own = inner_type.constructor {
+                    if let Some(inner_inner) = inner_type.args.first() {
+                        Ok(inner_inner.clone())
+                    } else {
+                        Ok(VeltranoType::ref_(inner_type))
+                    }
+                } else {
+                    Ok(VeltranoType::ref_(inner_type))
+                }
             }
             RustType::MutRef { inner, .. } => {
                 let inner_type = inner.to_veltrano_type()?;
                 Ok(VeltranoType::mut_ref(inner_type))
             }
 
-            // Smart pointers
+            // Smart pointers (owned)
             RustType::Box(inner) => {
                 let inner_type = inner.to_veltrano_type()?;
-                Ok(VeltranoType::boxed(inner_type))
+                Ok(VeltranoType::own(VeltranoType::boxed(inner_type)))
             }
 
-            // Generic types
+            // Generic types (owned containers)
             RustType::Vec(inner) => {
                 let inner_type = inner.to_veltrano_type()?;
-                Ok(VeltranoType::vec(inner_type))
+                Ok(VeltranoType::own(VeltranoType::vec(inner_type)))
             }
             RustType::Option(inner) => {
                 let inner_type = inner.to_veltrano_type()?;
-                Ok(VeltranoType::option(inner_type))
+                Ok(VeltranoType::own(VeltranoType::option(inner_type)))
             }
             RustType::Result { ok, err } => {
                 let ok_type = ok.to_veltrano_type()?;
                 let err_type = err.to_veltrano_type()?;
-                Ok(VeltranoType::result(ok_type, err_type))
+                Ok(VeltranoType::own(VeltranoType::result(ok_type, err_type)))
             }
 
             // Custom types
@@ -706,6 +715,38 @@ impl RustTypeParser {
             .and_then(|s| s.strip_suffix('>'))
         {
             return Ok(RustType::Option(Box::new(Self::parse(inner)?)));
+        }
+
+        // Handle Result<T, E>
+        if let Some(inner) = trimmed
+            .strip_prefix("Result<")
+            .and_then(|s| s.strip_suffix('>'))
+        {
+            // Split by comma, but need to handle nested generics
+            let mut depth = 0;
+            let mut split_pos = None;
+            for (i, ch) in inner.chars().enumerate() {
+                match ch {
+                    '<' => depth += 1,
+                    '>' => depth -= 1,
+                    ',' if depth == 0 => {
+                        split_pos = Some(i);
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+
+            if let Some(pos) = split_pos {
+                let ok_type = inner[..pos].trim();
+                let err_type = inner[pos + 1..].trim();
+                return Ok(RustType::Result {
+                    ok: Box::new(Self::parse(ok_type)?),
+                    err: Box::new(Self::parse(err_type)?),
+                });
+            } else {
+                return Err("Invalid Result type: missing error type".to_string());
+            }
         }
 
         // Handle basic types

@@ -104,34 +104,459 @@ fn test_real_rust_type_parsing_and_conversion() {
 
 #[test]
 fn test_complex_rust_signatures() {
+    use veltrano::types::VeltranoType;
+
     // Test parsing of complex type signatures that might appear in real code
-    let complex_types = vec![
-        "&str",
-        "&mut String",
-        "Box<i32>",
-        "Vec<String>",
-        "Option<i32>",
-        "&'static str",
-        "&mut Vec<String>",
+    let test_cases = vec![
+        (
+            "&str",
+            RustType::Ref {
+                lifetime: None,
+                inner: Box::new(RustType::Str),
+            },
+            VeltranoType::str(),
+        ),
+        (
+            "&mut String",
+            RustType::MutRef {
+                lifetime: None,
+                inner: Box::new(RustType::String),
+            },
+            VeltranoType::mut_ref(VeltranoType::own(VeltranoType::string())),
+        ),
+        (
+            "Box<i32>",
+            RustType::Box(Box::new(RustType::I32)),
+            VeltranoType::own(VeltranoType::boxed(VeltranoType::i32())),
+        ),
+        (
+            "Vec<String>",
+            RustType::Vec(Box::new(RustType::String)),
+            VeltranoType::own(VeltranoType::vec(VeltranoType::own(VeltranoType::string()))),
+        ),
+        (
+            "Option<i32>",
+            RustType::Option(Box::new(RustType::I32)),
+            VeltranoType::own(VeltranoType::option(VeltranoType::i32())),
+        ),
+        (
+            "&'static str",
+            RustType::Ref {
+                lifetime: Some("static".to_string()),
+                inner: Box::new(RustType::Str),
+            },
+            VeltranoType::str(),
+        ),
+        (
+            "&String",
+            RustType::Ref {
+                lifetime: None,
+                inner: Box::new(RustType::String),
+            },
+            VeltranoType::string(),
+        ),
+        (
+            "&mut Vec<String>",
+            RustType::MutRef {
+                lifetime: None,
+                inner: Box::new(RustType::Vec(Box::new(RustType::String))),
+            },
+            VeltranoType::mut_ref(VeltranoType::own(VeltranoType::vec(VeltranoType::own(
+                VeltranoType::string(),
+            )))),
+        ),
     ];
 
-    for type_str in complex_types {
+    for (type_str, expected_rust_type, expected_veltrano_type) in test_cases {
         match RustTypeParser::parse(type_str) {
             Ok(rust_type) => {
-                println!("Successfully parsed: {} -> {:?}", type_str, rust_type);
+                assert_eq!(
+                    rust_type, expected_rust_type,
+                    "Unexpected parse result for {}",
+                    type_str
+                );
 
                 // Try to convert to Veltrano type
                 match rust_type.to_veltrano_type() {
                     Ok(veltrano_type) => {
-                        println!("  Converted to Veltrano: {:?}", veltrano_type.constructor);
+                        assert_eq!(
+                            veltrano_type, expected_veltrano_type,
+                            "Unexpected Veltrano type for {}",
+                            type_str
+                        );
                     }
                     Err(e) => {
-                        println!("  Conversion failed: {}", e);
+                        panic!("Failed to convert {} to Veltrano type: {}", type_str, e);
                     }
                 }
             }
             Err(e) => {
-                println!("Failed to parse {}: {}", type_str, e);
+                panic!("Failed to parse {}: {}", type_str, e);
+            }
+        }
+    }
+}
+
+#[test]
+fn test_reference_nesting_and_cancellation() {
+    use veltrano::types::VeltranoType;
+
+    // Test various reference nesting scenarios and Ref/Own cancellation
+    let test_cases = vec![
+        // Double reference to i32 (no cancellation)
+        (
+            "&&i32",
+            RustType::Ref {
+                lifetime: None,
+                inner: Box::new(RustType::Ref {
+                    lifetime: None,
+                    inner: Box::new(RustType::I32),
+                }),
+            },
+            VeltranoType::ref_(VeltranoType::ref_(VeltranoType::i32())),
+        ),
+        // Double reference to String (outer ref cancels with Own)
+        (
+            "&&String",
+            RustType::Ref {
+                lifetime: None,
+                inner: Box::new(RustType::Ref {
+                    lifetime: None,
+                    inner: Box::new(RustType::String),
+                }),
+            },
+            VeltranoType::ref_(VeltranoType::string()),
+        ),
+        // &Box<&str> - inner &str becomes just str
+        (
+            "&Box<&str>",
+            RustType::Ref {
+                lifetime: None,
+                inner: Box::new(RustType::Box(Box::new(RustType::Ref {
+                    lifetime: None,
+                    inner: Box::new(RustType::Str),
+                }))),
+            },
+            VeltranoType::boxed(VeltranoType::str()),
+        ),
+        // &Vec<&String> - inner &String becomes just String
+        (
+            "&Vec<&String>",
+            RustType::Ref {
+                lifetime: None,
+                inner: Box::new(RustType::Vec(Box::new(RustType::Ref {
+                    lifetime: None,
+                    inner: Box::new(RustType::String),
+                }))),
+            },
+            VeltranoType::vec(VeltranoType::string()),
+        ),
+        // &Option<&str> - inner &str becomes just str
+        (
+            "&Option<&str>",
+            RustType::Ref {
+                lifetime: None,
+                inner: Box::new(RustType::Option(Box::new(RustType::Ref {
+                    lifetime: None,
+                    inner: Box::new(RustType::Str),
+                }))),
+            },
+            VeltranoType::option(VeltranoType::str()),
+        ),
+        // &mut &String - only inner ref cancels
+        (
+            "&mut &String",
+            RustType::MutRef {
+                lifetime: None,
+                inner: Box::new(RustType::Ref {
+                    lifetime: None,
+                    inner: Box::new(RustType::String),
+                }),
+            },
+            VeltranoType::mut_ref(VeltranoType::string()),
+        ),
+        // &mut &mut String - no cancellation
+        (
+            "&mut &mut String",
+            RustType::MutRef {
+                lifetime: None,
+                inner: Box::new(RustType::MutRef {
+                    lifetime: None,
+                    inner: Box::new(RustType::String),
+                }),
+            },
+            VeltranoType::mut_ref(VeltranoType::mut_ref(VeltranoType::own(
+                VeltranoType::string(),
+            ))),
+        ),
+        // Complex: &Result<&str, &String>
+        (
+            "&Result<&str, &String>",
+            RustType::Ref {
+                lifetime: None,
+                inner: Box::new(RustType::Result {
+                    ok: Box::new(RustType::Ref {
+                        lifetime: None,
+                        inner: Box::new(RustType::Str),
+                    }),
+                    err: Box::new(RustType::Ref {
+                        lifetime: None,
+                        inner: Box::new(RustType::String),
+                    }),
+                }),
+            },
+            VeltranoType::result(VeltranoType::str(), VeltranoType::string()),
+        ),
+        // &Option<Box<&String>> - nested cancellation
+        (
+            "&Option<Box<&String>>",
+            RustType::Ref {
+                lifetime: None,
+                inner: Box::new(RustType::Option(Box::new(RustType::Box(Box::new(
+                    RustType::Ref {
+                        lifetime: None,
+                        inner: Box::new(RustType::String),
+                    },
+                ))))),
+            },
+            VeltranoType::option(VeltranoType::own(VeltranoType::boxed(
+                VeltranoType::string(),
+            ))),
+        ),
+        // Triple reference &&&str
+        (
+            "&&&str",
+            RustType::Ref {
+                lifetime: None,
+                inner: Box::new(RustType::Ref {
+                    lifetime: None,
+                    inner: Box::new(RustType::Ref {
+                        lifetime: None,
+                        inner: Box::new(RustType::Str),
+                    }),
+                }),
+            },
+            VeltranoType::ref_(VeltranoType::ref_(VeltranoType::str())),
+        ),
+    ];
+
+    for (type_str, expected_rust_type, expected_veltrano_type) in test_cases {
+        match RustTypeParser::parse(type_str) {
+            Ok(rust_type) => {
+                assert_eq!(
+                    rust_type, expected_rust_type,
+                    "Unexpected parse result for {}",
+                    type_str
+                );
+
+                // Try to convert to Veltrano type
+                match rust_type.to_veltrano_type() {
+                    Ok(veltrano_type) => {
+                        assert_eq!(
+                            veltrano_type, expected_veltrano_type,
+                            "Unexpected Veltrano type for {}",
+                            type_str
+                        );
+                    }
+                    Err(e) => {
+                        panic!("Failed to convert {} to Veltrano type: {}", type_str, e);
+                    }
+                }
+            }
+            Err(e) => {
+                panic!("Failed to parse {}: {}", type_str, e);
+            }
+        }
+    }
+}
+
+#[test]
+fn test_complex_nested_rust_signatures() {
+    use veltrano::types::VeltranoType;
+
+    // Test parsing of deeply nested and complex type signatures
+    let test_cases = vec![
+        // Nested Options
+        (
+            "Option<Option<i32>>",
+            RustType::Option(Box::new(RustType::Option(Box::new(RustType::I32)))),
+            VeltranoType::own(VeltranoType::option(VeltranoType::own(
+                VeltranoType::option(VeltranoType::i32()),
+            ))),
+        ),
+        // Vec of Options
+        (
+            "Vec<Option<String>>",
+            RustType::Vec(Box::new(RustType::Option(Box::new(RustType::String)))),
+            VeltranoType::own(VeltranoType::vec(VeltranoType::own(VeltranoType::option(
+                VeltranoType::own(VeltranoType::string()),
+            )))),
+        ),
+        // Option of Vec
+        (
+            "Option<Vec<i32>>",
+            RustType::Option(Box::new(RustType::Vec(Box::new(RustType::I32)))),
+            VeltranoType::own(VeltranoType::option(VeltranoType::own(VeltranoType::vec(
+                VeltranoType::i32(),
+            )))),
+        ),
+        // Box of Vec
+        (
+            "Box<Vec<String>>",
+            RustType::Box(Box::new(RustType::Vec(Box::new(RustType::String)))),
+            VeltranoType::own(VeltranoType::boxed(VeltranoType::own(VeltranoType::vec(
+                VeltranoType::own(VeltranoType::string()),
+            )))),
+        ),
+        // Result types
+        (
+            "Result<i32, String>",
+            RustType::Result {
+                ok: Box::new(RustType::I32),
+                err: Box::new(RustType::String),
+            },
+            VeltranoType::own(VeltranoType::result(
+                VeltranoType::i32(),
+                VeltranoType::own(VeltranoType::string()),
+            )),
+        ),
+        // Result with complex types
+        (
+            "Result<Vec<i32>, Box<String>>",
+            RustType::Result {
+                ok: Box::new(RustType::Vec(Box::new(RustType::I32))),
+                err: Box::new(RustType::Box(Box::new(RustType::String))),
+            },
+            VeltranoType::own(VeltranoType::result(
+                VeltranoType::own(VeltranoType::vec(VeltranoType::i32())),
+                VeltranoType::own(VeltranoType::boxed(VeltranoType::own(
+                    VeltranoType::string(),
+                ))),
+            )),
+        ),
+        // Nested Results
+        (
+            "Result<Option<i32>, Vec<String>>",
+            RustType::Result {
+                ok: Box::new(RustType::Option(Box::new(RustType::I32))),
+                err: Box::new(RustType::Vec(Box::new(RustType::String))),
+            },
+            VeltranoType::own(VeltranoType::result(
+                VeltranoType::own(VeltranoType::option(VeltranoType::i32())),
+                VeltranoType::own(VeltranoType::vec(VeltranoType::own(VeltranoType::string()))),
+            )),
+        ),
+        // Reference to Box
+        (
+            "&Box<String>",
+            RustType::Ref {
+                lifetime: None,
+                inner: Box::new(RustType::Box(Box::new(RustType::String))),
+            },
+            VeltranoType::boxed(VeltranoType::own(VeltranoType::string())),
+        ),
+        // Mutable reference to Vec of Options
+        (
+            "&mut Vec<Option<i32>>",
+            RustType::MutRef {
+                lifetime: None,
+                inner: Box::new(RustType::Vec(Box::new(RustType::Option(Box::new(
+                    RustType::I32,
+                ))))),
+            },
+            VeltranoType::mut_ref(VeltranoType::own(VeltranoType::vec(VeltranoType::own(
+                VeltranoType::option(VeltranoType::i32()),
+            )))),
+        ),
+        // Vec of Boxes
+        (
+            "Vec<Box<String>>",
+            RustType::Vec(Box::new(RustType::Box(Box::new(RustType::String)))),
+            VeltranoType::own(VeltranoType::vec(VeltranoType::own(VeltranoType::boxed(
+                VeltranoType::own(VeltranoType::string()),
+            )))),
+        ),
+        // Triple nesting
+        (
+            "Option<Vec<Box<i32>>>",
+            RustType::Option(Box::new(RustType::Vec(Box::new(RustType::Box(Box::new(
+                RustType::I32,
+            )))))),
+            VeltranoType::own(VeltranoType::option(VeltranoType::own(VeltranoType::vec(
+                VeltranoType::own(VeltranoType::boxed(VeltranoType::i32())),
+            )))),
+        ),
+        // Reference to Option of Vec
+        (
+            "&Option<Vec<String>>",
+            RustType::Ref {
+                lifetime: None,
+                inner: Box::new(RustType::Option(Box::new(RustType::Vec(Box::new(
+                    RustType::String,
+                ))))),
+            },
+            VeltranoType::option(VeltranoType::own(VeltranoType::vec(VeltranoType::own(
+                VeltranoType::string(),
+            )))),
+        ),
+        // Complex Result with nested types
+        (
+            "Result<Box<Vec<i32>>, Option<String>>",
+            RustType::Result {
+                ok: Box::new(RustType::Box(Box::new(RustType::Vec(Box::new(
+                    RustType::I32,
+                ))))),
+                err: Box::new(RustType::Option(Box::new(RustType::String))),
+            },
+            VeltranoType::own(VeltranoType::result(
+                VeltranoType::own(VeltranoType::boxed(VeltranoType::own(VeltranoType::vec(
+                    VeltranoType::i32(),
+                )))),
+                VeltranoType::own(VeltranoType::option(VeltranoType::own(
+                    VeltranoType::string(),
+                ))),
+            )),
+        ),
+        // Lifetime in nested reference
+        (
+            "&'a Vec<Option<String>>",
+            RustType::Ref {
+                lifetime: Some("a".to_string()),
+                inner: Box::new(RustType::Vec(Box::new(RustType::Option(Box::new(
+                    RustType::String,
+                ))))),
+            },
+            VeltranoType::vec(VeltranoType::own(VeltranoType::option(VeltranoType::own(
+                VeltranoType::string(),
+            )))),
+        ),
+    ];
+
+    for (type_str, expected_rust_type, expected_veltrano_type) in test_cases {
+        match RustTypeParser::parse(type_str) {
+            Ok(rust_type) => {
+                assert_eq!(
+                    rust_type, expected_rust_type,
+                    "Unexpected parse result for {}",
+                    type_str
+                );
+
+                // Try to convert to Veltrano type
+                match rust_type.to_veltrano_type() {
+                    Ok(veltrano_type) => {
+                        assert_eq!(
+                            veltrano_type, expected_veltrano_type,
+                            "Unexpected Veltrano type for {}",
+                            type_str
+                        );
+                    }
+                    Err(e) => {
+                        panic!("Failed to convert {} to Veltrano type: {}", type_str, e);
+                    }
+                }
+            }
+            Err(e) => {
+                panic!("Failed to parse {}: {}", type_str, e);
             }
         }
     }
@@ -540,8 +965,8 @@ fn test_integration_with_veltrano_type_system() {
         (RustType::I32, VeltranoType::i32()),
         (RustType::Bool, VeltranoType::bool()),
         (RustType::Unit, VeltranoType::unit()),
-        (RustType::String, VeltranoType::string()),
-        (RustType::Str, VeltranoType::str()),
+        (RustType::String, VeltranoType::own(VeltranoType::string())),
+        (RustType::Str, VeltranoType::own(VeltranoType::str())),
         (
             RustType::Ref {
                 lifetime: None,

@@ -30,7 +30,7 @@ fn test_builtin_string_clone() {
     // String clone (built-in, naturally referenced type)
     let code = r#"
     fun main() {
-        val s: String = "hello"
+        val s: String = "hello".toString().ref()
         val cloned: Own<String> = s.clone()  // Built-in CloneSemantics: String -> Own<String>
     }
     "#;
@@ -73,7 +73,7 @@ fn test_imported_clone_methods() {
         val num: I64 = 42
         val num_cloned: I64 = num.clone()  // Works via unified method resolution
         
-        val text: String = "hello"
+        val text: String = "hello".toString().ref()
         val text_cloned: Own<String> = text.clone()  // Works via unified method resolution
     }
     "#;
@@ -121,7 +121,7 @@ fn test_imported_complex_return_types() {
         // Note: This demonstrates how the system handles imported methods
         // without hardcoded signatures using type inference
         
-        val text: String = "hello"
+        val text: String = "hello".toString().ref()
         val chars_result = text.chars()  // Type inferred from permissive behavior
     }
     "#;
@@ -357,10 +357,10 @@ fn test_method_chaining_mixed() {
     import String.toString
     
     fun main() {
-        val text: String = "hello"
+        val text: String = "hello".toString().ref()
         
-        // Chain: String -> Own<String> (clone) -> String (ref) -> String (toString)
-        val result: String = text.clone().ref().toString()
+        // Chain: String -> Own<String> (clone) -> String (ref) -> Own<String> (toString)
+        val result: Own<String> = text.clone().ref().toString()
     }
     "#;
 

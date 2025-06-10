@@ -173,8 +173,8 @@ fn test_shorthand_argument_type_checking() {
     data class Person(val name: String, val age: I64)
     
     fun main() {
-        val name: String = "Alice"
-        val age: String = "not a number"  // Wrong type for age field
+        val name: String = "Alice".toString().ref()
+        val age: String = "not a number".toString().ref()  // Wrong type for age field
         val person = Person(.name, .age)  // Should fail type checking
     }
     "#;
@@ -210,7 +210,7 @@ fn test_shorthand_argument_field_not_found() {
     data class Person(val name: String, val age: I64)
     
     fun main() {
-        val name: String = "Alice"
+        val name: String = "Alice".toString().ref()
         val person = Person(.name, .undefinedField)  // Should fail - field not found
     }
     "#;

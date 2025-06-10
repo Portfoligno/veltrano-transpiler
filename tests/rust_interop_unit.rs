@@ -152,8 +152,8 @@ fn test_error_handling_and_fallback() {
 #[test]
 fn test_dynamic_registry_creation() {
     let registry = DynamicRustRegistry::new();
-    assert!(registry.queriers.len() >= 1); // Should have at least rustdoc querier
-    assert!(registry.queriers.len() <= 2); // May have syn querier too
+    assert!(registry.queriers.len() >= 2); // Should have at least StdLibQuerier and RustdocQuerier
+    assert!(registry.queriers.len() <= 3); // May also have SynQuerier
 }
 
 #[test]
@@ -369,12 +369,12 @@ fn test_rust_type_to_veltrano_conversion() {
     // Test string types
     assert_eq!(
         RustType::Str.to_veltrano_type().unwrap(),
-        VeltranoType::str()
+        VeltranoType::own(VeltranoType::str())
     );
 
     assert_eq!(
         RustType::String.to_veltrano_type().unwrap(),
-        VeltranoType::string()
+        VeltranoType::own(VeltranoType::string())
     );
 
     // Test references
@@ -394,14 +394,14 @@ fn test_rust_type_to_veltrano_conversion() {
     };
     assert_eq!(
         rust_mut_ref.to_veltrano_type().unwrap(),
-        VeltranoType::mut_ref(VeltranoType::string())
+        VeltranoType::mut_ref(VeltranoType::own(VeltranoType::string()))
     );
 
     // Test Box
     let rust_box = RustType::Box(Box::new(RustType::I32));
     assert_eq!(
         rust_box.to_veltrano_type().unwrap(),
-        VeltranoType::boxed(VeltranoType::i32())
+        VeltranoType::own(VeltranoType::boxed(VeltranoType::i32()))
     );
 
     // Test custom types

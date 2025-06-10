@@ -32,8 +32,8 @@ fn test_clone_on_naturally_referenced_types() {
     // Clone should work on naturally referenced types like String, when accessed via Ref<T>
     let code = r#"
     fun main() {
-        val s: String = "hello"  // String is naturally referenced
-        val s2 = s.clone()       // String implements Clone
+        val s: String = "hello".toString().ref()  // Create String from Str
+        val s2 = s.clone()       // String implements Clone, returns Own<String>
     }
     "#;
 
@@ -349,15 +349,15 @@ fn test_i64_vs_string_clone_comparison() {
         val num: I64 = 42
         val num_cloned: I64 = num.clone()
         
-        // String - naturally referenced, can clone directly
-        val str: String = "hello"
-        val str_cloned: Own<String> = str.clone()
+        // String - naturally referenced, can clone directly  
+        val str: Own<String> = "hello".toString()
+        val str_cloned: Own<String> = str.ref().clone()
         
         // Both can be wrapped in Ref<> and cloned
         val num_ref: Ref<I64> = num.ref()
         val num_ref_cloned: I64 = num_ref.clone()
         
-        val str_ref: Ref<String> = str.ref()  
+        val str_ref: Ref<String> = str.ref().ref()
         val str_ref_cloned: String = str_ref.clone()
     }
     "#;

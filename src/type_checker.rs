@@ -495,7 +495,7 @@ impl VeltranoTypeChecker {
         let veltrano_type = match literal {
             LiteralExpr::Int(_) => VeltranoType::i64(),
             LiteralExpr::Bool(_) => VeltranoType::bool(),
-            LiteralExpr::String(_) => VeltranoType::string(), // String literals are naturally referenced
+            LiteralExpr::String(_) => VeltranoType::str(), // String literals have type Str
             LiteralExpr::Unit => VeltranoType::unit(),
             LiteralExpr::Null => VeltranoType::unit(), // For now, map null to unit
         };

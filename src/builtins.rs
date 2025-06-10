@@ -612,7 +612,30 @@ impl BuiltinRegistry {
                 &method_info.self_kind,
                 trait_checker,
             ) {
-                // Convert the Rust return type to Veltrano type
+                // TEMPORARY FIX: Special handling for clone method
+                // TODO: This is a temporary workaround until we have a more systematic way
+                // to handle method return type transformations based on Veltrano semantics
+                if method_name == "clone" {
+                    // Clone has special semantics in Veltrano:
+                    // - Ref<T>.clone() -> T (not Own<T>)
+                    // - T.clone() -> Own<T> (for naturally referenced types)
+                    match &receiver_type.constructor {
+                        TypeConstructor::Ref | TypeConstructor::MutRef => {
+                            // For Ref<T> or MutRef<T>, clone returns T directly
+                            if let Some(inner) = receiver_type.inner() {
+                                return Some(inner.clone());
+                            }
+                        }
+                        _ => {
+                            // For other types, use normal conversion
+                            if let Ok(veltrano_return_type) = method_info.return_type.to_veltrano_type() {
+                                return Some(veltrano_return_type);
+                            }
+                        }
+                    }
+                }
+                
+                // For non-clone methods, use normal conversion
                 if let Ok(veltrano_return_type) = method_info.return_type.to_veltrano_type() {
                     return Some(veltrano_return_type);
                 }
@@ -710,7 +733,28 @@ impl BuiltinRegistry {
 
         if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name)
         {
-            // Convert Rust return type to Veltrano type
+            // TEMPORARY FIX: Special handling for clone method
+            // TODO: This is a temporary workaround until we have a more systematic way
+            // to handle method return type transformations based on Veltrano semantics
+            if method_name == "clone" {
+                // Clone has special semantics in Veltrano:
+                // - Ref<T>.clone() -> T (not Own<T>)
+                // - T.clone() -> Own<T> (for naturally referenced types)
+                match &receiver_type.constructor {
+                    TypeConstructor::Ref | TypeConstructor::MutRef => {
+                        // For Ref<T> or MutRef<T>, clone returns T directly
+                        if let Some(inner) = receiver_type.inner() {
+                            return Some(inner.clone());
+                        }
+                    }
+                    _ => {
+                        // For other types, use normal conversion
+                        return method_info.return_type.to_veltrano_type().ok();
+                    }
+                }
+            }
+            
+            // For non-clone methods, use normal conversion
             method_info.return_type.to_veltrano_type().ok()
         } else {
             None
