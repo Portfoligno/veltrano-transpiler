@@ -104,7 +104,7 @@ In Veltrano, the type system is built around making references the default:
 | `Own<T>` | Invalid (`Own<I64>`) | `Own<String>` → `String` |
 | `Ref<T>` | `Ref<I64>` → `&i64` | `Ref<String>` → `&&String` |
 | `MutRef<T>` | `MutRef<I64>` → `&mut i64` | `MutRef<String>` → `&mut &String` |
-| `Box<T>` | `Box<I64>` → `Box<i64>` | `Box<Str>` → `Box<str>` |
+| `Box<T>` | `Box<I64>` → `&Box<i64>` | `Box<Str>` → `&Box<&str>` |
 
 ### Working with References
 
