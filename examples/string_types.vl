@@ -2,7 +2,7 @@ fun main() {
     val slice: Str = "Hello"
     val owned: Own<String> = "World".toString()
     val borrowed: String = owned.ref()
-    val boxed: Box<Str> = "Boxed".into()
+    val boxed: Own<Box<Own<Str>>> = "Boxed".into()
     
     println("{}", slice)
     println("{}", owned)

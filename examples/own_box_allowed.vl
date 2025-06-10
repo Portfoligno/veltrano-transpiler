@@ -1,0 +1,6 @@
+// This file is no longer a failing test case since Own<Box<T>> is now allowed
+// Renamed to demonstrate valid usage of Own<Box<T>>
+fun main() {
+    // Just declare the type to show it's valid
+    val boxed: Own<Box<String>>
+}

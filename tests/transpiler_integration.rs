@@ -569,13 +569,14 @@ fn test_own_value_type_validation() {
     )
     .expect("Own<MutRef<T>> should be rejected");
 
-    // Test that Own<Box<T>> is rejected
-    assert_type_check_error(
-        r#"fun main() { val x: Own<Box<String>> = something }"#,
+    // Test that Own<Box<T>> is accepted (Box is no longer rejected)
+    // Just test that the type is valid by using a declaration without initialization
+    transpile(
+        r#"fun main() { val x: Own<Box<String>> }"#,
         config.clone(),
-        Some("Box<T> is already owned"),
+        false, // don't skip_type_check
     )
-    .expect("Own<Box<T>> should be rejected");
+    .expect("Own<Box<T>> should be accepted");
 
     // Test that Own<Own<T>> is rejected
     assert_type_check_error(
