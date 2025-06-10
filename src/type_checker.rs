@@ -110,9 +110,6 @@ impl VeltranoType {
             TypeConstructor::MutRef => {
                 Err("Cannot use Own<MutRef<T>>. MutRef<T> is already owned.".to_string())
             }
-            TypeConstructor::Box => {
-                Err("Cannot use Own<Box<T>>. Box<T> is already owned.".to_string())
-            }
             TypeConstructor::Own => {
                 Err("Cannot use Own<Own<T>>. This creates double ownership.".to_string())
             }

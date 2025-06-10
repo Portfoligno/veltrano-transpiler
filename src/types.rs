@@ -323,9 +323,13 @@ impl VeltranoType {
             }
             TypeConstructor::Box => {
                 if let Some(inner) = self.inner() {
-                    RustType::Box(Box::new(
-                        inner.to_rust_type_with_lifetime(trait_checker, lifetime),
-                    ))
+                    // Box is naturally referenced (like non-Copy custom types)
+                    RustType::Ref {
+                        lifetime: lifetime.clone(),
+                        inner: Box::new(RustType::Box(Box::new(
+                            inner.to_rust_type_with_lifetime(trait_checker, lifetime.clone()),
+                        ))),
+                    }
                 } else {
                     RustType::Never // Error case
                 }
