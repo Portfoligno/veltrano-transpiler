@@ -2,6 +2,7 @@
 ///
 /// This module contains the fundamental type definitions that are shared
 /// across multiple modules to avoid circular dependencies.
+use crate::rust_interop::RustType;
 use std::collections::HashMap;
 
 /// A type in the Veltrano type system supporting higher-kinded types
@@ -245,9 +246,12 @@ impl VeltranoType {
     }
 
     /// Convert VeltranoType to RustType
-    pub fn to_rust_type(&self, trait_checker: &mut crate::rust_interop::RustInteropRegistry) -> crate::rust_interop::RustType {
+    pub fn to_rust_type(
+        &self,
+        trait_checker: &mut crate::rust_interop::RustInteropRegistry,
+    ) -> crate::rust_interop::RustType {
         use crate::rust_interop::RustType;
-        
+
         match &self.constructor {
             TypeConstructor::I32 => RustType::I32,
             TypeConstructor::I64 => RustType::I64,
@@ -269,7 +273,7 @@ impl VeltranoType {
                     lifetime: None,
                     inner: Box::new(RustType::String),
                 }
-            },
+            }
             TypeConstructor::Custom(name) => {
                 if self.implements_copy(trait_checker) {
                     RustType::Custom {
@@ -286,7 +290,7 @@ impl VeltranoType {
                         }),
                     }
                 }
-            },
+            }
             TypeConstructor::Own => {
                 if let Some(inner) = self.inner() {
                     // Own<T> removes one level of reference
@@ -298,7 +302,7 @@ impl VeltranoType {
                 } else {
                     RustType::Never // Error case
                 }
-            },
+            }
             TypeConstructor::Ref => {
                 if let Some(inner) = self.inner() {
                     RustType::Ref {
@@ -308,7 +312,7 @@ impl VeltranoType {
                 } else {
                     RustType::Never // Error case
                 }
-            },
+            }
             TypeConstructor::MutRef => {
                 if let Some(inner) = self.inner() {
                     RustType::MutRef {
@@ -318,28 +322,28 @@ impl VeltranoType {
                 } else {
                     RustType::Never // Error case
                 }
-            },
+            }
             TypeConstructor::Box => {
                 if let Some(inner) = self.inner() {
                     RustType::Box(Box::new(inner.to_rust_type(trait_checker)))
                 } else {
                     RustType::Never // Error case
                 }
-            },
+            }
             TypeConstructor::Vec => {
                 if let Some(inner) = self.inner() {
                     RustType::Vec(Box::new(inner.to_rust_type(trait_checker)))
                 } else {
                     RustType::Never // Error case
                 }
-            },
+            }
             TypeConstructor::Option => {
                 if let Some(inner) = self.inner() {
                     RustType::Option(Box::new(inner.to_rust_type(trait_checker)))
                 } else {
                     RustType::Never // Error case
                 }
-            },
+            }
             TypeConstructor::Result => {
                 if self.args.len() == 2 {
                     RustType::Result {
@@ -349,25 +353,34 @@ impl VeltranoType {
                 } else {
                     RustType::Never // Error case
                 }
-            },
+            }
             TypeConstructor::Array(_) => RustType::Never, // Not implemented yet
         }
     }
 
     /// Check if this type implements the Copy trait
-    pub fn implements_copy(&self, trait_checker: &mut crate::rust_interop::RustInteropRegistry) -> bool {
+    pub fn implements_copy(
+        &self,
+        trait_checker: &mut crate::rust_interop::RustInteropRegistry,
+    ) -> bool {
         match &self.constructor {
             // Primitive types all implement Copy
-            TypeConstructor::I32 | TypeConstructor::I64 | TypeConstructor::ISize |
-            TypeConstructor::U32 | TypeConstructor::U64 | TypeConstructor::USize |
-            TypeConstructor::Bool | TypeConstructor::Char | TypeConstructor::Unit => true,
-            
+            TypeConstructor::I32
+            | TypeConstructor::I64
+            | TypeConstructor::ISize
+            | TypeConstructor::U32
+            | TypeConstructor::U64
+            | TypeConstructor::USize
+            | TypeConstructor::Bool
+            | TypeConstructor::Char
+            | TypeConstructor::Unit => true,
+
             // Never type is Copy
             TypeConstructor::Nothing => true,
-            
+
             // String types do not implement Copy
             TypeConstructor::Str | TypeConstructor::String => false,
-            
+
             // References are Copy if their inner type is
             TypeConstructor::Ref | TypeConstructor::MutRef => {
                 if let Some(inner) = self.inner() {
@@ -376,10 +389,10 @@ impl VeltranoType {
                     false
                 }
             }
-            
+
             // Own, Box, Vec, etc. never implement Copy
             TypeConstructor::Own | TypeConstructor::Box | TypeConstructor::Vec => false,
-            
+
             // Option and Result depend on their inner types
             TypeConstructor::Option => {
                 if let Some(inner) = self.inner() {
@@ -391,12 +404,13 @@ impl VeltranoType {
             TypeConstructor::Result => {
                 // Result is Copy only if both Ok and Err types are Copy
                 if self.args.len() == 2 {
-                    self.args[0].implements_copy(trait_checker) && self.args[1].implements_copy(trait_checker)
+                    self.args[0].implements_copy(trait_checker)
+                        && self.args[1].implements_copy(trait_checker)
                 } else {
                     false
                 }
             }
-            
+
             // Arrays are Copy if their element type is Copy
             TypeConstructor::Array(_) => {
                 if let Some(inner) = self.inner() {
@@ -405,10 +419,16 @@ impl VeltranoType {
                     false
                 }
             }
-            
+
             // Custom types need to check with the trait checker
             TypeConstructor::Custom(name) => {
-                trait_checker.type_implements_trait(name, "Copy").unwrap_or(false)
+                let rust_type = RustType::Custom {
+                    name: name.clone(),
+                    generics: vec![],
+                };
+                trait_checker
+                    .type_implements_trait(&rust_type, "Copy")
+                    .unwrap_or(false)
             }
         }
     }

@@ -90,7 +90,6 @@ pub struct VeltranoTypeChecker {
 
 /// Helper functions for trait checking on VeltranoType
 impl VeltranoType {
-
     /// Validate if Own<T> type constructor is valid with the given inner type
     pub fn validate_own_constructor(
         inner: &VeltranoType,
@@ -126,9 +125,8 @@ impl VeltranoType {
         // For base types (no type arguments), use trait checker
         if self.args.is_empty() {
             let rust_type = self.to_rust_type(trait_checker);
-            let type_name = rust_type.to_type_name_for_lookup();
             return trait_checker
-                .type_implements_trait(&type_name, "Clone")
+                .type_implements_trait(&rust_type, "Clone")
                 .unwrap_or(false);
         }
 
@@ -159,9 +157,8 @@ impl VeltranoType {
         // For base types (no type arguments), use trait checker
         if self.args.is_empty() {
             let rust_type = self.to_rust_type(trait_checker);
-            let type_name = rust_type.to_type_name_for_lookup();
             return trait_checker
-                .type_implements_trait(&type_name, "ToString")
+                .type_implements_trait(&rust_type, "ToString")
                 .unwrap_or(false);
         }
 
@@ -275,10 +272,10 @@ impl VeltranoTypeChecker {
     /// Check import statement and register it for method resolution
     fn check_import_statement(&mut self, import: &ImportStmt) -> Result<(), TypeCheckError> {
         use crate::rust_interop::RustTypeParser;
-        
+
         // Parse the type name into a RustType
-        let rust_type = RustTypeParser::parse(&import.type_name)
-            .map_err(|_| TypeCheckError::InvalidType {
+        let rust_type =
+            RustTypeParser::parse(&import.type_name).map_err(|_| TypeCheckError::InvalidType {
                 type_name: import.type_name.clone(),
                 reason: "Failed to parse import type".to_string(),
                 location: SourceLocation {
@@ -288,7 +285,7 @@ impl VeltranoTypeChecker {
                     source_line: "".to_string(),
                 },
             })?;
-        
+
         // Store the import for later method resolution
         let key = import
             .alias
@@ -298,7 +295,10 @@ impl VeltranoTypeChecker {
             .insert(key, (rust_type.clone(), import.method_name.clone()));
 
         // Validate that the imported method exists
-        if let Err(_) = self.trait_checker.query_method_signature(&rust_type, &import.method_name) {
+        if let Err(_) = self
+            .trait_checker
+            .query_method_signature(&rust_type, &import.method_name)
+        {
             return Err(TypeCheckError::InvalidImport {
                 type_name: import.type_name.clone(),
                 method_name: import.method_name.clone(),
@@ -890,11 +890,14 @@ impl VeltranoTypeChecker {
             .query_method_signature(rust_type, rust_method_name)
         {
             // Check if the receiver type can provide the required access
-            if !self.builtin_registry.receiver_can_provide_rust_access_for_imported(
-                receiver_type,
-                &method_info.self_kind,
-                &mut self.trait_checker,
-            ) {
+            if !self
+                .builtin_registry
+                .receiver_can_provide_rust_access_for_imported(
+                    receiver_type,
+                    &method_info.self_kind,
+                    &mut self.trait_checker,
+                )
+            {
                 return Err(TypeCheckError::MethodNotFound {
                     receiver_type: receiver_type.clone(),
                     method: rust_method_name.to_string(),

@@ -140,7 +140,7 @@ impl RustType {
 
     /// Convert RustType to its string representation for crate info queries
     /// This preserves references and is only used at the lowest level
-    fn to_crate_query_string(&self) -> String {
+    pub fn to_crate_query_string(&self) -> String {
         match self {
             RustType::I32 => "i32".to_string(),
             RustType::I64 => "i64".to_string(),
@@ -161,14 +161,26 @@ impl RustType {
             RustType::Arc(inner) => format!("Arc<{}>", inner.to_crate_query_string()),
             RustType::Vec(inner) => format!("Vec<{}>", inner.to_crate_query_string()),
             RustType::Option(inner) => format!("Option<{}>", inner.to_crate_query_string()),
-            RustType::Result { ok, err } => format!("Result<{}, {}>", ok.to_crate_query_string(), err.to_crate_query_string()),
+            RustType::Result { ok, err } => format!(
+                "Result<{}, {}>",
+                ok.to_crate_query_string(),
+                err.to_crate_query_string()
+            ),
             RustType::Custom { name, generics } => {
                 if generics.is_empty() {
                     name.clone()
                 } else {
-                    format!("{}<{}>", name, generics.iter().map(|g| g.to_crate_query_string()).collect::<Vec<_>>().join(", "))
+                    format!(
+                        "{}<{}>",
+                        name,
+                        generics
+                            .iter()
+                            .map(|g| g.to_crate_query_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
                 }
-            },
+            }
             RustType::Generic(name) => name.clone(),
         }
     }
@@ -322,11 +334,14 @@ impl RustInteropRegistry {
     /// Check if a type implements a specific trait
     pub fn type_implements_trait(
         &mut self,
-        type_path: &str,
+        rust_type: &RustType,
         trait_name: &str,
     ) -> Result<bool, RustInteropError> {
+        // Convert to string only at the lowest level
+        let type_path = rust_type.to_crate_query_string();
+
         // For built-in types, we can have hardcoded knowledge
-        let implements = match type_path {
+        let implements = match type_path.as_str() {
             // Primitive types that implement Copy and Clone
             "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64"
             | "u128" | "usize" | "f32" | "f64" | "bool" | "char" => {
@@ -374,31 +389,36 @@ impl RustInteropRegistry {
         // Try method resolution following Rust's rules
         // First try the exact type, then try dereferenced types
         let type_sequence = self.build_method_resolution_sequence(rust_type);
-        
+
         for candidate_type in type_sequence {
             // Convert to string only at the lowest level for CrateInfo query
             let type_path = candidate_type.to_crate_query_string();
-            eprintln!("DEBUG: query_method_signature - trying candidate_type: {:?} -> type_path: {}", candidate_type, type_path);
-            
+            eprintln!(
+                "DEBUG: query_method_signature - trying candidate_type: {:?} -> type_path: {}",
+                candidate_type, type_path
+            );
+
             // First try hardcoded method info for built-in types
             if let Some(method_info) = self.get_method_info(&type_path, method_name) {
                 return Ok(Some(method_info));
             }
 
             // For other types, use the dynamic registry to query method signatures
-            if let result @ Ok(Some(_)) = self.query_dynamic_method_signature(&type_path, method_name) {
+            if let result @ Ok(Some(_)) =
+                self.query_dynamic_method_signature(&type_path, method_name)
+            {
                 return result;
             }
         }
-        
+
         Ok(None)
     }
-    
+
     /// Build the sequence of types to check for method resolution
     /// Following Rust's method resolution order
     fn build_method_resolution_sequence(&self, rust_type: &RustType) -> Vec<RustType> {
         let mut sequence = Vec::new();
-        
+
         // For references, check the reference type first (for impl Clone for &T)
         // Then check the inner type (for impl Clone for T)
         match rust_type {
@@ -413,7 +433,7 @@ impl RustInteropRegistry {
                 sequence.push(rust_type.clone());
             }
         }
-        
+
         sequence
     }
 
@@ -426,7 +446,7 @@ impl RustInteropRegistry {
         // Convert Veltrano method name (camelCase) to Rust method name (snake_case)
         let rust_method_name = camel_to_snake_case(method_name);
         eprintln!("DEBUG: query_dynamic_method_signature - type_path: {}, method_name: {} -> rust_method_name: {}", type_path, method_name, rust_method_name);
-        
+
         // Parse the type_path to determine which crate it comes from
         // For standard library types like "i64", "String", we assume they're from "std"
         let crate_name = if self.is_stdlib_type(type_path) {
@@ -469,16 +489,34 @@ impl RustInteropRegistry {
     fn is_stdlib_type(&self, type_path: &str) -> bool {
         matches!(
             type_path,
-            "i8" | "i16" | "i32" | "i64" | "i128" | "isize"
-            | "u8" | "u16" | "u32" | "u64" | "u128" | "usize"
-            | "f32" | "f64" | "bool" | "char" | "str" | "String"
-            | "()" | "Vec" | "Option" | "Result"
+            "i8" | "i16"
+                | "i32"
+                | "i64"
+                | "i128"
+                | "isize"
+                | "u8"
+                | "u16"
+                | "u32"
+                | "u64"
+                | "u128"
+                | "usize"
+                | "f32"
+                | "f64"
+                | "bool"
+                | "char"
+                | "str"
+                | "String"
+                | "()"
+                | "Vec"
+                | "Option"
+                | "Result"
         )
     }
 
     /// Convert method parameters from the dynamic registry format
     fn convert_parameters(&self, parameters: &[Parameter]) -> Vec<RustType> {
-        parameters.iter()
+        parameters
+            .iter()
             .filter_map(|param| param.param_type.parsed.clone())
             .collect()
     }
@@ -496,14 +534,56 @@ impl RustInteropRegistry {
     ) -> Result<Option<ImportedMethodInfo>, RustInteropError> {
         // Convert Veltrano method name (camelCase) to Rust method name (snake_case)
         let rust_method_name = camel_to_snake_case(method_name);
-        
-        // Get list of traits implemented by this type
-        let traits = self.dynamic_registry.get_implemented_traits(type_path)?;
-        
+
+        // Special handling for reference types
+        // In Rust, &T automatically has certain trait implementations based on T
+        let (actual_type_path, traits) =
+            if type_path.starts_with("&") && !type_path.starts_with("&&") {
+                let inner_type = &type_path[1..]; // Remove the & prefix
+
+                // For Clone trait on &T, check if T implements Clone
+                if rust_method_name == "clone" {
+                    // Check if the inner type implements Clone
+                    if let Ok(rust_type) = RustTypeParser::parse(inner_type) {
+                        if self.type_implements_trait(&rust_type, "Clone")? {
+                            // &T implements Clone when T: Clone
+                            // Return the traits with Clone included
+                            let mut inner_traits =
+                                self.dynamic_registry.get_implemented_traits(inner_type)?;
+                            if !inner_traits.contains(&"Clone".to_string()) {
+                                inner_traits.push("Clone".to_string());
+                            }
+                            (type_path, inner_traits)
+                        } else {
+                            // T doesn't implement Clone, so &T doesn't have clone()
+                            (type_path, vec![])
+                        }
+                    } else {
+                        // Couldn't parse inner type, fall back to normal query
+                        (
+                            type_path,
+                            self.dynamic_registry.get_implemented_traits(type_path)?,
+                        )
+                    }
+                } else {
+                    // For other methods on &T, use normal trait lookup
+                    (
+                        type_path,
+                        self.dynamic_registry.get_implemented_traits(type_path)?,
+                    )
+                }
+            } else {
+                // Not a reference type, use normal lookup
+                (
+                    type_path,
+                    self.dynamic_registry.get_implemented_traits(type_path)?,
+                )
+            };
+
         // Search each trait for the method
         for trait_name in traits {
             let trait_path = format!("std::{}", trait_name); // Assuming std library traits
-            
+
             if let Ok(Some(trait_info)) = self.dynamic_registry.get_trait(&trait_path) {
                 for method in &trait_info.methods {
                     if method.name == rust_method_name {
@@ -514,20 +594,42 @@ impl RustInteropRegistry {
                             parameters: self.convert_parameters(&method.parameters),
                             return_type: if method.return_type.raw == "Self" {
                                 // For trait methods returning Self, return the concrete type
-                                // Need to properly map to the correct RustType
-                                match type_path {
-                                    "String" => RustType::String,
-                                    "i32" => RustType::I32,
-                                    "i64" => RustType::I64,
-                                    "isize" => RustType::ISize,
-                                    "u32" => RustType::U32,
-                                    "u64" => RustType::U64,
-                                    "usize" => RustType::USize,
-                                    "bool" => RustType::Bool,
-                                    "char" => RustType::Char,
-                                    _ => RustType::Custom {
-                                        name: type_path.to_string(),
-                                        generics: vec![],
+                                // Special case: &T.clone() returns T, not &T
+                                if rust_method_name == "clone" && actual_type_path.starts_with("&")
+                                {
+                                    // Clone on &T returns T
+                                    let inner_type = &actual_type_path[1..];
+                                    match inner_type {
+                                        "String" => RustType::String,
+                                        "i32" => RustType::I32,
+                                        "i64" => RustType::I64,
+                                        "isize" => RustType::ISize,
+                                        "u32" => RustType::U32,
+                                        "u64" => RustType::U64,
+                                        "usize" => RustType::USize,
+                                        "bool" => RustType::Bool,
+                                        "char" => RustType::Char,
+                                        _ => RustType::Custom {
+                                            name: inner_type.to_string(),
+                                            generics: vec![],
+                                        },
+                                    }
+                                } else {
+                                    // Normal Self resolution
+                                    match actual_type_path {
+                                        "String" => RustType::String,
+                                        "i32" => RustType::I32,
+                                        "i64" => RustType::I64,
+                                        "isize" => RustType::ISize,
+                                        "u32" => RustType::U32,
+                                        "u64" => RustType::U64,
+                                        "usize" => RustType::USize,
+                                        "bool" => RustType::Bool,
+                                        "char" => RustType::Char,
+                                        _ => RustType::Custom {
+                                            name: actual_type_path.to_string(),
+                                            generics: vec![],
+                                        },
                                     }
                                 }
                             } else {
@@ -539,7 +641,7 @@ impl RustInteropRegistry {
                 }
             }
         }
-        
+
         Ok(None)
     }
 }
@@ -784,9 +886,7 @@ pub struct StdLibQuerier {
 
 impl StdLibQuerier {
     pub fn new() -> Self {
-        Self { 
-            cache: None,
-        }
+        Self { cache: None }
     }
 
     fn create_std_crate_info(&self) -> CrateInfo {
@@ -843,23 +943,30 @@ impl StdLibQuerier {
             associated_types: vec![],
         };
         // Store with just "ToString" since that's what will be looked up after parse_path("std::ToString")
-        crate_info.traits.insert("ToString".to_string(), to_string_trait);
+        crate_info
+            .traits
+            .insert("ToString".to_string(), to_string_trait);
 
         // Add trait implementations for common types
-        for typ in &["i8", "i16", "i32", "i64", "i128", "isize", 
-                     "u8", "u16", "u32", "u64", "u128", "usize",
-                     "f32", "f64", "bool", "char"] {
+        for typ in &[
+            "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize",
+            "f32", "f64", "bool", "char",
+        ] {
             let mut traits = HashSet::new();
             traits.insert("Clone".to_string());
             traits.insert("ToString".to_string());
-            crate_info.trait_implementations.insert(typ.to_string(), traits);
+            crate_info
+                .trait_implementations
+                .insert(typ.to_string(), traits);
         }
 
         // String implements Clone and ToString
         let mut string_traits = HashSet::new();
         string_traits.insert("Clone".to_string());
         string_traits.insert("ToString".to_string());
-        crate_info.trait_implementations.insert("String".to_string(), string_traits);
+        crate_info
+            .trait_implementations
+            .insert("String".to_string(), string_traits);
 
         crate_info
     }
@@ -999,7 +1106,7 @@ impl DynamicRustRegistry {
         // Add queriers in priority order (highest priority first)
         // First add the standard library querier with built-in knowledge
         registry.add_querier(Box::new(StdLibQuerier::new()));
-        
+
         // Then add general purpose queriers
         registry.add_querier(Box::new(RustdocQuerier::new(None)));
 
@@ -1116,9 +1223,13 @@ impl DynamicRustRegistry {
     ) -> Result<bool, RustInteropError> {
         // For built-in types, delegate to RustInteropRegistry
         let mut basic_registry = RustInteropRegistry::new();
-        let basic_result = basic_registry.type_implements_trait(type_path, trait_name);
-        if basic_result.is_ok() {
-            return basic_result;
+
+        // Try to parse the type path into a RustType
+        if let Ok(rust_type) = RustTypeParser::parse(type_path) {
+            let basic_result = basic_registry.type_implements_trait(&rust_type, trait_name);
+            if basic_result.is_ok() {
+                return basic_result;
+            }
         }
 
         // For other types, query the crate info

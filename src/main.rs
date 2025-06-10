@@ -133,13 +133,21 @@ fn format_type_error(error: &TypeCheckError) -> String {
                 location.file, location.line, message
             )
         }
-        TypeCheckError::InvalidType { type_name, reason, location } => {
+        TypeCheckError::InvalidType {
+            type_name,
+            reason,
+            location,
+        } => {
             format!(
                 "Invalid type '{}' at {}:{}: {}",
                 type_name, location.file, location.line, reason
             )
         }
-        TypeCheckError::InvalidImport { type_name, method_name, location } => {
+        TypeCheckError::InvalidImport {
+            type_name,
+            method_name,
+            location,
+        } => {
             format!(
                 "Invalid import: method '{}' not found on type '{}' at {}:{}",
                 method_name, type_name, location.file, location.line

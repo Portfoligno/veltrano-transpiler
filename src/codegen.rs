@@ -641,7 +641,6 @@ impl CodeGenerator {
         )
     }
 
-
     fn generate_comma_separated_params(&mut self, params: &[Parameter], include_bump: bool) {
         let mut first = true;
 

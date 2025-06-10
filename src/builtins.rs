@@ -269,9 +269,13 @@ impl BuiltinRegistry {
                     let parameters = match method_kind {
                         BuiltinMethodKind::TraitMethod { .. } => {
                             // For trait methods, try to get parameters from dynamic lookup
-                            self.get_dynamic_method_parameters(method_name, receiver_type, trait_checker)
-                                .unwrap_or_else(|| vec![]) // Default to empty if lookup fails
-                        },
+                            self.get_dynamic_method_parameters(
+                                method_name,
+                                receiver_type,
+                                trait_checker,
+                            )
+                            .unwrap_or_else(|| vec![]) // Default to empty if lookup fails
+                        }
                         BuiltinMethodKind::SpecialMethod { parameters, .. } => parameters.clone(),
                     };
 
@@ -354,9 +358,8 @@ impl BuiltinRegistry {
                     TypeConstructor::Ref => {
                         if let Some(inner_type) = receiver_type.args.first() {
                             let rust_type = inner_type.to_rust_type(trait_checker);
-                            let type_name = rust_type.to_type_name_for_lookup();
                             trait_checker
-                                .type_implements_trait(&type_name, required_trait)
+                                .type_implements_trait(&rust_type, required_trait)
                                 .unwrap_or(false)
                         } else {
                             false
@@ -367,9 +370,8 @@ impl BuiltinRegistry {
                     // T (naturally referenced types) can provide &T - check if T implements the trait
                     _ => {
                         let rust_type = receiver_type.to_rust_type(trait_checker);
-                        let type_name = rust_type.to_type_name_for_lookup();
                         trait_checker
-                            .type_implements_trait(&type_name, required_trait)
+                            .type_implements_trait(&rust_type, required_trait)
                             .unwrap_or(false)
                     }
                 }
@@ -380,9 +382,8 @@ impl BuiltinRegistry {
                     TypeConstructor::MutRef => {
                         if let Some(inner_type) = receiver_type.args.first() {
                             let rust_type = inner_type.to_rust_type(trait_checker);
-                            let inner_rust_type = rust_type.to_type_name_for_lookup();
                             trait_checker
-                                .type_implements_trait(&inner_rust_type, required_trait)
+                                .type_implements_trait(&rust_type, required_trait)
                                 .unwrap_or(false)
                         } else {
                             false
@@ -397,9 +398,8 @@ impl BuiltinRegistry {
                     TypeConstructor::Own => {
                         if let Some(inner_type) = receiver_type.args.first() {
                             let rust_type = inner_type.to_rust_type(trait_checker);
-                            let inner_rust_type = rust_type.to_type_name_for_lookup();
                             trait_checker
-                                .type_implements_trait(&inner_rust_type, required_trait)
+                                .type_implements_trait(&rust_type, required_trait)
                                 .unwrap_or(false)
                         } else {
                             false
@@ -408,9 +408,8 @@ impl BuiltinRegistry {
                     // For naturally owned types (Int, Bool, etc.), check the type directly
                     _ => {
                         let rust_type = receiver_type.to_rust_type(trait_checker);
-                        let rust_type_name = rust_type.to_type_name_for_lookup();
                         trait_checker
-                            .type_implements_trait(&rust_type_name, required_trait)
+                            .type_implements_trait(&rust_type, required_trait)
                             .unwrap_or(false)
                     }
                 }
@@ -435,7 +434,9 @@ impl BuiltinRegistry {
                 required_trait,
             } => {
                 // Get the dynamic method signature to determine if receiver can provide access
-                if let Some(rust_self_kind) = self.get_dynamic_method_self_kind(method_name, receiver_type, trait_checker) {
+                if let Some(rust_self_kind) =
+                    self.get_dynamic_method_self_kind(method_name, receiver_type, trait_checker)
+                {
                     // Check if the Veltrano receiver type can provide the required Rust access
                     // and if the underlying type implements the trait
                     self.receiver_can_provide_rust_access(
@@ -471,9 +472,8 @@ impl BuiltinRegistry {
             }
             TypeFilter::HasTrait(trait_name) => {
                 let rust_type = receiver_type.to_rust_type(trait_checker);
-                let rust_type_name = rust_type.to_type_name_for_lookup();
                 trait_checker
-                    .type_implements_trait(&rust_type_name, trait_name)
+                    .type_implements_trait(&rust_type, trait_name)
                     .unwrap_or(false)
             }
         }
@@ -492,10 +492,12 @@ impl BuiltinRegistry {
                 required_trait: _,
             } => {
                 // For trait methods, try to get return type from dynamic lookup
-                if let Some(dynamic_return_type) = self.get_dynamic_method_return_type(method_name, receiver_type, trait_checker) {
+                if let Some(dynamic_return_type) =
+                    self.get_dynamic_method_return_type(method_name, receiver_type, trait_checker)
+                {
                     return dynamic_return_type;
                 }
-                
+
                 // If dynamic lookup fails, we can't determine the return type
                 // This shouldn't happen if the method was found via method_matches_receiver
                 &MethodReturnTypeStrategy::SameAsReceiver
@@ -577,8 +579,9 @@ impl BuiltinRegistry {
         // For example, Ref<I64>.to_string() should look up to_string on i64, not &i64
         // Get the appropriate type for method lookup
         let rust_type = receiver_type.to_rust_type(trait_checker);
-        
-        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name) {
+
+        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name)
+        {
             // Check if the Veltrano receiver type can provide the required Rust access
             self.receiver_can_provide_rust_access_for_imported(
                 receiver_type,
@@ -600,8 +603,9 @@ impl BuiltinRegistry {
         // Use same lookup logic as is_imported_method_available
         // Get the appropriate type for method lookup
         let rust_type = receiver_type.to_rust_type(trait_checker);
-        
-        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name) {
+
+        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name)
+        {
             // Check if the receiver can provide the required access
             if self.receiver_can_provide_rust_access_for_imported(
                 receiver_type,
@@ -614,7 +618,7 @@ impl BuiltinRegistry {
                 }
             }
         }
-        
+
         None
     }
 
@@ -662,8 +666,9 @@ impl BuiltinRegistry {
         trait_checker: &mut RustInteropRegistry,
     ) -> Option<Vec<VeltranoType>> {
         let rust_type = receiver_type.to_rust_type(trait_checker);
-        
-        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name) {
+
+        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name)
+        {
             // Convert Rust parameter types to Veltrano types
             let mut veltrano_params = Vec::new();
             for rust_param in &method_info.parameters {
@@ -685,8 +690,9 @@ impl BuiltinRegistry {
         trait_checker: &mut RustInteropRegistry,
     ) -> Option<SelfKind> {
         let rust_type = receiver_type.to_rust_type(trait_checker);
-        
-        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name) {
+
+        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name)
+        {
             Some(method_info.self_kind)
         } else {
             None
@@ -701,15 +707,15 @@ impl BuiltinRegistry {
         trait_checker: &mut RustInteropRegistry,
     ) -> Option<VeltranoType> {
         let rust_type = receiver_type.to_rust_type(trait_checker);
-        
-        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name) {
+
+        if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name)
+        {
             // Convert Rust return type to Veltrano type
             method_info.return_type.to_veltrano_type().ok()
         } else {
             None
         }
     }
-
 }
 
 impl Default for BuiltinRegistry {

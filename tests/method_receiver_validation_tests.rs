@@ -42,7 +42,10 @@ fn test_clone_on_naturally_referenced_types() {
     };
     let result = parse_and_type_check(code, config).map(|_| ());
 
-    assert!(result.is_ok(), "Clone should work on naturally referenced types");
+    assert!(
+        result.is_ok(),
+        "Clone should work on naturally referenced types"
+    );
 }
 
 #[test]
@@ -105,7 +108,10 @@ fn test_clone_fails_on_owned_types() {
     };
     let result = parse_and_type_check(code, config).map(|_| ());
 
-    assert!(result.is_err(), "Own<T>.clone() should fail - explicit conversion required");
+    assert!(
+        result.is_err(),
+        "Own<T>.clone() should fail - explicit conversion required"
+    );
 
     if let Err(errors) = result {
         let has_method_not_found = errors.iter().any(|err| {
@@ -138,9 +144,9 @@ fn test_tostring_fails_on_owned_display_types() {
     // The key point is that if it fails, it should be due to method not found on Own<I64>
     if result.is_err() {
         if let Err(errors) = result {
-            let has_method_not_found = errors.iter().any(|err| {
-                matches!(err, veltrano::TypeCheckError::MethodNotFound { .. })
-            });
+            let has_method_not_found = errors
+                .iter()
+                .any(|err| matches!(err, veltrano::TypeCheckError::MethodNotFound { .. }));
             // If it fails, it should be due to method not found, not other reasons
             if has_method_not_found {
                 println!("Correctly rejected Own<I64>.toString() - explicit conversion required");
@@ -149,7 +155,7 @@ fn test_tostring_fails_on_owned_display_types() {
     }
 }
 
-// ============================================================================ 
+// ============================================================================
 // Complex Scenarios - Testing explicit conversion patterns
 // ============================================================================
 
@@ -190,7 +196,10 @@ fn test_method_chaining_with_explicit_conversions() {
     };
     let result = parse_and_type_check(code, config).map(|_| ());
 
-    assert!(result.is_ok(), "Method chaining with explicit conversions should work");
+    assert!(
+        result.is_ok(),
+        "Method chaining with explicit conversions should work"
+    );
 }
 
 // ============================================================================
@@ -239,7 +248,10 @@ fn test_correct_behavior_with_explicit_conversion() {
     };
     let result = parse_and_type_check(code, config).map(|_| ());
 
-    assert!(result.is_ok(), "Explicit conversion .ref().clone() should work");
+    assert!(
+        result.is_ok(),
+        "Explicit conversion .ref().clone() should work"
+    );
 }
 
 // ============================================================================
@@ -301,7 +313,10 @@ fn test_own_i64_clone_should_fail() {
 
     // This might fail for different reasons (Own<I64> validation or method not found)
     // The key is that it should fail, not succeed
-    assert!(result.is_err(), "Own<I64>.clone() should fail - no auto-borrow allowed");
+    assert!(
+        result.is_err(),
+        "Own<I64>.clone() should fail - no auto-borrow allowed"
+    );
 }
 
 #[test]
@@ -355,7 +370,10 @@ fn test_i64_vs_string_clone_comparison() {
     if let Err(ref errors) = result {
         eprintln!("Type check errors: {:?}", errors);
     }
-    assert!(result.is_ok(), "Both I64 and String should support direct cloning");
+    assert!(
+        result.is_ok(),
+        "Both I64 and String should support direct cloning"
+    );
 }
 
 #[test]
@@ -378,7 +396,7 @@ fn test_i64_method_chaining_with_clone() {
     assert!(result.is_ok(), "I64 method chaining with clone should work");
 }
 
-#[test] 
+#[test]
 fn test_i64_mutref_clone() {
     // Test that MutRef<I64> can call clone (if MutRef supports it)
     let code = r#"

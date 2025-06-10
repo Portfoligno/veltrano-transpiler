@@ -82,7 +82,10 @@ fn test_imported_clone_methods() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_ok(), "Clone methods should work via unified system");
+    assert!(
+        result.is_ok(),
+        "Clone methods should work via unified system"
+    );
 }
 
 #[test]
@@ -127,7 +130,10 @@ fn test_imported_complex_return_types() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_ok(), "Imported methods with complex return types should work");
+    assert!(
+        result.is_ok(),
+        "Imported methods with complex return types should work"
+    );
 }
 
 // ============================================================================
@@ -148,7 +154,10 @@ fn test_explicit_conversion_enforcement_builtin() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_err(), "Own<String> should not auto-borrow for built-in clone");
+    assert!(
+        result.is_err(),
+        "Own<String> should not auto-borrow for built-in clone"
+    );
 }
 
 #[test]
@@ -165,7 +174,10 @@ fn test_explicit_conversion_enforcement_imported() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_err(), "Own<String> should not auto-borrow for imported to_string");
+    assert!(
+        result.is_err(),
+        "Own<String> should not auto-borrow for imported to_string"
+    );
 }
 
 #[test]
@@ -186,12 +198,15 @@ fn test_imported_method_permissive_behavior() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    
+
     if let Err(errors) = &result {
         println!("Unexpected error: {:?}", errors);
     }
-    
-    assert!(result.is_ok(), "Imported methods should be permissive without hardcoded signatures");
+
+    assert!(
+        result.is_ok(),
+        "Imported methods should be permissive without hardcoded signatures"
+    );
 }
 
 #[test]
@@ -215,7 +230,10 @@ fn test_explicit_conversion_works_for_both() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_ok(), "Explicit conversions should work for both built-in and imported methods");
+    assert!(
+        result.is_ok(),
+        "Explicit conversions should work for both built-in and imported methods"
+    );
 }
 
 // ============================================================================
@@ -237,7 +255,7 @@ fn test_method_not_found_unified() {
     };
     let result = parse_and_type_check(code, config);
     assert!(result.is_err(), "Non-existent methods should be rejected");
-    
+
     if let Err(errors) = result {
         let error_message = format!("{:?}", errors);
         assert!(
@@ -275,7 +293,10 @@ fn test_receiver_validation_consistency() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_ok(), "Receiver validation should be consistent for unified method resolution");
+    assert!(
+        result.is_ok(),
+        "Receiver validation should be consistent for unified method resolution"
+    );
 }
 
 #[test]
@@ -295,7 +316,10 @@ fn test_mutref_receiver_validation() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_err(), "MutRef should not auto-convert to &self for method calls");
+    assert!(
+        result.is_err(),
+        "MutRef should not auto-convert to &self for method calls"
+    );
 }
 
 // ============================================================================
@@ -320,7 +344,10 @@ fn test_mixed_method_calls() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_ok(), "Mixed built-in and imported method calls should work");
+    assert!(
+        result.is_ok(),
+        "Mixed built-in and imported method calls should work"
+    );
 }
 
 #[test]
@@ -341,5 +368,8 @@ fn test_method_chaining_mixed() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_ok(), "Method chaining with mixed built-in and imported methods should work");
+    assert!(
+        result.is_ok(),
+        "Method chaining with mixed built-in and imported methods should work"
+    );
 }
