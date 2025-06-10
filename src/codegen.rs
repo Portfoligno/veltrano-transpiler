@@ -689,17 +689,6 @@ impl CodeGenerator {
         }
     }
 
-    fn generate_comma_separated_exprs(&mut self, exprs: &[Expr]) {
-        let mut first = true;
-        for expr in exprs {
-            if !first {
-                self.output.push_str(", ");
-            }
-            first = false;
-            self.generate_expression(expr);
-        }
-    }
-
     fn generate_generic_call(&mut self, call: &CallExpr) {
         self.generate_expression(&call.callee);
         self.output.push('(');
@@ -861,14 +850,11 @@ impl CodeGenerator {
             self.generate_expression(&method_call.object);
             self.output.push(')');
         } else {
-            // Regular method call: obj.method(args)
-            let snake_method = camel_to_snake_case(&method_call.method);
-            self.generate_expression(&method_call.object);
-            self.output.push('.');
-            self.output.push_str(&snake_method);
-            self.output.push('(');
-            self.generate_comma_separated_exprs(&method_call.args);
-            self.output.push(')');
+            // Method requires import but wasn't imported
+            panic!(
+                "Method '{}' requires an explicit import. Add 'import {{Type}}.{}' at the top of your file.",
+                method_call.method, method_call.method
+            );
         }
 
         // Note: Method call comments are now handled by the statement generator to ensure proper placement after semicolons
