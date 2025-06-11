@@ -324,6 +324,57 @@ git checkout original-branch
 #### Interactive Rebase Limitations
 ❌ **NEVER use `git rebase -i`** - Interactive rebase requires user input which is not available in Claude Code environment. The command will appear to succeed but won't actually squash commits.
 
+#### Combining Commits - Basic Pattern
+When the user requests combining commits (e.g., "combine the re-enabling with the fix commit" or "amend X onto Y"):
+
+**CRITICAL UNDERSTANDING - "Amend X onto Y":**
+- **Means**: Take commit X and merge it INTO commit Y
+- **NOT**: Replay all commits after Y in order
+- **KEY**: Cherry-pick X directly after resetting to Y, regardless of what's between them
+
+**Standard Procedure:**
+1. **Check current state and create backup**
+   ```bash
+   git status && git log --oneline -n 10
+   git push origin HEAD:backup-$(date +%Y%m%d-%H%M%S)
+   ```
+
+2. **Hard reset to the base commit** (the one you want to keep)
+   ```bash
+   git reset --hard <base-commit-hash>
+   ```
+
+3. **Cherry-pick and amend the SPECIFIC commit** (not intermediate commits)
+   ```bash
+   git cherry-pick <commit-to-combine> && git reset --soft HEAD~1 && git commit --amend -m "Updated message reflecting combined changes"
+   ```
+
+4. **Cherry-pick any intermediate/subsequent commits**
+   ```bash
+   git cherry-pick <first-commit>^..<last-commit>
+   ```
+
+**Example - Combining C into A (where history is A→B→C):**
+```bash
+# WRONG: Don't cherry-pick intermediate commits first
+git reset --hard A
+git cherry-pick B  # WRONG!
+git cherry-pick C
+
+# CORRECT: Cherry-pick the target commit directly
+git reset --hard A
+git cherry-pick C         # Pick C directly
+git reset --soft HEAD~1
+git commit --amend -m "A with C's changes combined"
+git cherry-pick B         # Then apply B on top
+```
+
+**Important Notes:**
+- This rewrites history - requires force push if already pushed
+- Make a backup branch before rewriting: `git push origin HEAD:backup-name`
+- Use `git cherry-pick --abort` if something goes wrong during cherry-pick
+
+
 ---
 
 ## 🚀 Release Process
