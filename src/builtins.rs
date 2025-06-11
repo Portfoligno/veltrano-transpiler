@@ -138,10 +138,7 @@ impl BuiltinRegistry {
             "mutRef",
             BuiltinMethodKind::SpecialMethod {
                 method_name: "mutRef".to_string(),
-                receiver_type_filter: TypeFilter::TypeConstructors(vec![
-                    TypeConstructor::Own,
-                    TypeConstructor::MutRef,
-                ]),
+                receiver_type_filter: TypeFilter::All, // Allow .mutRef() on any type
                 parameters: vec![],
                 return_type_strategy: MethodReturnTypeStrategy::MutRefToReceiver,
             },
