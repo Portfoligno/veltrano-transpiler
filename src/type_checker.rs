@@ -886,11 +886,11 @@ impl VeltranoTypeChecker {
             }
         }
 
-        // Return the data class type
-        Ok(VeltranoType {
+        // Return the data class type as owned
+        Ok(VeltranoType::own(VeltranoType {
             constructor: TypeConstructor::Custom(class_name.to_string()),
             args: vec![],
-        })
+        }))
     }
 
     /// Check Rust macro call (skip type checking)
@@ -1211,17 +1211,69 @@ impl VeltranoTypeChecker {
     ) -> Result<VeltranoType, TypeCheckError> {
         let object_type = self.check_expression(&field_access.object)?;
 
-        // For now, return field not found (we'd need data class definitions)
-        Err(TypeCheckError::FieldNotFound {
-            object_type,
-            field: field_access.field.clone(),
-            location: SourceLocation {
-                file: "unknown".to_string(),
-                line: 0,
-                _column: 0,
-                _source_line: "".to_string(),
-            },
-        })
+        // Handle field access based on the object type
+        match &object_type.constructor {
+            TypeConstructor::Custom(class_name) => {
+                // Look up the data class definition
+                if let Some(data_class) = self.env.lookup_data_class(class_name) {
+                    // Find the field in the data class
+                    if let Some(field_def) = data_class.fields.iter().find(|f| f.name == field_access.field) {
+                        return Ok(field_def.field_type.clone());
+                    }
+                }
+                
+                // Field not found in data class
+                Err(TypeCheckError::FieldNotFound {
+                    object_type,
+                    field: field_access.field.clone(),
+                    location: SourceLocation {
+                        file: "unknown".to_string(),
+                        line: 0,
+                        _column: 0,
+                        _source_line: "".to_string(),
+                    },
+                })
+            }
+            TypeConstructor::Own => {
+                // For Own<T>, allow direct field access on the inner type
+                if let Some(inner_type) = object_type.inner() {
+                    if let TypeConstructor::Custom(class_name) = &inner_type.constructor {
+                        // Look up the data class definition
+                        if let Some(data_class) = self.env.lookup_data_class(class_name) {
+                            // Find the field in the data class
+                            if let Some(field_def) = data_class.fields.iter().find(|f| f.name == field_access.field) {
+                                return Ok(field_def.field_type.clone());
+                            }
+                        }
+                    }
+                }
+                
+                // Field not found
+                Err(TypeCheckError::FieldNotFound {
+                    object_type,
+                    field: field_access.field.clone(),
+                    location: SourceLocation {
+                        file: "unknown".to_string(),
+                        line: 0,
+                        _column: 0,
+                        _source_line: "".to_string(),
+                    },
+                })
+            }
+            _ => {
+                // Other types don't support field access
+                Err(TypeCheckError::FieldNotFound {
+                    object_type,
+                    field: field_access.field.clone(),
+                    location: SourceLocation {
+                        file: "unknown".to_string(),
+                        line: 0,
+                        _column: 0,
+                        _source_line: "".to_string(),
+                    },
+                })
+            }
+        }
     }
 
     /// Check imported method being called as a standalone function
@@ -1505,13 +1557,20 @@ impl ErrorAnalyzer {
     }
 
     /// Suggest field access with proper ownership conversion
-    fn suggest_field_conversion(&self, object_type: &VeltranoType, field: &str) -> Option<String> {
-        // Common pattern: owned types need .ref() before field access
-        if object_type.constructor == TypeConstructor::Own {
-            // Suggest adding .ref() before the field access for owned types
-            Some(format!(".ref().{}", field))
-        } else {
-            None
+    fn suggest_field_conversion(&self, object_type: &VeltranoType, _field: &str) -> Option<String> {
+        match &object_type.constructor {
+            TypeConstructor::Custom(class_name) => {
+                // For reference types (Person, not Own<Person>), suggest using an owned value
+                // Without access to data class definitions, we can't verify if the field exists
+                // So we provide a generic suggestion for custom types
+                Some(format!("Field access requires an owned value (Own<{}>)", class_name))
+            }
+            TypeConstructor::Own => {
+                // For owned types, field access should work directly
+                // If we're here, it means the field doesn't exist
+                None
+            }
+            _ => None,
         }
     }
 }
