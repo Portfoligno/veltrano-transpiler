@@ -87,8 +87,8 @@ fun main() {
     
     // Transitive analysis - this triggers the entire chain
     val office_lead = setupOffice(company.name)
-    val lead_name = getPersonName(office_lead.ref())
-    val employee_bonus = processEmployee(office_lead.ref())
+    val lead_name = getPersonName(office_lead)
+    val employee_bonus = processEmployee(office_lead)
     
     println("Value operations: {} -> {}, bonus: {}", 42, result1, bonus)
     println("Reference operations: {}, processed: {}", formatted, processed)

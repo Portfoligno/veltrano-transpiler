@@ -165,6 +165,14 @@ impl VeltranoTypeChecker {
     pub fn check_program(&mut self, program: &Program) -> Result<(), Vec<TypeCheckError>> {
         let mut errors = Vec::new();
 
+        // First pass: collect all function signatures (including nested ones)
+        for statement in &program.statements {
+            if let Err(error) = self.collect_function_signatures_from_statement(statement) {
+                errors.push(error);
+            }
+        }
+
+        // Second pass: type check all statements
         for statement in &program.statements {
             if let Err(error) = self.check_statement(statement) {
                 errors.push(error);
@@ -384,8 +392,42 @@ impl VeltranoTypeChecker {
         Ok(())
     }
 
-    /// Check function declaration
-    fn check_function_declaration(&mut self, fun_decl: &FunDeclStmt) -> Result<(), TypeCheckError> {
+    /// Recursively collect function signatures from a statement (including nested functions)
+    fn collect_function_signatures_from_statement(&mut self, stmt: &Stmt) -> Result<(), TypeCheckError> {
+        match stmt {
+            Stmt::FunDecl(fun_decl) => {
+                // Collect this function's signature
+                self.collect_function_signature(fun_decl)?;
+                // Also collect any nested function signatures from the body
+                self.collect_function_signatures_from_statement(&fun_decl.body)
+            }
+            Stmt::Block(statements) => {
+                // Recursively collect from all statements in the block
+                for statement in statements {
+                    self.collect_function_signatures_from_statement(statement)?;
+                }
+                Ok(())
+            }
+            Stmt::If(if_stmt) => {
+                // Check then branch
+                self.collect_function_signatures_from_statement(&if_stmt.then_branch)?;
+                // Check else branch if it exists
+                if let Some(else_branch) = &if_stmt.else_branch {
+                    self.collect_function_signatures_from_statement(else_branch)?;
+                }
+                Ok(())
+            }
+            Stmt::While(while_stmt) => {
+                // Check body
+                self.collect_function_signatures_from_statement(&while_stmt.body)
+            }
+            // Other statement types don't contain function declarations
+            _ => Ok(())
+        }
+    }
+
+    /// Collect function signature in the first pass (doesn't check body)
+    fn collect_function_signature(&mut self, fun_decl: &FunDeclStmt) -> Result<(), TypeCheckError> {
         // Validate parameter types
         for param in &fun_decl.params {
             self.validate_type(&param.param_type)?;
@@ -416,6 +458,13 @@ impl VeltranoTypeChecker {
         };
 
         self.env.declare_function(fun_decl.name.clone(), signature);
+
+        Ok(())
+    }
+
+    /// Check function declaration
+    fn check_function_declaration(&mut self, fun_decl: &FunDeclStmt) -> Result<(), TypeCheckError> {
+        // Function signature already collected in first pass, just check the body
 
         // Check function body
         self.env.enter_scope();
