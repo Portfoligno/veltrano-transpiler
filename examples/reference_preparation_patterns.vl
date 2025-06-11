@@ -1,26 +1,22 @@
 // Cross-Scope Reference Preparation Patterns
 // Demonstrates functions preparing references for use in caller scope
 
-data class Config(val name: Str, val version: Str, val enabled: Bool)
-data class User(val email: Str, val name: Str)
-data class Session(val user: User, val token: Str)
+data class Config(val name: String, val version: String, val enabled: Bool)
+data class User(val email: String, val name: String)
+data class Session(val user: User, val token: String)
 
 // ========= DATA STRUCTURE PREPARATION =========
 // Functions that build reference-containing structures for caller use
 
-fun buildConfiguration(app_name: Str, version: Str): Config {
+fun buildConfiguration(app_name: Own<String>, version: Own<String>): Config {
     // Prepare references that remain valid in caller's scope
-    val name_ref = app_name.bumpRef()
-    val version_ref = version.bumpRef()
-    val config = Config(name = name_ref, version = version_ref, enabled = true)
+    val config = Config(name = app_name.bumpRef(), version = version.bumpRef(), enabled = true)
     return config.bumpRef()
 }
 
-fun createUserProfile(email: Str, display_name: Str): User {
+fun createUserProfile(email: Own<String>, display_name: Own<String>): User {
     // Both string references prepared for caller scope
-    val email_ref = email.bumpRef()
-    val name_ref = display_name.bumpRef()
-    val user = User(email = email_ref, name = name_ref)
+    val user = User(email = email.bumpRef(), name = display_name.bumpRef())
     return user.bumpRef()
 }
 
@@ -29,20 +25,20 @@ fun createUserProfile(email: Str, display_name: Str): User {
 
 fun createGuestSession(): Session {
     // Create references that outlive function scope
-    val guest_email = "guest@system.local".bumpRef()
-    val guest_name = "Guest User".bumpRef()
-    val guest_user = User(email = guest_email, name = guest_name).bumpRef()
+    val guest_email = "guest@system.local".toString()
+    val guest_name = "Guest User".toString()
+    val guest_user = User(email = guest_email.bumpRef(), name = guest_name.bumpRef()).bumpRef()
     
-    val session_token = "guest-session-token".bumpRef()
-    val session = Session(user = guest_user, token = session_token)
+    val session_token = "guest-session-token".toString()
+    val session = Session(user = guest_user, token = session_token.bumpRef())
     return session.bumpRef()
 }
 
-fun createAuthenticatedSession(email: Str, name: Str): Session {
+fun createAuthenticatedSession(email: Own<String>, name: Own<String>): Session {
     // Prepare user with references valid in caller scope
     val user = createUserProfile(email, name)
-    val token = "auth-token-12345".bumpRef()
-    val session = Session(user = user, token = token)
+    val token = "auth-token-12345".toString()
+    val session = Session(user = user, token = token.bumpRef())
     return session.bumpRef()
 }
 
@@ -51,50 +47,46 @@ fun createAuthenticatedSession(email: Str, name: Str): Session {
 
 fun buildConfigFromDefaults(): Config {
     // Start with default values, preparing references
-    val default_name = "DefaultApp".bumpRef()
-    val default_version = "0.1.0".bumpRef()
-    val config = Config(name = default_name, version = default_version, enabled = false)
+    val default_name = "DefaultApp".toString()
+    val default_version = "0.1.0".toString()
+    val config = Config(name = default_name.bumpRef(), version = default_version.bumpRef(), enabled = false)
     return config.bumpRef()
 }
 
-fun enhanceConfig(base_config: Config, new_name: Str): Config {
+fun enhanceConfig(base_config: Config, new_name: Own<String>): Config {
     // Create enhanced version with prepared reference
-    val enhanced_name = new_name.bumpRef()
-    val config = Config(name = enhanced_name, version = base_config.version, enabled = base_config.enabled)
+    val config = Config(name = new_name.bumpRef(), version = base_config.version, enabled = base_config.enabled)
     return config.bumpRef()
 }
 
 // ========= VIEW PREPARATION =========
 // Functions that prepare data views for caller consumption
 
-fun formatUserDisplay(user: User): Str {
-    // Prepare formatted display string for caller
-    val formatted = user.name
-    return formatted.bumpRef()
+fun formatUserDisplay(user: User): String {
+    // Return user's name directly
+    return user.name
 }
 
-fun prepareWelcomeMessage(user: User): Str {
+fun prepareWelcomeMessage(user: User): String {
     // Build message with prepared reference
-    val display = formatUserDisplay(user.ref())
-    val welcome = "Welcome back"
+    val display = formatUserDisplay(user)
+    val welcome = "Welcome back".toString()
     return welcome.bumpRef()
 }
 
 // ========= PROCESSING CHAINS =========
 // Functions that process and prepare results for caller use
 
-fun processEmailDomain(email: Str): Str {
+fun processEmailDomain(email: String): String {
     // Extract and prepare domain reference
-    val domain = "example.com"  // Simplified domain extraction
+    val domain = "example.com".toString()  // Simplified domain extraction
     return domain.bumpRef()
 }
 
-fun createUserWithDomain(email: Str, name: Str): User {
+fun createUserWithDomain(email: Own<String>, name: Own<String>): User {
     // Create user with processed domain information
-    val processed_email = email.bumpRef()
-    val domain = processEmailDomain(email)
-    val name_with_domain = name.bumpRef()
-    val user = User(email = processed_email, name = name_with_domain)
+    val domain = processEmailDomain(email.ref())
+    val user = User(email = email.bumpRef(), name = name.bumpRef())
     return user.bumpRef()
 }
 
@@ -102,17 +94,17 @@ fun createUserWithDomain(email: Str, name: Str): User {
 
 fun demonstrateReferencePreparation(): Config {
     // Function prepares configuration that caller will use
-    val app_config = buildConfiguration("MyApplication", "2.0.0")
+    val app_config = buildConfiguration("MyApplication".toString(), "2.0.0".toString())
     
     // Caller can safely use the references
-    val enhanced = enhanceConfig(app_config.ref(), "Enhanced MyApp")
+    val enhanced = enhanceConfig(app_config, "Enhanced MyApp".toString())
     
     return enhanced
 }
 
 fun demonstrateSessionCreation(): Session {
     // Functions prepare session data for caller
-    val user_session = createAuthenticatedSession("alice@example.com", "Alice Smith")
+    val user_session = createAuthenticatedSession("alice@example.com".toString(), "Alice Smith".toString())
     
     // Caller receives session with valid references
     return user_session
@@ -125,16 +117,16 @@ fun main() {
     val guest = createGuestSession()
     
     // We can safely use the prepared references
-    println("Config: {} v{}", config.name, config.version)
-    println("Session user: {}", session.user.name)
-    println("Guest email: {}", guest.user.email)
+    println("Config: {} v{}", config.name.ref(), config.version.ref())
+    println("Session user: {}", session.user.name.ref())
+    println("Guest email: {}", guest.user.email.ref())
     
     // Additional reference preparation
-    val welcome = prepareWelcomeMessage(session.user.ref())
-    val domain_user = createUserWithDomain("bob@company.com", "Bob Jones")
+    val welcome = prepareWelcomeMessage(session.user)
+    val domain_user = createUserWithDomain("bob@company.com".toString(), "Bob Jones".toString())
     
-    println("Welcome message: {}", welcome)
-    println("Domain user: {}", domain_user.name)
+    println("Welcome message: {}", welcome.ref())
+    println("Domain user: {}", domain_user.name.ref())
 }
 
 // CROSS-SCOPE REFERENCE PREPARATION PATTERNS:

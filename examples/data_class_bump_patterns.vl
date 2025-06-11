@@ -59,7 +59,7 @@ fun main() {
     
     // Nested data class structures
     val employee = createEmployee("Bob", 25, "TechCorp", 500)
-    val company_name = getEmployeeCompanyName(employee.ref())
+    val company_name = getEmployeeCompanyName(employee)
     
     println("All data classes require bump parameters:")
     println("Point: {}, {}", origin.x, origin.y)

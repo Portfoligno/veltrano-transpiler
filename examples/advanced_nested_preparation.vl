@@ -1,82 +1,71 @@
 // Advanced Nested Reference Preparation Patterns
 // Demonstrates complex nested data structures with cross-scope reference validity
 
-data class Address(val street: Str, val city: Str, val postal_code: Str)
-data class Contact(val email: Str, val phone: Str, val address: Address)
-data class Person(val name: Str, val age: I64, val contact: Contact)
-data class Organization(val name: Str, val primary_contact: Person, val secondary_contact: Person)
-data class Project(val title: Str, val organization: Organization, val description: Str)
+data class Address(val street: String, val city: String, val postal_code: String)
+data class Contact(val email: String, val phone: String, val address: Address)
+data class Person(val name: String, val age: I64, val contact: Contact)
+data class Organization(val name: String, val primary_contact: Person, val secondary_contact: Person)
+data class Project(val title: String, val organization: Organization, val description: String)
 
-data class ProcessingMetadata(val processed_by: Str, val timestamp: I64, val notes: Str)
-data class ProcessedProject(val original: Project, val processed_title: Str, val metadata: ProcessingMetadata)
+data class ProcessingMetadata(val processed_by: String, val timestamp: I64, val notes: String)
+data class ProcessedProject(val original: Project, val processed_title: String, val metadata: ProcessingMetadata)
 
 // ========= DEEP NESTED CONSTRUCTION WITH REFERENCE PREPARATION =========
 
-fun createAddress(street: Str, city: Str, postal: Str): Address {
+fun createAddress(street: Own<String>, city: Own<String>, postal: Own<String>): Address {
     // Prepare address with all string references valid for caller scope
-    val street_ref = street.bumpRef()
-    val city_ref = city.bumpRef()
-    val postal_ref = postal.bumpRef()
-    return Address(street = street_ref, city = city_ref, postal_code = postal_ref).bumpRef()
+    return Address(street = street.bumpRef(), city = city.bumpRef(), postal_code = postal.bumpRef()).bumpRef()
 }
 
-fun createContact(email: Str, phone: Str, street: Str, city: Str, postal: Str): Contact {
+fun createContact(email: Own<String>, phone: Own<String>, street: Own<String>, city: Own<String>, postal: Own<String>): Contact {
     // Prepare contact with nested address references valid for caller scope
-    val email_ref = email.bumpRef()
-    val phone_ref = phone.bumpRef()
     val address = createAddress(street, city, postal)
-    return Contact(email = email_ref, phone = phone_ref, address = address).bumpRef()
+    return Contact(email = email.bumpRef(), phone = phone.bumpRef(), address = address).bumpRef()
 }
 
-fun createPerson(name: Str, age: I64, email: Str, phone: Str, street: Str, city: Str, postal: Str): Person {
+fun createPerson(name: Own<String>, age: I64, email: Own<String>, phone: Own<String>, street: Own<String>, city: Own<String>, postal: Own<String>): Person {
     // Prepare person with deeply nested references valid for caller scope
-    val name_ref = name.bumpRef()
     val contact = createContact(email, phone, street, city, postal)
-    return Person(name = name_ref, age = age, contact = contact).bumpRef()
+    return Person(name = name.bumpRef(), age = age, contact = contact).bumpRef()
 }
 
-fun createOrganization(org_name: Str, primary_name: Str, primary_age: I64, secondary_name: Str, secondary_age: I64): Organization {
+fun createOrganization(org_name: Own<String>, primary_name: Own<String>, primary_age: I64, secondary_name: Own<String>, secondary_age: I64): Organization {
     // Prepare organization with complex nested person structures
-    val org_name_ref = org_name.bumpRef()
     
     // Create contacts with prepared references using separate emails
-    val primary_email = "primary@company.com".bumpRef()
-    val secondary_email = "secondary@company.com".bumpRef()
+    val primary_email = "primary@company.com".toString()
+    val secondary_email = "secondary@company.com".toString()
     
-    val primary_contact = createPerson(primary_name, primary_age, primary_email, "555-0001", "123 Main St", "Business City", "12345")
-    val secondary_contact = createPerson(secondary_name, secondary_age, secondary_email, "555-0002", "456 Oak Ave", "Business City", "12346")
+    val primary_contact = createPerson(primary_name, primary_age, primary_email, "555-0001".toString(), "123 Main St".toString(), "Business City".toString(), "12345".toString())
+    val secondary_contact = createPerson(secondary_name, secondary_age, secondary_email, "555-0002".toString(), "456 Oak Ave".toString(), "Business City".toString(), "12346".toString())
     
-    return Organization(name = org_name_ref, primary_contact = primary_contact, secondary_contact = secondary_contact).bumpRef()
+    return Organization(name = org_name.bumpRef(), primary_contact = primary_contact, secondary_contact = secondary_contact).bumpRef()
 }
 
-fun createProject(title: Str, org_name: Str, description: Str): Project {
+fun createProject(title: Own<String>, org_name: Own<String>, description: Own<String>): Project {
     // Prepare project with fully nested organization structure
-    val title_ref = title.bumpRef()
-    val description_ref = description.bumpRef()
     
-    val organization = createOrganization(org_name, "John Smith", 45, "Jane Doe", 38)
+    val organization = createOrganization(org_name, "John Smith".toString(), 45, "Jane Doe".toString(), 38)
     
-    return Project(title = title_ref, organization = organization, description = description_ref).bumpRef()
+    return Project(title = title.bumpRef(), organization = organization, description = description.bumpRef()).bumpRef()
 }
 
 // ========= TRANSFORMATION AND PROCESSING WITH NESTED REFERENCE PREPARATION =========
 
-fun transformProjectTitle(project: Project, transform_prefix: Str): Str {
+fun transformProjectTitle(project: Project, transform_prefix: Own<String>): String {
     // Transform title preparing enhanced version for caller - simplified
-    val prefix_ref = transform_prefix.bumpRef()
-    return prefix_ref
+    return transform_prefix.bumpRef()
 }
 
-fun createProcessingMetadata(processor_name: Str, time: I64, project_title: Str): ProcessingMetadata {
+fun createProcessingMetadata(processor_name: Own<String>, time: I64, project_title: String): ProcessingMetadata {
     // Create metadata preparing processing information for caller
-    val processor_ref = processor_name.bumpRef()
-    val notes = "Processing notes here".bumpRef()
-    return ProcessingMetadata(processed_by = processor_ref, timestamp = time, notes = notes).bumpRef()
+    val notes = "Processing notes here".toString()
+    return ProcessingMetadata(processed_by = processor_name.bumpRef(), timestamp = time, notes = notes.bumpRef()).bumpRef()
 }
 
-fun processProject(project: Project, processor_name: Str, timestamp: I64): ProcessedProject {
+fun processProject(project: Project, processor_name: Own<String>, timestamp: I64): ProcessedProject {
     // Process project preparing comprehensive result with nested references
-    val processed_title = transformProjectTitle(project.ref(), "ENHANCED")
+    val processed_title = transformProjectTitle(project, "ENHANCED".toString())
     val metadata = createProcessingMetadata(processor_name, timestamp, processed_title)
     
     return ProcessedProject(original = project, processed_title = processed_title, metadata = metadata).bumpRef()
@@ -84,90 +73,90 @@ fun processProject(project: Project, processor_name: Str, timestamp: I64): Proce
 
 // ========= ANALYSIS AND EXTRACTION WITH REFERENCE PREPARATION =========
 
-fun extractOrganizationInfo(project: Project): Str {
+fun extractOrganizationInfo(project: Project): String {
     // Extract organization information preparing summary for caller
     val org = project.organization
-    val summary = "Organization information extracted".bumpRef()
-    return summary
+    val summary = "Organization information extracted".toString()
+    return summary.bumpRef()
 }
 
-fun extractContactDetails(project: Project): Str {
+fun extractContactDetails(project: Project): String {
     // Extract contact details preparing comprehensive information for caller
-    val details = "Contact details extracted".bumpRef()
-    return details
+    val details = "Contact details extracted".toString()
+    return details.bumpRef()
 }
 
-fun analyzeProjectComplexity(project: Project): Str {
+fun analyzeProjectComplexity(project: Project): String {
     // Analyze project complexity preparing analysis for caller
-    val analysis = "Project complexity analysis completed".bumpRef()
-    return analysis
+    val analysis = "Project complexity analysis completed".toString()
+    return analysis.bumpRef()
 }
 
 // ========= BATCH PROCESSING WITH REFERENCE PREPARATION =========
 
-fun createProjectBatch(base_title: Str, org_base: Str, count: I64): Project {
+fun createProjectBatch(base_title: Own<String>, org_base: Own<String>, count: I64): Project {
     // Create batch project preparing all references for caller
-    val batch_title = "Batch Project Title".bumpRef()
-    val batch_org = "Batch Organization".bumpRef()
-    val batch_description = "Batch project description".bumpRef()
+    val batch_title = "Batch Project Title".toString()
+    val batch_org = "Batch Organization".toString()
+    val batch_description = "Batch project description".toString()
     
     return createProject(batch_title, batch_org, batch_description)
 }
 
-fun processBatchProject(base_title: Str, org_base: Str, count: I64, processor: Str): ProcessedProject {
+fun processBatchProject(base_title: Own<String>, org_base: Own<String>, count: I64, processor: Own<String>): ProcessedProject {
     // Process batch project preparing complete results for caller
     val project = createProjectBatch(base_title, org_base, count)
-    val batch_processor = "Batch Processor".bumpRef()
-    val processed = processProject(project.ref(), batch_processor, count * 1000)
+    val batch_processor = "Batch Processor".toString()
+    val processed = processProject(project, batch_processor, count * 1000)
     
     return processed
 }
 
 // ========= COMPREHENSIVE PROCESSING PIPELINE =========
 
-fun processProjectComprehensively(project_title: Str, org_name: Str, processor_name: Str): ProcessedProject {
+fun processProjectComprehensively(project_title: Own<String>, org_name: Own<String>, processor_name: Own<String>): ProcessedProject {
     // Comprehensive processing preparing complete analysis for caller
-    val description = "Comprehensive project description".bumpRef()
+    val description = "Comprehensive project description".toString()
     val project = createProject(project_title, org_name, description)
     
     // Process project with enhanced metadata
-    val enhanced_processor = "Enhanced Processor".bumpRef()
-    val processed = processProject(project.ref(), enhanced_processor, 5000)
+    val enhanced_processor = "Enhanced Processor".toString()
+    val processed = processProject(project, enhanced_processor, 5000)
     
     return processed
 }
 
-fun createProjectAnalysisReport(processed_project: ProcessedProject): Str {
+fun createProjectAnalysisReport(processed_project: ProcessedProject): String {
     // Create comprehensive analysis report preparing detailed information for caller
     val original = processed_project.original
-    val org_info = extractOrganizationInfo(original.ref())
-    val contact_info = extractContactDetails(original.ref())
-    val complexity = analyzeProjectComplexity(original.ref())
+    val org_info = extractOrganizationInfo(original)
+    val contact_info = extractContactDetails(original)
+    val complexity = analyzeProjectComplexity(original)
     
-    val report = "PROJECT ANALYSIS REPORT - Comprehensive analysis completed".bumpRef()
+    val report = "PROJECT ANALYSIS REPORT - Comprehensive analysis completed".toString()
     
-    return report
+    return report.bumpRef()
 }
 
 fun main() {
     // ========= BASIC NESTED CONSTRUCTION =========
-    val simple_project = createProject("Simple Project", "Basic Corp", "A simple project description")
+    val simple_project = createProject("Simple Project".toString(), "Basic Corp".toString(), "A simple project description".toString())
     
     // ========= COMPREHENSIVE PROCESSING =========
-    val comprehensive_processed = processProjectComprehensively("Complex Project", "Advanced Corp", "SuperProcessor")
+    val comprehensive_processed = processProjectComprehensively("Complex Project".toString(), "Advanced Corp".toString(), "SuperProcessor".toString())
     
     // ========= BATCH PROCESSING =========
-    val batch_processed_1 = processBatchProject("Batch Project", "Batch", 1, "BatchProcessor")
-    val batch_processed_2 = processBatchProject("Batch Project", "Batch", 2, "BatchProcessor")
-    val batch_processed_3 = processBatchProject("Batch Project", "Batch", 3, "BatchProcessor")
+    val batch_processed_1 = processBatchProject("Batch Project".toString(), "Batch".toString(), 1, "BatchProcessor".toString())
+    val batch_processed_2 = processBatchProject("Batch Project".toString(), "Batch".toString(), 2, "BatchProcessor".toString())
+    val batch_processed_3 = processBatchProject("Batch Project".toString(), "Batch".toString(), 3, "BatchProcessor".toString())
     
     // ========= ANALYSIS AND EXTRACTION =========
-    val org_info = extractOrganizationInfo(simple_project.ref())
-    val contact_details = extractContactDetails(comprehensive_processed.original.ref())
-    val complexity = analyzeProjectComplexity(batch_processed_1.original.ref())
+    val org_info = extractOrganizationInfo(simple_project)
+    val contact_details = extractContactDetails(comprehensive_processed.original)
+    val complexity = analyzeProjectComplexity(batch_processed_1.original)
     
     // ========= COMPREHENSIVE REPORTING =========
-    val analysis_report = createProjectAnalysisReport(comprehensive_processed.ref())
+    val analysis_report = createProjectAnalysisReport(comprehensive_processed)
     
     // All nested references are prepared and valid for use here
     println("Simple project title: {}", simple_project.title)

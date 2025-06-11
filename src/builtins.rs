@@ -173,7 +173,7 @@ impl BuiltinRegistry {
                 method_name: "bumpRef".to_string(),
                 receiver_type_filter: TypeFilter::All,
                 parameters: vec![],
-                return_type_strategy: MethodReturnTypeStrategy::RefToReceiver,
+                return_type_strategy: MethodReturnTypeStrategy::RefSemantics,
             },
         );
     }
