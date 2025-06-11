@@ -675,6 +675,16 @@ impl VeltranoTypeChecker {
                 });
             }
 
+            // Check if this is a generic function
+            let has_generic_params = func_sig.parameters.iter().any(|p| {
+                matches!(&p.constructor, TypeConstructor::Generic(_, _))
+            });
+
+            if has_generic_params {
+                // Handle generic function instantiation
+                return self.check_generic_function_call(func_name, &func_sig, call);
+            }
+
             // Check argument types with strict matching
             for (_i, (arg, expected_param)) in
                 call.args.iter().zip(&func_sig.parameters).enumerate()
@@ -705,6 +715,65 @@ impl VeltranoTypeChecker {
             // For now, only support direct function calls
             Err(TypeCheckError::FunctionNotFound {
                 name: "unknown".to_string(),
+                location: SourceLocation {
+                    file: "unknown".to_string(),
+                    line: 0,
+                    _column: 0,
+                    _source_line: "".to_string(),
+                },
+            })
+        }
+    }
+
+    /// Check generic function call by instantiating type parameters
+    fn check_generic_function_call(
+        &mut self,
+        func_name: &str,
+        func_sig: &FunctionSignature,
+        call: &CallExpr,
+    ) -> Result<VeltranoType, TypeCheckError> {
+        // For now, we only support single-parameter generic functions
+        if call.args.len() != 1 || func_sig.parameters.len() != 1 {
+            return Err(TypeCheckError::ArgumentCountMismatch {
+                function: func_name.to_string(),
+                expected: func_sig.parameters.len(),
+                actual: call.args.len(),
+                location: SourceLocation {
+                    file: "unknown".to_string(),
+                    line: 0,
+                    _column: 0,
+                    _source_line: "".to_string(),
+                },
+            });
+        }
+
+        // Check the argument type
+        let arg_type = match &call.args[0] {
+            Argument::Bare(expr, _) => self.check_expression(expr)?,
+            Argument::Named(_, _, _) | Argument::Shorthand(_, _) | Argument::StandaloneComment(_, _) => {
+                return Err(TypeCheckError::ArgumentCountMismatch {
+                    function: func_name.to_string(),
+                    expected: 1,
+                    actual: call.args.len(),
+                    location: SourceLocation {
+                        file: "unknown".to_string(),
+                        line: 0,
+                        _column: 0,
+                        _source_line: "".to_string(),
+                    },
+                });
+            }
+        };
+
+        // Get the generic parameter
+        if let TypeConstructor::Generic(param_name, _constraints) = &func_sig.parameters[0].constructor {
+            // Substitute the generic type in the return type
+            let return_type = substitute_generic_type(&func_sig.return_type, param_name, &arg_type);
+            Ok(return_type)
+        } else {
+            // This shouldn't happen if we detected generics correctly
+            Err(TypeCheckError::FunctionNotFound {
+                name: func_name.to_string(),
                 location: SourceLocation {
                     file: "unknown".to_string(),
                     line: 0,
@@ -1443,6 +1512,33 @@ impl ErrorAnalyzer {
             Some(format!(".ref().{}", field))
         } else {
             None
+        }
+    }
+}
+
+/// Substitute a generic type parameter with a concrete type
+fn substitute_generic_type(
+    type_template: &VeltranoType,
+    param_name: &str,
+    concrete_type: &VeltranoType,
+) -> VeltranoType {
+    match &type_template.constructor {
+        TypeConstructor::Generic(name, _) if name == param_name => {
+            // Replace the generic parameter with the concrete type
+            concrete_type.clone()
+        }
+        _ => {
+            // Recursively substitute in type arguments
+            let substituted_args = type_template
+                .args
+                .iter()
+                .map(|arg| substitute_generic_type(arg, param_name, concrete_type))
+                .collect();
+            
+            VeltranoType {
+                constructor: type_template.constructor.clone(),
+                args: substituted_args,
+            }
         }
     }
 }

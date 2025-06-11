@@ -47,6 +47,10 @@ pub enum TypeConstructor {
     String,
     /// Custom/user-defined types
     Custom(String),
+    
+    /// Generic type parameter with constraints
+    /// e.g., Generic("T", vec!["Clone"]) represents T: Clone
+    Generic(String, Vec<String>),
 
     // Built-in type constructors (kind * -> *)
     /// Own<T> - forces ownership, removes reference level for reference types
@@ -163,6 +167,13 @@ impl VeltranoType {
     pub fn custom(name: String) -> Self {
         Self {
             constructor: TypeConstructor::Custom(name),
+            args: vec![],
+        }
+    }
+
+    pub fn generic(name: String, constraints: Vec<String>) -> Self {
+        Self {
+            constructor: TypeConstructor::Generic(name, constraints),
             args: vec![],
         }
     }
@@ -287,6 +298,14 @@ impl VeltranoType {
                             generics: vec![],
                         }),
                     }
+                }
+            }
+            TypeConstructor::Generic(name, _constraints) => {
+                // Generic types are treated as custom types for Rust generation
+                // The actual type will be substituted during type checking
+                RustType::Custom {
+                    name: name.clone(),
+                    generics: vec![],
                 }
             }
             TypeConstructor::Own => {
@@ -454,6 +473,11 @@ impl VeltranoType {
                 trait_checker
                     .type_implements_trait(&rust_type, "Copy")
                     .unwrap_or(false)
+            }
+            // Generic types - we can't know if they implement Copy without constraints
+            // For now, assume they don't unless explicitly constrained
+            TypeConstructor::Generic(_, constraints) => {
+                constraints.contains(&"Copy".to_string())
             }
         }
     }
