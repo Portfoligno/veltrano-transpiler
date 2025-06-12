@@ -257,7 +257,14 @@ git add file1 file2 && git commit -m "message" && git push --no-progress
 ```
 
 **Special Cases:**
-- **File renames:** `git add old_name new_name && git commit -m "message"`
+- **File renames/moves:** Always include BOTH the old and new paths
+  - **Best practice:** Use `git mv old_name new_name` - stages both automatically
+  - **If using regular `mv`:** `git add old_name new_name && git commit -m "message"`
+  - **Common scenarios:**
+    - Moving files: `git mv old/path/file new/path/file`
+    - Renaming files: `git mv old_name.ext new_name.ext`
+    - Re-enabling examples: `git mv file.vl.disabled file.vl`
+  - **If already used `mv`:** Check `git status` before committing to ensure both changes are staged
 - **File deletions:** `git add deleted_file && git commit -m "message"`
 - **Multiple operations:** Stage all affected files together to preserve Git's rename detection
 
