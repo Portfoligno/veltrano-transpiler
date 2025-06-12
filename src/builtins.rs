@@ -98,8 +98,14 @@ impl BuiltinRegistry {
             "MutRef".to_string(),
             BuiltinFunctionKind::SpecialFunction {
                 function_name: "MutRef".to_string(),
-                parameters: vec![VeltranoType::generic("T".to_string(), vec!["Clone".to_string()])], // Generic parameter with Clone constraint
-                return_type: VeltranoType::mut_ref(VeltranoType::generic("T".to_string(), vec!["Clone".to_string()])),
+                parameters: vec![VeltranoType::generic(
+                    "T".to_string(),
+                    vec!["Clone".to_string()],
+                )], // Generic parameter with Clone constraint
+                return_type: VeltranoType::mut_ref(VeltranoType::generic(
+                    "T".to_string(),
+                    vec!["Clone".to_string()],
+                )),
             },
         );
     }

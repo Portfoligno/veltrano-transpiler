@@ -47,7 +47,7 @@ pub enum TypeConstructor {
     String,
     /// Custom/user-defined types
     Custom(String),
-    
+
     /// Generic type parameter with constraints
     /// e.g., Generic("T", vec!["Clone"]) represents T: Clone
     Generic(String, Vec<String>),
@@ -476,9 +476,7 @@ impl VeltranoType {
             }
             // Generic types - we can't know if they implement Copy without constraints
             // For now, assume they don't unless explicitly constrained
-            TypeConstructor::Generic(_, constraints) => {
-                constraints.contains(&"Copy".to_string())
-            }
+            TypeConstructor::Generic(_, constraints) => constraints.contains(&"Copy".to_string()),
         }
     }
 }

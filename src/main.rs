@@ -133,7 +133,7 @@ fn format_type_error(error: &TypeCheckError) -> String {
                 location.file, location.line, message
             )
         }
-        TypeCheckError::InvalidType {
+        TypeCheckError::_InvalidType {
             type_name,
             reason,
             location,
@@ -143,7 +143,7 @@ fn format_type_error(error: &TypeCheckError) -> String {
                 type_name, location.file, location.line, reason
             )
         }
-        TypeCheckError::InvalidImport {
+        TypeCheckError::_InvalidImport {
             type_name,
             method_name,
             location,

@@ -352,10 +352,13 @@ impl RustInteropRegistry {
             }
             // String types
             "String" | "std::string::String" => {
-                matches!(trait_name, "Clone" | "Debug" | "Display" | "ToString")
+                matches!(
+                    trait_name,
+                    "Clone" | "Debug" | "Display" | "ToString" | "Into"
+                )
             }
             "&str" | "str" => {
-                matches!(trait_name, "Debug" | "Display" | "ToString")
+                matches!(trait_name, "Debug" | "Display" | "ToString" | "Into")
             }
             // Unit type
             "()" => {
@@ -534,6 +537,7 @@ impl RustInteropRegistry {
     ) -> Result<Option<ImportedMethodInfo>, RustInteropError> {
         // Convert Veltrano method name (camelCase) to Rust method name (snake_case)
         let rust_method_name = camel_to_snake_case(method_name);
+        eprintln!("DEBUG: query_trait_method_signature - type_path: {}, method_name: {} -> rust_method_name: {}", type_path, method_name, rust_method_name);
 
         // Special handling for reference types
         // In Rust, &T automatically has certain trait implementations based on T
@@ -580,19 +584,52 @@ impl RustInteropRegistry {
                 )
             };
 
+        eprintln!(
+            "DEBUG: query_trait_method_signature - found traits for {}: {:?}",
+            actual_type_path, traits
+        );
+
+        // Into trait is special - it has a generic parameter T that determines the return type
+        // For &str.into(), we need to figure out what T is from context
+        if method_name == "into" && traits.contains(&"Into".to_string()) {
+            eprintln!(
+                "DEBUG: query_trait_method_signature - Special handling for Into trait on {}",
+                actual_type_path
+            );
+            // For now, we'll let the trait query proceed normally
+            // The type checker will need to handle the generic return type
+        }
+
         // Search each trait for the method
         for trait_name in traits {
             let trait_path = format!("std::{}", trait_name); // Assuming std library traits
+            eprintln!(
+                "DEBUG: query_trait_method_signature - checking trait_path: {}",
+                trait_path
+            );
 
             if let Ok(Some(trait_info)) = self.dynamic_registry.get_trait(&trait_path) {
+                eprintln!(
+                    "DEBUG: query_trait_method_signature - found trait_info for {}",
+                    trait_path
+                );
                 for method in &trait_info.methods {
+                    eprintln!(
+                        "DEBUG: query_trait_method_signature - checking method {} against {}",
+                        method.name, rust_method_name
+                    );
                     if method.name == rust_method_name {
+                        eprintln!(
+                            "DEBUG: query_trait_method_signature - FOUND method {} in trait {}!",
+                            rust_method_name, trait_name
+                        );
                         // Found the method in this trait
                         return Ok(Some(ImportedMethodInfo {
                             _method_name: method_name.to_string(), // Keep original Veltrano name
                             self_kind: method.self_kind.clone(),
                             _parameters: self.convert_parameters(&method.parameters),
                             return_type: if method.return_type.raw == "Self" {
+                                eprintln!("DEBUG: query_trait_method_signature - return type is Self for {}", actual_type_path);
                                 // For trait methods returning Self, return the concrete type
                                 // Special case: &T.clone() returns T, not &T
                                 if rust_method_name == "clone" && actual_type_path.starts_with("&")
@@ -633,12 +670,18 @@ impl RustInteropRegistry {
                                     }
                                 }
                             } else {
+                                eprintln!("DEBUG: query_trait_method_signature - return type is NOT Self, raw: {}", method.return_type.raw);
                                 self.convert_rust_type_signature(&method.return_type)
                             },
                             _trait_name: Some(trait_name.clone()),
                         }));
                     }
                 }
+            } else {
+                eprintln!(
+                    "DEBUG: query_trait_method_signature - trait_info NOT found for {}",
+                    trait_path
+                );
             }
         }
 
@@ -977,6 +1020,32 @@ impl StdLibQuerier {
             .traits
             .insert("ToString".to_string(), to_string_trait);
 
+        // Add Into trait
+        let into_trait = TraitInfo {
+            name: "Into".to_string(),
+            full_path: "std::convert::Into".to_string(),
+            methods: vec![MethodInfo {
+                name: "into".to_string(),
+                self_kind: SelfKind::Value,
+                generics: vec![GenericParam {
+                    name: "T".to_string(),
+                    bounds: vec![],
+                    default: None,
+                }],
+                parameters: vec![],
+                return_type: RustTypeSignature {
+                    raw: "T".to_string(),
+                    parsed: Some(RustType::Generic("T".to_string())),
+                    lifetimes: vec![],
+                    bounds: vec![],
+                },
+                is_unsafe: false,
+                is_const: false,
+            }],
+            associated_types: vec![],
+        };
+        crate_info.traits.insert("Into".to_string(), into_trait);
+
         // Add trait implementations for common types
         for typ in &[
             "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize",
@@ -990,13 +1059,22 @@ impl StdLibQuerier {
                 .insert(typ.to_string(), traits);
         }
 
-        // String implements Clone and ToString
+        // String implements Clone, ToString, and Into
         let mut string_traits = HashSet::new();
         string_traits.insert("Clone".to_string());
         string_traits.insert("ToString".to_string());
+        string_traits.insert("Into".to_string());
         crate_info
             .trait_implementations
             .insert("String".to_string(), string_traits);
+
+        // &str implements ToString and Into
+        let mut str_traits = HashSet::new();
+        str_traits.insert("ToString".to_string());
+        str_traits.insert("Into".to_string());
+        crate_info
+            .trait_implementations
+            .insert("&str".to_string(), str_traits);
 
         // Add Vec type with methods
         let vec_type = TypeInfo {
@@ -1506,6 +1584,7 @@ impl DynamicRustRegistry {
                 "PartialOrd",
                 "Ord",
                 "ToString",
+                "Into", // All types implement Into<Self>
             ]
             .into_iter()
             .map(String::from)
