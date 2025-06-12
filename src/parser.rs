@@ -6,6 +6,7 @@ pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
     in_function_body: bool, // Track if we're parsing inside a function body
+    next_call_id: usize,    // Counter for unique call IDs (both method and function calls)
 }
 
 impl Parser {
@@ -14,6 +15,7 @@ impl Parser {
             tokens,
             current: 0,
             in_function_body: false,
+            next_call_id: 0,
         }
     }
 
@@ -609,10 +611,14 @@ impl Parser {
 
                 self.consume(&TokenType::RightParen, "Expected ')' after arguments")?;
 
+                let id = self.next_call_id;
+                self.next_call_id += 1;
+
                 expr = Expr::Call(CallExpr {
                     callee: Box::new(expr),
                     args,
                     is_multiline,
+                    id,
                 });
             } else if self.match_token(&TokenType::Dot) {
                 let field_or_method =
@@ -654,11 +660,15 @@ impl Parser {
                     // Capture comment after method call without consuming statement-terminating newlines
                     let comment = self.capture_comment_preserve_newlines();
 
+                    let id = self.next_call_id;
+                    self.next_call_id += 1;
+
                     expr = Expr::MethodCall(MethodCallExpr {
                         object: Box::new(expr),
                         method: field_or_method,
                         args,
                         inline_comment: comment,
+                        id,
                     });
                 } else {
                     // Field access

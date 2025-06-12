@@ -191,8 +191,8 @@ fn test_examples_with_config(preserve_comments: bool) {
         );
 
         // Use the new utility that handles everything including wrapping in main
-        // Skip type checking since these examples may use undefined functions like println
-        match transpile_and_compile(&veltrano_code, config, &test_name, true, &[]) {
+        // Enable type checking to support import resolution
+        match transpile_and_compile(&veltrano_code, config, &test_name, false, &[]) {
             Ok(_) => {
                 // Success - test passed
             }
@@ -615,20 +615,29 @@ fn test_fail_examples() {
         let veltrano_code =
             fs::read_to_string(&example_path).expect(&format!("Failed to read {}", example_path));
 
-        // Extract expected error from first line comment if present
-        let expected_error = veltrano_code.lines().next().and_then(|line| {
-            if line.starts_with("// Expected error:") {
-                Some(line.trim_start_matches("// Expected error:").trim())
-            } else {
-                None
-            }
-        });
+        // Extract expected error from first line comment - now mandatory
+        let expected_error = veltrano_code
+            .lines()
+            .next()
+            .and_then(|line| {
+                if line.starts_with("// Expected error:") {
+                    Some(line.trim_start_matches("// Expected error:").trim())
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| {
+                panic!(
+                    "File {} must start with '// Expected error: <expected error message>' comment",
+                    fail_file
+                )
+            });
 
-        // Use helper to expect parse failure with optional error checking
+        // Use helper to expect parse failure with required error checking
         let config = Config {
             preserve_comments: false,
         };
-        if let Err(error) = assert_parse_or_type_check_error(&veltrano_code, config, expected_error)
+        if let Err(error) = assert_parse_or_type_check_error(&veltrano_code, config, Some(expected_error))
         {
             panic!(
                 "Parse failure validation failed for {}: {}",
@@ -1515,4 +1524,63 @@ fn test_expected_outputs() {
     } else {
         println!("Validated {} expected output files", expected_files_count);
     }
+}
+
+#[test]
+fn test_multiple_imports_same_name() {
+    // Test that multiple imports can have the same name and are resolved by type
+    let source = r#"
+import String.clone as duplicate
+import i64.abs as duplicate
+
+fun main() {
+    val text: Own<String> = "hello".toString()
+    val number: I64 = -42
+    
+    // Should resolve to String.clone based on receiver type
+    val text_copy = text.ref().duplicate()
+    
+    // Should resolve to i64.abs based on receiver type  
+    val positive = number.duplicate()
+}
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+    let rust_code = transpile(source, config, false) // don't skip type check - needed for import resolution
+        .expect("Multiple imports with same name should succeed");
+
+    // Check that the correct methods are called via UFCS
+    assert!(rust_code.contains("String::clone(&text)"));
+    assert!(rust_code.contains("i64::abs(number)"));
+}
+
+#[test]
+fn test_import_shadows_builtin_completely() {
+    // Test that imported methods completely shadow built-ins (no fallback)
+    let source = r#"
+import String.len as length
+
+fun testNoFallback() {
+    val text: Str = "hello"
+    val number: I64 = 42
+    
+    // This works - uses imported String.len
+    val text_len = text.length()
+    
+    // This would fail even if there's a built-in 'length' for I64
+    // because imports shadow built-ins completely
+    // val bad = number.length()  // ERROR: Method not found
+}
+"#;
+
+    let config = Config {
+        preserve_comments: false,
+    };
+
+    // The example should transpile successfully (commented out error line)
+    let rust_code = transpile(source, config, true).expect("Import shadowing test should succeed");
+
+    assert!(rust_code.contains("String::len(text)"));
 }

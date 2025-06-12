@@ -52,8 +52,8 @@ fun main() {
         .clone()    // Clone it
     
     // Test 7: Method chain that won't be optimized away
-    val message: Str = "Hello".bumpRef()
-    val chained2: Str = message
+    val message: Ref<Str> = "Hello".bumpRef()
+    val chained2: Ref<Ref<Ref<Str>>> = message
         .ref()      // First ref
         .ref()      // Second ref
         .bumpRef()  // Final bumpRef

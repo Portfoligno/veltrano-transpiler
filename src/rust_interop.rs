@@ -998,6 +998,163 @@ impl StdLibQuerier {
             .trait_implementations
             .insert("String".to_string(), string_traits);
 
+        // Add Vec type with methods
+        let vec_type = TypeInfo {
+            name: "Vec".to_string(),
+            full_path: "std::vec::Vec".to_string(),
+            kind: TypeKind::Struct,
+            generics: vec![GenericParam {
+                name: "T".to_string(),
+                bounds: vec![],
+                default: None,
+            }],
+            methods: vec![
+                MethodInfo {
+                    name: "new".to_string(),
+                    self_kind: SelfKind::None, // Static method
+                    generics: vec![],
+                    parameters: vec![],
+                    return_type: RustTypeSignature {
+                        raw: "Vec<T>".to_string(),
+                        parsed: Some(RustType::Vec(Box::new(RustType::Generic("T".to_string())))),
+                        lifetimes: vec![],
+                        bounds: vec![],
+                    },
+                    is_unsafe: false,
+                    is_const: false,
+                },
+                MethodInfo {
+                    name: "push".to_string(),
+                    self_kind: SelfKind::MutRef,
+                    generics: vec![],
+                    parameters: vec![Parameter {
+                        name: "value".to_string(),
+                        param_type: RustTypeSignature {
+                            raw: "T".to_string(),
+                            parsed: Some(RustType::Generic("T".to_string())),
+                            lifetimes: vec![],
+                            bounds: vec![],
+                        },
+                    }],
+                    return_type: RustTypeSignature {
+                        raw: "()".to_string(),
+                        parsed: Some(RustType::Unit),
+                        lifetimes: vec![],
+                        bounds: vec![],
+                    },
+                    is_unsafe: false,
+                    is_const: false,
+                },
+                MethodInfo {
+                    name: "len".to_string(),
+                    self_kind: SelfKind::Ref,
+                    generics: vec![],
+                    parameters: vec![],
+                    return_type: RustTypeSignature {
+                        raw: "usize".to_string(),
+                        parsed: Some(RustType::USize),
+                        lifetimes: vec![],
+                        bounds: vec![],
+                    },
+                    is_unsafe: false,
+                    is_const: false,
+                },
+            ],
+            fields: vec![],
+            variants: vec![],
+        };
+        crate_info.types.insert("Vec".to_string(), vec_type);
+
+        // Vec implements Clone
+        let mut vec_traits = HashSet::new();
+        vec_traits.insert("Clone".to_string());
+        crate_info
+            .trait_implementations
+            .insert("Vec".to_string(), vec_traits);
+
+        // Add numeric type methods (i64 as example)
+        let i64_type = TypeInfo {
+            name: "i64".to_string(),
+            full_path: "i64".to_string(),
+            kind: TypeKind::Struct, // Primitive types are treated as structs
+            generics: vec![],
+            methods: vec![MethodInfo {
+                name: "abs".to_string(),
+                self_kind: SelfKind::Value, // Takes self by value
+                generics: vec![],
+                parameters: vec![],
+                return_type: RustTypeSignature {
+                    raw: "i64".to_string(),
+                    parsed: Some(RustType::I64),
+                    lifetimes: vec![],
+                    bounds: vec![],
+                },
+                is_unsafe: false,
+                is_const: false,
+            }],
+            fields: vec![],
+            variants: vec![],
+        };
+        crate_info.types.insert("i64".to_string(), i64_type);
+
+        // Add String methods
+        let string_type = TypeInfo {
+            name: "String".to_string(),
+            full_path: "std::string::String".to_string(),
+            kind: TypeKind::Struct,
+            generics: vec![],
+            methods: vec![
+                MethodInfo {
+                    name: "len".to_string(),
+                    self_kind: SelfKind::Ref,
+                    generics: vec![],
+                    parameters: vec![],
+                    return_type: RustTypeSignature {
+                        raw: "usize".to_string(),
+                        parsed: Some(RustType::USize),
+                        lifetimes: vec![],
+                        bounds: vec![],
+                    },
+                    is_unsafe: false,
+                    is_const: false,
+                },
+                MethodInfo {
+                    name: "chars".to_string(),
+                    self_kind: SelfKind::Ref,
+                    generics: vec![],
+                    parameters: vec![],
+                    return_type: RustTypeSignature {
+                        raw: "Chars".to_string(),
+                        parsed: Some(RustType::Custom {
+                            name: "Chars".to_string(),
+                            generics: vec![],
+                        }),
+                        lifetimes: vec![],
+                        bounds: vec![],
+                    },
+                    is_unsafe: false,
+                    is_const: false,
+                },
+                MethodInfo {
+                    name: "clone".to_string(),
+                    self_kind: SelfKind::Ref,
+                    generics: vec![],
+                    parameters: vec![],
+                    return_type: RustTypeSignature {
+                        raw: "String".to_string(),
+                        parsed: Some(RustType::String),
+                        lifetimes: vec![],
+                        bounds: vec![],
+                    },
+                    is_unsafe: false,
+                    is_const: false,
+                },
+            ],
+            fields: vec![],
+            variants: vec![],
+        };
+        crate_info.types.insert("String".to_string(), string_type);
+
         crate_info
     }
 }

@@ -66,6 +66,7 @@ pub struct CallExpr {
     pub callee: Box<Expr>,
     pub args: Vec<Argument>,
     pub is_multiline: bool, // Whether this call was originally formatted across multiple lines
+    pub id: usize,          // Unique ID for type resolution tracking
 }
 
 #[derive(Debug, Clone)]
@@ -74,6 +75,7 @@ pub struct MethodCallExpr {
     pub method: String,
     pub args: Vec<Expr>,
     pub inline_comment: Option<(String, String)>, // Optional inline comment after method call
+    pub id: usize,                                // Unique ID for type resolution tracking
 }
 
 #[derive(Debug, Clone)]

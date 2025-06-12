@@ -153,6 +153,17 @@ fn format_type_error(error: &TypeCheckError) -> String {
                 method_name, type_name, location.file, location.line
             )
         }
+        TypeCheckError::AmbiguousMethodCall {
+            method,
+            receiver_type,
+            candidates,
+            location,
+        } => {
+            format!(
+                "Ambiguous method call '{}' on type {:?} at {}:{}. Multiple imported methods match: {}",
+                method, receiver_type, location.file, location.line, candidates.join(", ")
+            )
+        }
     }
 }
 
@@ -263,6 +274,16 @@ fn main() {
     }
 
     let mut codegen = CodeGenerator::with_config(config);
+    // Pass method resolutions from type checker to codegen
+    let resolutions = type_checker.get_method_resolutions().clone();
+    eprintln!(
+        "DEBUG main: Passing {} method resolutions to codegen",
+        resolutions.len()
+    );
+    for (id, res) in &resolutions {
+        eprintln!("  ID {}: {:?}.{}", id, res.rust_type, res.method_name);
+    }
+    codegen.set_method_resolutions(resolutions);
     let rust_code = codegen.generate(&program);
 
     let output_file = if input_file.ends_with(".vl") {

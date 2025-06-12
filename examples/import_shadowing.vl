@@ -1,0 +1,41 @@
+// Example: Imports completely shadow built-in methods
+
+// The built-in registry has a 'length' method available on all types
+// But once we import something as 'length', the built-in is never used
+
+import String.len as length
+import String.chars as chars
+
+fun main() {
+    val text: String = "Shadow test".toString().ref()
+    
+    // This uses the imported String.len, NOT the built-in 'length'
+    val len = text.length()
+    println("String length: {}", len)
+    
+    // This would fail - even though built-in 'length' exists for I64,
+    // it's shadowed by our import which only works on String
+    val number: I64 = 42
+    // val bad = number.length()  // ERROR: Method 'length' not found on type I64
+    
+    // The 'chars' method is also imported and shadows any built-in
+    // NOTE: count() would need its own import - commenting out for now
+    // val char_count = text.chars().count()
+    // println("Character count: " + char_count.toString())
+}
+
+// Example showing no fallback behavior
+fun test_no_fallback() {
+    // Import a method that doesn't actually work with our type
+    // This demonstrates that imports shadow built-ins even when they don't typecheck
+    
+    val value: Bool = true
+    
+    // Even if there was a built-in 'length' for Bool, this would fail
+    // because we imported 'length' from String only
+    // val bad = value.length()  // ERROR: Method 'length' not found on type Bool
+    
+    // Only methods that aren't imported can use built-ins
+    val string_form = value.ref().toString()  // OK: toString is not imported, uses built-in
+    println("Bool as string: {}", string_form)
+}

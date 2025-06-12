@@ -2,6 +2,7 @@ use crate::ast::*;
 use crate::config::Config;
 use crate::rust_interop::camel_to_snake_case;
 use crate::rust_interop::RustInteropRegistry;
+use crate::type_checker::MethodResolution;
 use crate::types::VeltranoType;
 use std::collections::{HashMap, HashSet};
 
@@ -16,6 +17,7 @@ pub struct CodeGenerator {
     generating_bump_function: bool, // Track when generating function with bump parameter
     trait_checker: RustInteropRegistry, // For trait-based type checking
     config: Config,
+    method_resolutions: HashMap<usize, MethodResolution>, // Method call ID -> resolved import
 }
 
 impl CodeGenerator {
@@ -31,7 +33,13 @@ impl CodeGenerator {
             generating_bump_function: false,
             trait_checker: RustInteropRegistry::new(),
             config,
+            method_resolutions: HashMap::new(),
         }
+    }
+
+    /// Set method resolutions from the type checker
+    pub fn set_method_resolutions(&mut self, resolutions: HashMap<usize, MethodResolution>) {
+        self.method_resolutions = resolutions;
     }
 
     pub fn generate(&mut self, program: &Program) -> String {
@@ -700,6 +708,27 @@ impl CodeGenerator {
     }
 
     fn generate_call_expression(&mut self, call: &CallExpr) {
+        // First check if we have a type-checked resolution for this call (e.g., import alias)
+        if let Some(resolution) = self.method_resolutions.get(&call.id) {
+            // This is a resolved import alias (e.g., newVec -> Vec::new)
+            let snake_method = camel_to_snake_case(&resolution.method_name);
+            let type_name = resolution.rust_type.to_rust_syntax();
+
+            self.output.push_str(&type_name);
+            self.output.push_str("::");
+            self.output.push_str(&snake_method);
+            self.output.push('(');
+
+            // Generate arguments
+            self.generate_comma_separated_args_for_function_call_with_multiline(
+                &call.args,
+                call.is_multiline,
+            );
+
+            self.output.push(')');
+            return;
+        }
+
         if let Expr::Identifier(name) = call.callee.as_ref() {
             // Check if this is a data class constructor
             if self.data_classes.contains(name) {
@@ -804,8 +833,36 @@ impl CodeGenerator {
     }
 
     fn generate_method_call_expression(&mut self, method_call: &MethodCallExpr) {
-        if let Some((type_name, original_method)) = self.imports.get(&method_call.method) {
-            // Imported method: use UFCS (explicit imports have highest priority)
+        // First check if we have a type-checked resolution for this method call
+        eprintln!(
+            "DEBUG codegen: Looking for resolution for method call ID {}, method: {}",
+            method_call.id, method_call.method
+        );
+        if let Some(resolution) = self.method_resolutions.get(&method_call.id) {
+            // Use the resolved import
+            eprintln!(
+                "DEBUG codegen: Found resolution - type: {:?}, method: {}",
+                resolution.rust_type, resolution.method_name
+            );
+            let snake_method = camel_to_snake_case(&resolution.method_name);
+            let type_name = resolution.rust_type.to_rust_syntax();
+
+            self.output.push_str(&type_name);
+            self.output.push_str("::");
+            self.output.push_str(&snake_method);
+            self.output.push('(');
+
+            // First argument is the object
+            self.generate_expression(&method_call.object);
+
+            // Then the rest of the arguments
+            for arg in &method_call.args {
+                self.output.push_str(", ");
+                self.generate_expression(arg);
+            }
+            self.output.push(')');
+        } else if let Some((type_name, original_method)) = self.imports.get(&method_call.method) {
+            // Fallback to old behavior for non-type-checked code
             let snake_method = camel_to_snake_case(original_method);
             self.output.push_str(type_name);
             self.output.push_str("::");

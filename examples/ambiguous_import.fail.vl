@@ -1,0 +1,14 @@
+// Expected error: AmbiguousMethodCall
+// This example should FAIL type checking with an ambiguous method call error
+
+// Import the same method (new) from Vec twice with same alias
+// This creates a true ambiguity since both imports are identical
+import Vec.new as create
+import Vec.new as create
+
+fun main() {
+    // This should fail because we have two identical imports with same alias
+    val container = create()
+    
+    println("{:?}", container)
+}

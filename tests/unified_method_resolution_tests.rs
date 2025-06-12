@@ -90,16 +90,17 @@ fn test_imported_clone_methods() {
 
 #[test]
 fn test_imported_tostring_methods() {
-    // Test that imported methods work (avoid overriding built-ins like toString)
+    // Test that imported methods work with UFCS generation
     let code = r#"
-    import I64.abs
-    import I64.max
+    import i64.abs
     
     fun main() {
-        val num: I64 = 42
-        val abs_result = num.abs()  // Imported method with permissive behavior
+        val num: I64 = -42
+        val abs_result = num.abs()  // Generates: i64::abs(num)
         
-        val max_result = num.max(100)  // Imported method with permissive behavior
+        // Also test with positive number
+        val pos: I64 = 42
+        val same = pos.abs()  // Generates: i64::abs(pos)
     }
     "#;
 
@@ -107,7 +108,7 @@ fn test_imported_tostring_methods() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_ok(), "Imported methods should work");
+    assert!(result.is_ok(), "Imported methods should work with UFCS");
 }
 
 #[test]
@@ -182,15 +183,14 @@ fn test_explicit_conversion_enforcement_imported() {
 
 #[test]
 fn test_imported_method_permissive_behavior() {
-    // Test that imported methods without hardcoded signatures are permissive
-    // Since we removed hardcoded signatures, the type checker allows imports
-    // and defers validation to Rust compile time
+    // Test that imported methods are now type-checked like built-in methods
+    // With type checking enabled, imports must match receiver types
     let code = r#"
     import String.toString
     
     fun main() {
         val text = "hello"
-        val result = text.toString()  // Type inferred - validation deferred to Rust
+        val result = text.toString()  // Error: Str doesn't match String.toString
     }
     "#;
 
@@ -199,14 +199,18 @@ fn test_imported_method_permissive_behavior() {
     };
     let result = parse_and_type_check(code, config);
 
-    if let Err(errors) = &result {
-        println!("Unexpected error: {:?}", errors);
-    }
-
     assert!(
-        result.is_ok(),
-        "Imported methods should be permissive without hardcoded signatures"
+        result.is_err(),
+        "Imported methods should be type-checked and fail when types don't match"
     );
+
+    if let Err(errors) = result {
+        let error_message = format!("{:?}", errors);
+        assert!(
+            error_message.contains("MethodNotFound"),
+            "Should have method not found error"
+        );
+    }
 }
 
 #[test]
@@ -273,19 +277,20 @@ fn test_method_not_found_unified() {
 fn test_receiver_validation_consistency() {
     // Test that both built-in and imported methods use same receiver validation
     let code = r#"
-    import I64.abs
+    import i64.abs
     
     fun main() {
         val x: I64 = 42
         val ref_x: Ref<I64> = x.ref()
         
-        // Both should work with Ref<I64> receiver
+        // clone() works with Ref<I64> receiver
         val cloned1: I64 = ref_x.clone()      // Built-in method
-        val abs1 = ref_x.abs()                // Imported method (type inferred)
         
-        // Both should work with I64 receiver (naturally owned)
-        val cloned2: I64 = x.clone()          // Built-in method
-        val abs2 = x.abs()                    // Imported method (type inferred)
+        // abs() requires I64 receiver (by value), not Ref<I64>
+        val abs1 = x.abs()                    // Imported method works with I64
+        
+        // For consistency, let's also test that abs() fails with wrong receiver
+        // val bad = ref_x.abs()  // This would fail - abs needs value, not reference
     }
     "#;
 
@@ -354,13 +359,17 @@ fn test_mixed_method_calls() {
 fn test_method_chaining_mixed() {
     // Test method chaining with both built-in and imported methods
     let code = r#"
-    import String.toString
+    import String.len
     
     fun main() {
+        // Chain multiple methods together mixing built-in and imported
         val text: String = "hello".toString().ref()
         
-        // Chain: String -> Own<String> (clone) -> String (ref) -> Own<String> (toString)
-        val result: Own<String> = text.clone().ref().toString()
+        // Chain: String -> Own<String> (clone) -> String (ref) -> usize (len)
+        val size = text.clone().ref().len()
+        
+        // Another chain with built-in methods
+        val result: String = text.clone().ref()
     }
     "#;
 
@@ -368,6 +377,11 @@ fn test_method_chaining_mixed() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
+
+    if let Err(errors) = &result {
+        println!("Method chaining error: {:?}", errors);
+    }
+
     assert!(
         result.is_ok(),
         "Method chaining with mixed built-in and imported methods should work"

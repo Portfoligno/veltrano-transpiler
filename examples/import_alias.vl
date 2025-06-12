@@ -1,0 +1,14 @@
+// Demonstrates import statements with aliases
+import String.len as length
+import i64.abs as magnitude
+
+fun main() {
+    val s: String = "hello world".toString().ref()
+    val size = s.length()
+    
+    val num: I64 = -42
+    val positive = num.magnitude()
+    
+    println("String has {} characters", size)
+    println("Magnitude of {} is {}", num, positive)
+}

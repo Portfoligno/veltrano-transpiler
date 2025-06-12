@@ -20,14 +20,32 @@ fn parse_veltrano_code(code: &str, config: Config) -> Result<Program, String> {
     parser.parse()
 }
 
-/// Generate Rust code from an AST program
-fn generate_rust_code(program: &Program, config: Config) -> String {
+/// Generate Rust code from an AST program with optional method resolutions
+fn generate_rust_code(
+    program: &Program,
+    config: Config,
+    method_resolutions: Option<
+        std::collections::HashMap<usize, veltrano::type_checker::MethodResolution>,
+    >,
+) -> String {
     let mut codegen = CodeGenerator::with_config(config);
+    if let Some(resolutions) = method_resolutions {
+        codegen.set_method_resolutions(resolutions);
+    }
     codegen.generate(program)
 }
 
 /// Shared utility to parse and type check Veltrano code
-pub fn parse_and_type_check(code: &str, config: Config) -> Result<Program, Vec<TypeCheckError>> {
+pub fn parse_and_type_check(
+    code: &str,
+    config: Config,
+) -> Result<
+    (
+        Program,
+        std::collections::HashMap<usize, veltrano::type_checker::MethodResolution>,
+    ),
+    Vec<TypeCheckError>,
+> {
     let program = parse_veltrano_code(code, config).map_err(|e| {
         vec![TypeCheckError::VariableNotFound {
             name: format!("Parse error: {}", e),
@@ -37,20 +55,24 @@ pub fn parse_and_type_check(code: &str, config: Config) -> Result<Program, Vec<T
 
     let mut type_checker = VeltranoTypeChecker::new();
     type_checker.check_program(&program)?;
+    let resolutions = type_checker.get_method_resolutions().clone();
 
-    Ok(program)
+    Ok((program, resolutions))
 }
 
 /// Shared utility to perform full transpilation pipeline: lex → parse → type check → codegen
 /// TODO: Remove skip_type_check parameter once built-in functions are properly handled
 pub fn transpile(code: &str, config: Config, skip_type_check: bool) -> Result<String, String> {
-    let program = if skip_type_check {
-        parse_veltrano_code(code, config.clone())?
+    let (program, resolutions) = if skip_type_check {
+        (
+            parse_veltrano_code(code, config.clone())?,
+            std::collections::HashMap::new(),
+        )
     } else {
         parse_and_type_check(code, config.clone()).map_err(format_type_check_errors)?
     };
 
-    Ok(generate_rust_code(&program, config))
+    Ok(generate_rust_code(&program, config, Some(resolutions)))
 }
 
 /// Format type checking errors into a user-friendly message

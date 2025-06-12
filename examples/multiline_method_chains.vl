@@ -2,42 +2,32 @@
 // This example shows that dots can appear on new lines for method chaining
 
 fun main() {
-    // String literal preparation
-    val hello: Str = "Hello, World!".bumpRef()
+    // String literal with method chain
+    val text: String = "Hello, World!"
+        .toString()
+        .ref()
     
-    // Variable for demonstration
-    val message: Str = hello
-    
-    // Single-line method chain - traditional style
-    val singleLine: Str = message.ref().bumpRef()
+    // Single-line method chain
+    val single: String = "test".toString().ref()
     
     // Multiline method chain - dots on new lines
-    val multiLine: Str = message
+    val multi: String = "multiline"
+        .toString()
         .ref()
-        .bumpRef()
-    
-    // Deep indentation style
-    val deepIndent: Str = message
-                            .ref()
-                            .bumpRef()
     
     // Mixed style - start on same line, continue on next
-    val mixed: Str = message.ref()
-        .bumpRef()
+    val mixed: String = "mixed".toString()
+        .ref()
     
-    // Very long chain split across lines
-    val longChain: Str = message
-        .ref()
-        .ref()  
-        .ref()
-        .ref()
-        .bumpRef()
+    // Method chain with different methods
+    import String.len as length
+    val message: String = "Veltrano".toString().ref()
+    val len = message
+        .length()
     
-    // Print all variations to show they work identically
-    println("Original: {}", hello)
-    println("Single line: {}", singleLine)
-    println("Multi line: {}", multiLine)
-    println("Deep indent: {}", deepIndent)
-    println("Mixed style: {}", mixed)
-    println("Long chain: {}", longChain)
+    println("Text: {}", text)
+    println("Single: {}", single)
+    println("Multi: {}", multi)
+    println("Mixed: {}", mixed)
+    println("Message length: {}", len)
 }

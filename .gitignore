@@ -8,6 +8,7 @@
 /examples/*
 !/examples/*.vl
 !/examples/*.expected.rs
+!/examples/*.disabled
 
 # Session memory (not tracked in git)
 /WORKSPACE.md

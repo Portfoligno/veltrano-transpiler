@@ -64,6 +64,12 @@ pub enum TypeCheckError {
         name: String,
         location: SourceLocation,
     },
+    AmbiguousMethodCall {
+        method: String,
+        receiver_type: VeltranoType,
+        candidates: Vec<String>,
+        location: SourceLocation,
+    },
     InvalidTypeConstructor {
         message: String,
         location: SourceLocation,
@@ -80,12 +86,20 @@ pub enum TypeCheckError {
     },
 }
 
+/// Information about a resolved method call
+#[derive(Debug, Clone)]
+pub struct MethodResolution {
+    pub rust_type: crate::rust_interop::RustType,
+    pub method_name: String,
+}
+
 /// Main type checker with strict type checking (no implicit conversions)
 pub struct VeltranoTypeChecker {
     env: TypeEnvironment,
     trait_checker: RustInteropRegistry,
     builtin_registry: BuiltinRegistry,
-    imports: std::collections::HashMap<String, (crate::rust_interop::RustType, String)>, // method_name/alias -> (rust_type, method_name)
+    imports: std::collections::HashMap<String, Vec<(crate::rust_interop::RustType, String)>>, // method_name/alias -> Vec<(rust_type, method_name)>
+    method_resolutions: std::collections::HashMap<usize, MethodResolution>, // Maps method call IDs to their resolutions
 }
 
 /// Helper functions for trait checking on VeltranoType
@@ -125,11 +139,17 @@ impl VeltranoTypeChecker {
             trait_checker: RustInteropRegistry::new(),
             builtin_registry: BuiltinRegistry::new(),
             imports: std::collections::HashMap::new(),
+            method_resolutions: std::collections::HashMap::new(),
         };
 
         // Initialize built-in functions and methods
         checker.init_builtin_functions();
         checker
+    }
+
+    /// Get the method resolutions map for passing to codegen
+    pub fn get_method_resolutions(&self) -> &std::collections::HashMap<usize, MethodResolution> {
+        &self.method_resolutions
     }
 
     fn init_builtin_functions(&mut self) {
@@ -220,13 +240,15 @@ impl VeltranoTypeChecker {
                 },
             })?;
 
-        // Store the import for later method resolution
+        // Store the import for later method resolution, allowing multiple imports with same name
         let key = import
             .alias
             .clone()
             .unwrap_or_else(|| import.method_name.clone());
         self.imports
-            .insert(key, (rust_type.clone(), import.method_name.clone()));
+            .entry(key)
+            .or_insert_with(Vec::new)
+            .push((rust_type.clone(), import.method_name.clone()));
 
         // Validate that the imported method exists
         if let Err(_) = self
@@ -567,6 +589,13 @@ impl VeltranoTypeChecker {
                 return self.check_data_class_constructor_call(func_name, &data_class, call);
             }
 
+            // Check if this is an imported method being called as a function
+            if let Some(imports) = self.imports.get(func_name).cloned() {
+                // For standalone method calls, we need to handle them specially
+                // This handles cases like `newVec()` where `newVec` is an alias for `Vec.new`
+                return self.check_imported_standalone_method_call(func_name, &imports, call);
+            }
+
             // Check user-defined functions
             let func_sig = self
                 .env
@@ -778,17 +807,97 @@ impl VeltranoTypeChecker {
     ) -> Result<VeltranoType, TypeCheckError> {
         let receiver_type = self.check_expression(&method_call.object)?;
 
-        // Priority 1: Check if this method is explicitly imported
-        if let Some((rust_type, original_method)) = self.imports.get(&method_call.method).cloned() {
-            return self.check_imported_method_call(
-                &receiver_type,
-                &rust_type,
-                &original_method,
-                method_call,
+        // Check if this method is explicitly imported - imports shadow built-ins completely
+        if let Some(imports) = self.imports.get(&method_call.method).cloned() {
+            eprintln!(
+                "DEBUG: Checking method '{}' with {} imports",
+                method_call.method,
+                imports.len()
             );
+            let mut matching_imports = Vec::new();
+            let mut candidate_descriptions = Vec::new();
+
+            // Check each imported function with this name
+            for (rust_type, original_method) in imports {
+                eprintln!(
+                    "DEBUG: Checking import {:?}.{} against receiver {:?}",
+                    rust_type, original_method, receiver_type
+                );
+                // Try to typecheck this import with the receiver
+                match self.check_imported_method_call(
+                    &receiver_type,
+                    &rust_type,
+                    &original_method,
+                    method_call,
+                ) {
+                    Ok(return_type) => {
+                        eprintln!(
+                            "DEBUG: Import matched! Storing for method call ID {}",
+                            method_call.id
+                        );
+                        matching_imports.push((
+                            rust_type.clone(),
+                            original_method.clone(),
+                            return_type,
+                        ));
+                        candidate_descriptions.push(format!("{:?}.{}", rust_type, original_method));
+                    }
+                    Err(_) => {
+                        eprintln!("DEBUG: Import didn't match");
+                        // This import doesn't match, but we still record it as a candidate
+                        candidate_descriptions.push(format!("{:?}.{}", rust_type, original_method));
+                    }
+                }
+            }
+
+            // Check how many imports matched
+            match matching_imports.len() {
+                0 => {
+                    // No imported methods matched, but imports exist - don't fall back to built-ins
+                    return Err(TypeCheckError::MethodNotFound {
+                        receiver_type,
+                        method: method_call.method.clone(),
+                        location: SourceLocation {
+                            file: "unknown".to_string(),
+                            line: 0,
+                            _column: 0,
+                            _source_line: "".to_string(),
+                        },
+                    });
+                }
+                1 => {
+                    // Exactly one import matched - use it
+                    let (rust_type, method_name, return_type) = &matching_imports[0];
+
+                    // Store the resolution for codegen
+                    self.method_resolutions.insert(
+                        method_call.id,
+                        MethodResolution {
+                            rust_type: rust_type.clone(),
+                            method_name: method_name.clone(),
+                        },
+                    );
+
+                    return Ok(return_type.clone());
+                }
+                _ => {
+                    // Multiple imports matched - ambiguous
+                    return Err(TypeCheckError::AmbiguousMethodCall {
+                        method: method_call.method.clone(),
+                        receiver_type: receiver_type.clone(),
+                        candidates: candidate_descriptions,
+                        location: SourceLocation {
+                            file: "unknown".to_string(),
+                            line: 0,
+                            _column: 0,
+                            _source_line: "".to_string(),
+                        },
+                    });
+                }
+            }
         }
 
-        // Priority 2: Check if this is a built-in method using the registry
+        // Only check built-ins if no imports exist for this method name
         if let Some(return_type) = self.builtin_registry.get_method_return_type(
             &method_call.method,
             &receiver_type,
@@ -797,7 +906,7 @@ impl VeltranoTypeChecker {
             return Ok(return_type);
         }
 
-        // Priority 3: Method not found in any system
+        // Method not found in any system
         Err(TypeCheckError::MethodNotFound {
             receiver_type,
             method: method_call.method.clone(),
@@ -818,43 +927,163 @@ impl VeltranoTypeChecker {
         rust_method_name: &str,
         _method_call: &MethodCallExpr,
     ) -> Result<VeltranoType, TypeCheckError> {
-        // Query the imported method signature
-        if let Ok(Some(method_info)) = self
+        // Query the imported method signature first to know what self_kind it expects
+        let method_info = if let Ok(Some(info)) = self
             .trait_checker
             .query_method_signature(rust_type, rust_method_name)
         {
-            // Check if the receiver type can provide the required access
-            if !self
-                .builtin_registry
-                .receiver_can_provide_rust_access_for_imported(
-                    receiver_type,
-                    &method_info.self_kind,
-                    &mut self.trait_checker,
-                )
-            {
-                return Err(TypeCheckError::MethodNotFound {
-                    receiver_type: receiver_type.clone(),
-                    method: rust_method_name.to_string(),
-                    location: SourceLocation {
-                        file: "unknown".to_string(),
-                        line: 0,
-                        _column: 0,
-                        _source_line: "".to_string(),
-                    },
-                });
-            }
+            info
+        } else {
+            return Err(TypeCheckError::MethodNotFound {
+                receiver_type: receiver_type.clone(),
+                method: rust_method_name.to_string(),
+                location: SourceLocation {
+                    file: "unknown".to_string(),
+                    line: 0,
+                    _column: 0,
+                    _source_line: "".to_string(),
+                },
+            });
+        };
 
-            // Convert the Rust return type to Veltrano type
-            if let Ok(veltrano_return_type) = method_info.return_type.to_veltrano_type() {
-                return Ok(veltrano_return_type);
+        // Check if the receiver type matches what the method expects
+        // based on the method's self_kind
+        let receiver_matches = if let Ok(import_veltrano_type) = rust_type.to_veltrano_type() {
+            eprintln!(
+                "DEBUG: Checking receiver match - rust_type: {:?} -> veltrano_type: {:?}",
+                rust_type, import_veltrano_type
+            );
+            match method_info.self_kind {
+                crate::rust_interop::SelfKind::Value => {
+                    // Method expects self - for Copy types, allow bare type; otherwise Own<T>
+                    if self
+                        .trait_checker
+                        .type_implements_trait(rust_type, "Copy")
+                        .unwrap_or(false)
+                    {
+                        // Copy types can be used directly
+                        receiver_type == &import_veltrano_type
+                    } else {
+                        // Non-Copy types must be wrapped in Own
+                        // The import type might already be Own<T> from to_veltrano_type
+                        if matches!(&import_veltrano_type.constructor, TypeConstructor::Own) {
+                            receiver_type == &import_veltrano_type
+                        } else {
+                            matches!(&receiver_type.constructor, TypeConstructor::Own)
+                                && receiver_type.inner() == Some(&import_veltrano_type)
+                        }
+                    }
+                }
+                crate::rust_interop::SelfKind::Ref => {
+                    // Method expects &self
+                    if self
+                        .trait_checker
+                        .type_implements_trait(rust_type, "Copy")
+                        .unwrap_or(false)
+                    {
+                        // Copy types need Ref<Self>
+                        matches!(&receiver_type.constructor, TypeConstructor::Ref)
+                            && receiver_type.inner() == Some(&import_veltrano_type)
+                    } else {
+                        // Non-Copy types use bare Self
+                        // But to_veltrano_type may have wrapped it in Own, so check both
+                        if matches!(&import_veltrano_type.constructor, TypeConstructor::Own) {
+                            // If import type is Own<T>, extract T for comparison
+                            import_veltrano_type.inner() == Some(receiver_type)
+                        } else {
+                            receiver_type == &import_veltrano_type
+                        }
+                    }
+                }
+                crate::rust_interop::SelfKind::MutRef => {
+                    // Method expects &mut self
+                    if self
+                        .trait_checker
+                        .type_implements_trait(rust_type, "Copy")
+                        .unwrap_or(false)
+                    {
+                        // Copy types need MutRef<Ref<Self>>
+                        if let (TypeConstructor::MutRef, Some(inner)) =
+                            (&receiver_type.constructor, receiver_type.inner())
+                        {
+                            matches!(&inner.constructor, TypeConstructor::Ref)
+                                && inner.inner() == Some(&import_veltrano_type)
+                        } else {
+                            false
+                        }
+                    } else {
+                        // Non-Copy types use MutRef<Self>
+                        if matches!(&receiver_type.constructor, TypeConstructor::MutRef) {
+                            if let Some(inner) = receiver_type.inner() {
+                                // Check if the inner type matches, handling Own wrapper
+                                if matches!(&import_veltrano_type.constructor, TypeConstructor::Own)
+                                {
+                                    import_veltrano_type.inner() == Some(inner)
+                                } else {
+                                    inner == &import_veltrano_type
+                                }
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        }
+                    }
+                }
+                crate::rust_interop::SelfKind::None => {
+                    // Static method - shouldn't be called as method
+                    false
+                }
             }
+        } else {
+            false
+        };
+
+        if !receiver_matches {
+            eprintln!(
+                "DEBUG: Type mismatch - receiver {:?}, self_kind {:?}",
+                receiver_type, method_info.self_kind
+            );
+            return Err(TypeCheckError::MethodNotFound {
+                receiver_type: receiver_type.clone(),
+                method: rust_method_name.to_string(),
+                location: SourceLocation {
+                    file: "unknown".to_string(),
+                    line: 0,
+                    _column: 0,
+                    _source_line: "".to_string(),
+                },
+            });
         }
 
-        // If we can't find the imported method signature, be permissive:
-        // Allow the import and return the receiver type as a reasonable default
-        // This enables imports of methods we don't have hardcoded information for
-        // The actual validation will happen at Rust compile time
-        Ok(receiver_type.clone())
+        // Check if the receiver type can provide the required access
+        if !self
+            .builtin_registry
+            .receiver_can_provide_rust_access_for_imported(
+                receiver_type,
+                &method_info.self_kind,
+                &mut self.trait_checker,
+            )
+        {
+            return Err(TypeCheckError::MethodNotFound {
+                receiver_type: receiver_type.clone(),
+                method: rust_method_name.to_string(),
+                location: SourceLocation {
+                    file: "unknown".to_string(),
+                    line: 0,
+                    _column: 0,
+                    _source_line: "".to_string(),
+                },
+            });
+        }
+
+        // Convert the Rust return type to Veltrano type
+        if let Ok(veltrano_return_type) = method_info.return_type.to_veltrano_type() {
+            Ok(veltrano_return_type)
+        } else {
+            // Return a reasonable default type if conversion fails
+            Ok(receiver_type.clone())
+        }
     }
 
     /// Check field access expression
@@ -875,6 +1104,105 @@ impl VeltranoTypeChecker {
                 _source_line: "".to_string(),
             },
         })
+    }
+
+    /// Check imported method being called as a standalone function
+    fn check_imported_standalone_method_call(
+        &mut self,
+        func_name: &str,
+        imports: &[(crate::rust_interop::RustType, String)],
+        call: &CallExpr,
+    ) -> Result<VeltranoType, TypeCheckError> {
+        // For standalone method calls like Vec.new(), we need to check if the method
+        // is a static method (takes no self parameter)
+        eprintln!(
+            "DEBUG: Checking standalone method call '{}' with {} imports",
+            func_name,
+            imports.len()
+        );
+        
+        let mut matching_imports = Vec::new();
+        let mut candidate_descriptions = Vec::new();
+        
+        for (rust_type, method_name) in imports {
+            eprintln!("DEBUG: Checking import {:?}.{}", rust_type, method_name);
+            if let Ok(Some(method_info)) = self
+                .trait_checker
+                .query_method_signature(rust_type, method_name)
+            {
+                eprintln!(
+                    "DEBUG: Found method info, self_kind = {:?}",
+                    method_info.self_kind
+                );
+                // Check if this is a static method (SelfKind::None)
+                if matches!(method_info.self_kind, crate::rust_interop::SelfKind::None) {
+                    // This is a static method, it can be called standalone
+                    // TODO: Check arguments once we have argument support
+
+                    // Convert the return type
+                    if let Ok(return_type) = method_info.return_type.to_veltrano_type() {
+                        eprintln!(
+                            "DEBUG: Static method matched! Return type: {:?}",
+                            return_type
+                        );
+                        matching_imports.push((
+                            rust_type.clone(),
+                            method_name.clone(),
+                            return_type,
+                        ));
+                        candidate_descriptions.push(format!("{:?}.{}", rust_type, method_name));
+                    }
+                } else {
+                    // Record as candidate even if not static
+                    candidate_descriptions.push(format!("{:?}.{}", rust_type, method_name));
+                }
+            }
+        }
+
+        // Check how many imports matched
+        match matching_imports.len() {
+            0 => {
+                // No matching static method found
+                Err(TypeCheckError::FunctionNotFound {
+                    name: func_name.to_string(),
+                    location: SourceLocation {
+                        file: "unknown".to_string(),
+                        line: 0,
+                        _column: 0,
+                        _source_line: "".to_string(),
+                    },
+                })
+            }
+            1 => {
+                // Exactly one import matched - use it
+                let (rust_type, method_name, return_type) = &matching_imports[0];
+                
+                // Store the resolution for codegen
+                self.method_resolutions.insert(
+                    call.id,
+                    MethodResolution {
+                        rust_type: rust_type.clone(),
+                        method_name: method_name.clone(),
+                    },
+                );
+                
+                Ok(return_type.clone())
+            }
+            _ => {
+                // Multiple imports matched - ambiguous
+                Err(TypeCheckError::AmbiguousMethodCall {
+                    method: func_name.to_string(),
+                    receiver_type: VeltranoType::unit(), // No receiver for standalone calls
+                    candidates: candidate_descriptions,
+                    location: SourceLocation {
+                        file: "unknown".to_string(),
+                        line: 0,
+                        _column: 0,
+                        _source_line: "".to_string(),
+                    },
+                })
+            }
+        }
     }
 
     /// Core type equality check - no implicit conversion logic

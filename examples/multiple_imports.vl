@@ -1,0 +1,30 @@
+// Example: Multiple imports with same name resolved by type checking
+
+// Import methods from different types but give them the same alias
+import String.len as size
+import i64.abs as size    // Using i64 instead of Vec for now
+
+fun main() {
+    val text: String = "Hello, Veltrano!".toString().ref()
+    val number: I64 = -42
+    
+    // These 'size' calls are resolved based on receiver type
+    val text_size = text.size()      // Resolves to String.len
+    val num_size = number.size()     // Resolves to i64.abs
+    
+    println("Text size: {}", text_size)
+    println("Number absolute value: {}", num_size)
+}
+
+// Example with multiple receiver types that could match
+fun demo_with_refs() {
+    val owned_text: Own<String> = "Owned string".toString()
+    val ref_text: String = owned_text.ref()
+    
+    // Both of these resolve to String.len but with different receiver handling
+    val owned_size = owned_text.ref().size()  // Own<String> needs .ref() first
+    val ref_size = ref_text.size()            // String can call directly
+    
+    println("Owned size: {}", owned_size)
+    println("Ref size: {}", ref_size)
+}
