@@ -660,12 +660,16 @@ impl VeltranoTypeChecker {
                     },
                 })?;
 
-            // Check argument count
-            if call.args.len() != func_sig.parameters.len() {
+            // Check argument count (excluding standalone comments)
+            let actual_arg_count = call.args.iter().filter(|arg| {
+                !matches!(arg, Argument::StandaloneComment(_, _))
+            }).count();
+            
+            if actual_arg_count != func_sig.parameters.len() {
                 return Err(TypeCheckError::ArgumentCountMismatch {
                     function: func_name.clone(),
                     expected: func_sig.parameters.len(),
-                    actual: call.args.len(),
+                    actual: actual_arg_count,
                     location: SourceLocation {
                         file: "unknown".to_string(),
                         line: 0,
@@ -733,11 +737,15 @@ impl VeltranoTypeChecker {
         call: &CallExpr,
     ) -> Result<VeltranoType, TypeCheckError> {
         // For now, we only support single-parameter generic functions
-        if call.args.len() != 1 || func_sig.parameters.len() != 1 {
+        let actual_arg_count = call.args.iter().filter(|arg| {
+            !matches!(arg, Argument::StandaloneComment(_, _))
+        }).count();
+        
+        if actual_arg_count != 1 || func_sig.parameters.len() != 1 {
             return Err(TypeCheckError::ArgumentCountMismatch {
                 function: func_name.to_string(),
                 expected: func_sig.parameters.len(),
-                actual: call.args.len(),
+                actual: actual_arg_count,
                 location: SourceLocation {
                     file: "unknown".to_string(),
                     line: 0,
@@ -747,14 +755,18 @@ impl VeltranoTypeChecker {
             });
         }
 
-        // Check the argument type
-        let arg_type = match &call.args[0] {
+        // Check the argument type (skip standalone comments)
+        let first_non_comment_arg = call.args.iter().find(|arg| {
+            !matches!(arg, Argument::StandaloneComment(_, _))
+        }).unwrap(); // Safe because we already checked count
+        
+        let arg_type = match first_non_comment_arg {
             Argument::Bare(expr, _) => self.check_expression(expr)?,
-            Argument::Named(_, _, _) | Argument::Shorthand(_, _) | Argument::StandaloneComment(_, _) => {
+            Argument::Named(_, _, _) | Argument::Shorthand(_, _) => {
                 return Err(TypeCheckError::ArgumentCountMismatch {
                     function: func_name.to_string(),
                     expected: 1,
-                    actual: call.args.len(),
+                    actual: actual_arg_count,
                     location: SourceLocation {
                         file: "unknown".to_string(),
                         line: 0,
@@ -762,6 +774,10 @@ impl VeltranoTypeChecker {
                         _source_line: "".to_string(),
                     },
                 });
+            }
+            Argument::StandaloneComment(_, _) => {
+                // This should never happen because we filtered out comments
+                unreachable!("StandaloneComment should have been filtered out")
             }
         };
 

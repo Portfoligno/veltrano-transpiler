@@ -43,8 +43,8 @@ fn main() {
     // Test 6: Comments in method chains
     let chained = Clone::clone(&result1);  // Get reference // Clone it
     // Test 7: Method chain that won't be optimized away
-    let message: &str = bump.alloc("Hello");
-    let chained2: &str = bump.alloc(&&message);  // First ref // Second ref // Final bumpRef
+    let message: &&str = bump.alloc("Hello");
+    let chained2: &&&&&str = bump.alloc(&&message);  // First ref // Second ref // Final bumpRef
     // Test 8: Mixed style method chain with comments
     let mixed = bump.alloc(&&message);  // Start on same line // Continue on next // And finish
     // Test 9: Block comments in method chains

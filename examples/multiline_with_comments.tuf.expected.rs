@@ -27,8 +27,8 @@ fn main() {
         70
     );
     let chained = Clone::clone(&result1);
-    let message: &str = bump.alloc("Hello");
-    let chained2: &str = bump.alloc(&&message);
+    let message: &&str = bump.alloc("Hello");
+    let chained2: &&&&&str = bump.alloc(&&message);
     let mixed = bump.alloc(&&message);
     let block_chained = Clone::clone(&result1);
     let mixed_comments = bump.alloc(&&message);

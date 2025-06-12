@@ -53,7 +53,7 @@ fun main() {
     
     // Test 7: Method chain that won't be optimized away
     val message: Ref<Str> = "Hello".bumpRef()
-    val chained2: Ref<Ref<Ref<Str>>> = message
+    val chained2: Ref<Ref<Ref<Ref<Str>>>> = message
         .ref()      // First ref
         .ref()      // Second ref
         .bumpRef()  // Final bumpRef
