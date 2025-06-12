@@ -834,13 +834,13 @@ impl CodeGenerator {
 
     fn generate_method_call_expression(&mut self, method_call: &MethodCallExpr) {
         // First check if we have a type-checked resolution for this method call
-        eprintln!(
+        crate::debug_println!(
             "DEBUG codegen: Looking for resolution for method call ID {}, method: {}",
             method_call.id, method_call.method
         );
         if let Some(resolution) = self.method_resolutions.get(&method_call.id) {
             // Use the resolved import
-            eprintln!(
+            crate::debug_println!(
                 "DEBUG codegen: Found resolution - type: {:?}, method: {}",
                 resolution.rust_type, resolution.method_name
             );

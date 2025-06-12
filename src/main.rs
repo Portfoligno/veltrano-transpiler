@@ -2,6 +2,7 @@ mod ast;
 mod builtins;
 mod codegen;
 mod config;
+mod debug;
 mod lexer;
 mod parser;
 mod rust_interop;
@@ -178,6 +179,7 @@ fn print_help(program_name: &str) {
     println!("    -h, --help               Print help information");
     println!("    -v, --version            Print version information");
     println!("    --preserve-comments      Preserve comments in generated Rust code");
+    println!("    --debug                  Enable debug output for troubleshooting");
     println!();
     println!("ARGS:");
     println!("    <input.vl>               The Veltrano source file to transpile");
@@ -199,6 +201,7 @@ fn main() {
     }
 
     let mut preserve_comments = false;
+    let mut debug_mode = false;
     let mut input_file = None;
 
     let mut i = 1;
@@ -214,6 +217,10 @@ fn main() {
             }
             "--preserve-comments" => {
                 preserve_comments = true;
+                i += 1;
+            }
+            "--debug" => {
+                debug_mode = true;
                 i += 1;
             }
             _ => {
@@ -237,6 +244,11 @@ fn main() {
             process::exit(1);
         }
     };
+
+    // Enable debug mode if requested
+    if debug_mode {
+        debug::enable_debug();
+    }
 
     let source_code = match fs::read_to_string(input_file) {
         Ok(content) => content,
@@ -276,12 +288,12 @@ fn main() {
     let mut codegen = CodeGenerator::with_config(config);
     // Pass method resolutions from type checker to codegen
     let resolutions = type_checker.get_method_resolutions().clone();
-    eprintln!(
+    veltrano::debug_println!(
         "DEBUG main: Passing {} method resolutions to codegen",
         resolutions.len()
     );
     for (id, res) in &resolutions {
-        eprintln!("  ID {}: {:?}.{}", id, res.rust_type, res.method_name);
+        veltrano::debug_println!("  ID {}: {:?}.{}", id, res.rust_type, res.method_name);
     }
     codegen.set_method_resolutions(resolutions);
     let rust_code = codegen.generate(&program);

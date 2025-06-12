@@ -986,7 +986,7 @@ impl VeltranoTypeChecker {
 
         // Check if this method is explicitly imported - imports shadow built-ins completely
         if let Some(imports) = self.imports.get(&method_call.method).cloned() {
-            eprintln!(
+            crate::debug_println!(
                 "DEBUG: Checking method '{}' with {} imports and expected type: {:?}",
                 method_call.method,
                 imports.len(),
@@ -1002,7 +1002,7 @@ impl VeltranoTypeChecker {
                         rust_type,
                         method_name,
                     } => {
-                        eprintln!(
+                        crate::debug_println!(
                             "DEBUG: Checking type import {:?}.{} against receiver {:?}",
                             rust_type, method_name, receiver_type
                         );
@@ -1014,7 +1014,7 @@ impl VeltranoTypeChecker {
                             method_call,
                         ) {
                             Ok(return_type) => {
-                                eprintln!(
+                                crate::debug_println!(
                                     "DEBUG: Import matched! Storing for method call ID {}",
                                     method_call.id
                                 );
@@ -1027,7 +1027,7 @@ impl VeltranoTypeChecker {
                                     .push(format!("{:?}.{}", rust_type, method_name));
                             }
                             Err(_) => {
-                                eprintln!("DEBUG: Import didn't match");
+                                crate::debug_println!("DEBUG: Import didn't match");
                                 // This import doesn't match, but we still record it as a candidate
                                 candidate_descriptions
                                     .push(format!("{:?}.{}", rust_type, method_name));
@@ -1038,7 +1038,7 @@ impl VeltranoTypeChecker {
                         trait_name,
                         method_name,
                     } => {
-                        eprintln!(
+                        crate::debug_println!(
                             "DEBUG: Checking trait import {}.{} against receiver {:?}",
                             trait_name, method_name, receiver_type
                         );
@@ -1071,7 +1071,7 @@ impl VeltranoTypeChecker {
                                             &method_info.return_type
                                         {
                                             if let Some(expected) = expected_type {
-                                                eprintln!(
+                                                crate::debug_println!(
                                                     "DEBUG: Inferring generic parameter {} = {:?}",
                                                     param_name, expected
                                                 );
@@ -1079,7 +1079,7 @@ impl VeltranoTypeChecker {
                                                 expected.clone()
                                             } else {
                                                 // No expected type, can't infer
-                                                eprintln!("DEBUG: Cannot infer generic parameter {} without expected type", param_name);
+                                                crate::debug_println!("DEBUG: Cannot infer generic parameter {} without expected type", param_name);
                                                 match method_info.return_type.to_veltrano_type() {
                                                     Ok(t) => t,
                                                     Err(_) => continue, // Skip this method if we can't convert the type
@@ -1092,7 +1092,7 @@ impl VeltranoTypeChecker {
                                             }
                                         };
 
-                                    eprintln!(
+                                    crate::debug_println!(
                                         "DEBUG: Trait import matched! Storing for method call ID {} with return type {:?}",
                                         method_call.id, return_type
                                     );
@@ -1110,7 +1110,7 @@ impl VeltranoTypeChecker {
                                 }
                             }
                         } else {
-                            eprintln!("DEBUG: Type doesn't implement trait {}", trait_name);
+                            crate::debug_println!("DEBUG: Type doesn't implement trait {}", trait_name);
                             candidate_descriptions.push(format!("{}.{}", trait_name, method_name));
                         }
                     }
@@ -1135,7 +1135,7 @@ impl VeltranoTypeChecker {
                 1 => {
                     // Exactly one import matched - store the resolution
                     let (rust_type, method_name, return_type) = &matching_imports[0];
-                    eprintln!(
+                    crate::debug_println!(
                         "DEBUG: Storing method resolution for ID {}: {:?}.{}",
                         method_call.id, rust_type, method_name
                     );
@@ -1233,7 +1233,7 @@ impl VeltranoTypeChecker {
         // Check if the receiver type matches what the method expects
         // based on the method's self_kind
         let receiver_matches = if let Ok(import_veltrano_type) = rust_type.to_veltrano_type() {
-            eprintln!(
+            crate::debug_println!(
                 "DEBUG: Checking receiver match - rust_type: {:?} -> veltrano_type: {:?}",
                 rust_type, import_veltrano_type
             );
@@ -1324,7 +1324,7 @@ impl VeltranoTypeChecker {
         };
 
         if !receiver_matches {
-            eprintln!(
+            crate::debug_println!(
                 "DEBUG: Type mismatch - receiver {:?}, self_kind {:?}",
                 receiver_type, method_info.self_kind
             );
@@ -1459,7 +1459,7 @@ impl VeltranoTypeChecker {
     ) -> Result<VeltranoType, TypeCheckError> {
         // For standalone method calls like Vec.new(), we need to check if the method
         // is a static method (takes no self parameter)
-        eprintln!(
+        crate::debug_println!(
             "DEBUG: Checking standalone method call '{}' with {} imports",
             func_name,
             imports.len()
@@ -1474,7 +1474,7 @@ impl VeltranoTypeChecker {
                     rust_type,
                     method_name,
                 } => {
-                    eprintln!(
+                    crate::debug_println!(
                         "DEBUG: Checking type import {:?}.{}",
                         rust_type, method_name
                     );
@@ -1482,7 +1482,7 @@ impl VeltranoTypeChecker {
                         .trait_checker
                         .query_method_signature(rust_type, method_name)
                     {
-                        eprintln!(
+                        crate::debug_println!(
                             "DEBUG: Found method info, self_kind = {:?}",
                             method_info.self_kind
                         );
@@ -1493,7 +1493,7 @@ impl VeltranoTypeChecker {
 
                             // Convert the return type
                             if let Ok(return_type) = method_info.return_type.to_veltrano_type() {
-                                eprintln!(
+                                crate::debug_println!(
                                     "DEBUG: Static method matched! Return type: {:?}",
                                     return_type
                                 );
@@ -1515,7 +1515,7 @@ impl VeltranoTypeChecker {
                     method_name,
                 } => {
                     // Trait methods typically aren't static, but we check anyway
-                    eprintln!(
+                    crate::debug_println!(
                         "DEBUG: Checking trait import {}.{} for static method",
                         trait_name, method_name
                     );

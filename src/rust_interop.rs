@@ -396,7 +396,7 @@ impl RustInteropRegistry {
         for candidate_type in type_sequence {
             // Convert to string only at the lowest level for CrateInfo query
             let type_path = candidate_type.to_rust_syntax();
-            eprintln!(
+            crate::debug_println!(
                 "DEBUG: query_method_signature - trying candidate_type: {:?} -> type_path: {}",
                 candidate_type, type_path
             );
@@ -448,7 +448,7 @@ impl RustInteropRegistry {
     ) -> Result<Option<ImportedMethodInfo>, RustInteropError> {
         // Convert Veltrano method name (camelCase) to Rust method name (snake_case)
         let rust_method_name = camel_to_snake_case(method_name);
-        eprintln!("DEBUG: query_dynamic_method_signature - type_path: {}, method_name: {} -> rust_method_name: {}", type_path, method_name, rust_method_name);
+        crate::debug_println!("DEBUG: query_dynamic_method_signature - type_path: {}, method_name: {} -> rust_method_name: {}", type_path, method_name, rust_method_name);
 
         // Parse the type_path to determine which crate it comes from
         // For standard library types like "i64", "String", we assume they're from "std"
@@ -537,7 +537,7 @@ impl RustInteropRegistry {
     ) -> Result<Option<ImportedMethodInfo>, RustInteropError> {
         // Convert Veltrano method name (camelCase) to Rust method name (snake_case)
         let rust_method_name = camel_to_snake_case(method_name);
-        eprintln!("DEBUG: query_trait_method_signature - type_path: {}, method_name: {} -> rust_method_name: {}", type_path, method_name, rust_method_name);
+        crate::debug_println!("DEBUG: query_trait_method_signature - type_path: {}, method_name: {} -> rust_method_name: {}", type_path, method_name, rust_method_name);
 
         // Special handling for reference types
         // In Rust, &T automatically has certain trait implementations based on T
@@ -584,7 +584,7 @@ impl RustInteropRegistry {
                 )
             };
 
-        eprintln!(
+        crate::debug_println!(
             "DEBUG: query_trait_method_signature - found traits for {}: {:?}",
             actual_type_path, traits
         );
@@ -592,7 +592,7 @@ impl RustInteropRegistry {
         // Into trait is special - it has a generic parameter T that determines the return type
         // For &str.into(), we need to figure out what T is from context
         if method_name == "into" && traits.contains(&"Into".to_string()) {
-            eprintln!(
+            crate::debug_println!(
                 "DEBUG: query_trait_method_signature - Special handling for Into trait on {}",
                 actual_type_path
             );
@@ -603,23 +603,23 @@ impl RustInteropRegistry {
         // Search each trait for the method
         for trait_name in traits {
             let trait_path = format!("std::{}", trait_name); // Assuming std library traits
-            eprintln!(
+            crate::debug_println!(
                 "DEBUG: query_trait_method_signature - checking trait_path: {}",
                 trait_path
             );
 
             if let Ok(Some(trait_info)) = self.dynamic_registry.get_trait(&trait_path) {
-                eprintln!(
+                crate::debug_println!(
                     "DEBUG: query_trait_method_signature - found trait_info for {}",
                     trait_path
                 );
                 for method in &trait_info.methods {
-                    eprintln!(
+                    crate::debug_println!(
                         "DEBUG: query_trait_method_signature - checking method {} against {}",
                         method.name, rust_method_name
                     );
                     if method.name == rust_method_name {
-                        eprintln!(
+                        crate::debug_println!(
                             "DEBUG: query_trait_method_signature - FOUND method {} in trait {}!",
                             rust_method_name, trait_name
                         );
@@ -629,7 +629,7 @@ impl RustInteropRegistry {
                             self_kind: method.self_kind.clone(),
                             _parameters: self.convert_parameters(&method.parameters),
                             return_type: if method.return_type.raw == "Self" {
-                                eprintln!("DEBUG: query_trait_method_signature - return type is Self for {}", actual_type_path);
+                                crate::debug_println!("DEBUG: query_trait_method_signature - return type is Self for {}", actual_type_path);
                                 // For trait methods returning Self, return the concrete type
                                 // Special case: &T.clone() returns T, not &T
                                 if rust_method_name == "clone" && actual_type_path.starts_with("&")
@@ -670,7 +670,7 @@ impl RustInteropRegistry {
                                     }
                                 }
                             } else {
-                                eprintln!("DEBUG: query_trait_method_signature - return type is NOT Self, raw: {}", method.return_type.raw);
+                                crate::debug_println!("DEBUG: query_trait_method_signature - return type is NOT Self, raw: {}", method.return_type.raw);
                                 self.convert_rust_type_signature(&method.return_type)
                             },
                             _trait_name: Some(trait_name.clone()),
@@ -678,7 +678,7 @@ impl RustInteropRegistry {
                     }
                 }
             } else {
-                eprintln!(
+                crate::debug_println!(
                     "DEBUG: query_trait_method_signature - trait_info NOT found for {}",
                     trait_path
                 );

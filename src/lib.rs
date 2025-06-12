@@ -2,6 +2,7 @@ pub mod ast;
 pub mod builtins;
 pub mod codegen;
 pub mod config;
+pub mod debug;
 pub mod lexer;
 pub mod parser;
 pub mod rust_interop;
