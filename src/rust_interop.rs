@@ -398,7 +398,8 @@ impl RustInteropRegistry {
             let type_path = candidate_type.to_rust_syntax();
             crate::debug_println!(
                 "DEBUG: query_method_signature - trying candidate_type: {:?} -> type_path: {}",
-                candidate_type, type_path
+                candidate_type,
+                type_path
             );
 
             // First try hardcoded method info for built-in types
@@ -586,7 +587,8 @@ impl RustInteropRegistry {
 
         crate::debug_println!(
             "DEBUG: query_trait_method_signature - found traits for {}: {:?}",
-            actual_type_path, traits
+            actual_type_path,
+            traits
         );
 
         // Into trait is special - it has a generic parameter T that determines the return type
@@ -616,12 +618,14 @@ impl RustInteropRegistry {
                 for method in &trait_info.methods {
                     crate::debug_println!(
                         "DEBUG: query_trait_method_signature - checking method {} against {}",
-                        method.name, rust_method_name
+                        method.name,
+                        rust_method_name
                     );
                     if method.name == rust_method_name {
                         crate::debug_println!(
                             "DEBUG: query_trait_method_signature - FOUND method {} in trait {}!",
-                            rust_method_name, trait_name
+                            rust_method_name,
+                            trait_name
                         );
                         // Found the method in this trait
                         return Ok(Some(ImportedMethodInfo {

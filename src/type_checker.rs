@@ -1004,7 +1004,9 @@ impl VeltranoTypeChecker {
                     } => {
                         crate::debug_println!(
                             "DEBUG: Checking type import {:?}.{} against receiver {:?}",
-                            rust_type, method_name, receiver_type
+                            rust_type,
+                            method_name,
+                            receiver_type
                         );
                         // Try to typecheck this import with the receiver
                         match self.check_imported_method_call(
@@ -1040,7 +1042,9 @@ impl VeltranoTypeChecker {
                     } => {
                         crate::debug_println!(
                             "DEBUG: Checking trait import {}.{} against receiver {:?}",
-                            trait_name, method_name, receiver_type
+                            trait_name,
+                            method_name,
+                            receiver_type
                         );
                         // For trait imports, we need to check if the receiver implements the trait
                         let receiver_rust_type =
@@ -1073,7 +1077,8 @@ impl VeltranoTypeChecker {
                                             if let Some(expected) = expected_type {
                                                 crate::debug_println!(
                                                     "DEBUG: Inferring generic parameter {} = {:?}",
-                                                    param_name, expected
+                                                    param_name,
+                                                    expected
                                                 );
                                                 // Use the expected type as the inferred type for the generic parameter
                                                 expected.clone()
@@ -1110,7 +1115,10 @@ impl VeltranoTypeChecker {
                                 }
                             }
                         } else {
-                            crate::debug_println!("DEBUG: Type doesn't implement trait {}", trait_name);
+                            crate::debug_println!(
+                                "DEBUG: Type doesn't implement trait {}",
+                                trait_name
+                            );
                             candidate_descriptions.push(format!("{}.{}", trait_name, method_name));
                         }
                     }
@@ -1137,7 +1145,9 @@ impl VeltranoTypeChecker {
                     let (rust_type, method_name, return_type) = &matching_imports[0];
                     crate::debug_println!(
                         "DEBUG: Storing method resolution for ID {}: {:?}.{}",
-                        method_call.id, rust_type, method_name
+                        method_call.id,
+                        rust_type,
+                        method_name
                     );
                     let resolution = MethodResolution {
                         rust_type: rust_type.clone(),
@@ -1235,7 +1245,8 @@ impl VeltranoTypeChecker {
         let receiver_matches = if let Ok(import_veltrano_type) = rust_type.to_veltrano_type() {
             crate::debug_println!(
                 "DEBUG: Checking receiver match - rust_type: {:?} -> veltrano_type: {:?}",
-                rust_type, import_veltrano_type
+                rust_type,
+                import_veltrano_type
             );
             match method_info.self_kind {
                 crate::rust_interop::SelfKind::Value => {
@@ -1326,7 +1337,8 @@ impl VeltranoTypeChecker {
         if !receiver_matches {
             crate::debug_println!(
                 "DEBUG: Type mismatch - receiver {:?}, self_kind {:?}",
-                receiver_type, method_info.self_kind
+                receiver_type,
+                method_info.self_kind
             );
             return Err(TypeCheckError::MethodNotFound {
                 receiver_type: receiver_type.clone(),
@@ -1464,10 +1476,10 @@ impl VeltranoTypeChecker {
             func_name,
             imports.len()
         );
-        
+
         let mut matching_imports = Vec::new();
         let mut candidate_descriptions = Vec::new();
-        
+
         for import in imports {
             match import {
                 ImportedMethod::TypeMethod {
@@ -1476,7 +1488,8 @@ impl VeltranoTypeChecker {
                 } => {
                     crate::debug_println!(
                         "DEBUG: Checking type import {:?}.{}",
-                        rust_type, method_name
+                        rust_type,
+                        method_name
                     );
                     if let Ok(Some(method_info)) = self
                         .trait_checker
@@ -1502,7 +1515,8 @@ impl VeltranoTypeChecker {
                                     method_name.clone(),
                                     return_type,
                                 ));
-                                candidate_descriptions.push(format!("{:?}.{}", rust_type, method_name));
+                                candidate_descriptions
+                                    .push(format!("{:?}.{}", rust_type, method_name));
                             }
                         } else {
                             // Record as candidate even if not static
@@ -1517,7 +1531,8 @@ impl VeltranoTypeChecker {
                     // Trait methods typically aren't static, but we check anyway
                     crate::debug_println!(
                         "DEBUG: Checking trait import {}.{} for static method",
-                        trait_name, method_name
+                        trait_name,
+                        method_name
                     );
                     // For now, trait methods can't be called as standalone functions
                     // They need a receiver that implements the trait
@@ -1542,7 +1557,7 @@ impl VeltranoTypeChecker {
             1 => {
                 // Exactly one import matched - use it
                 let (rust_type, method_name, return_type) = &matching_imports[0];
-                
+
                 // Store the resolution for codegen
                 self.method_resolutions.insert(
                     call.id,
@@ -1551,7 +1566,7 @@ impl VeltranoTypeChecker {
                         method_name: method_name.clone(),
                     },
                 );
-                
+
                 Ok(return_type.clone())
             }
             _ => {

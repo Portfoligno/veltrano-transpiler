@@ -836,13 +836,15 @@ impl CodeGenerator {
         // First check if we have a type-checked resolution for this method call
         crate::debug_println!(
             "DEBUG codegen: Looking for resolution for method call ID {}, method: {}",
-            method_call.id, method_call.method
+            method_call.id,
+            method_call.method
         );
         if let Some(resolution) = self.method_resolutions.get(&method_call.id) {
             // Use the resolved import
             crate::debug_println!(
                 "DEBUG codegen: Found resolution - type: {:?}, method: {}",
-                resolution.rust_type, resolution.method_name
+                resolution.rust_type,
+                resolution.method_name
             );
             let snake_method = camel_to_snake_case(&resolution.method_name);
             let type_name = resolution.rust_type.to_rust_syntax();
