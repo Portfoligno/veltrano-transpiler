@@ -168,6 +168,14 @@ When over token limit, remove in order:
    # Step 2: If and ONLY if the above returns 0, add newline:
    echo "" >> filename
    ```
+   
+   **CORRECT EXAMPLE:**
+   ```bash
+   # After editing tests/transpiler_integration.rs
+   tail -c1 tests/transpiler_integration.rs | wc -l
+   # If output is 0: echo "" >> tests/transpiler_integration.rs
+   # If output is 1: DO NOTHING - file already has trailing newline
+   ```
 
 2. **The ONLY reliable verification method:**
    ```bash
@@ -198,6 +206,8 @@ When over token limit, remove in order:
 - ❌ Trusting cargo fmt or Read tool output
 - ❌ Using wrong verification commands
 - ❌ Forgetting to check after Write/Edit operations
+- ❌ **Running `echo "" >> filename` without checking first** - This adds ANOTHER newline, not ensures exactly one
+- ❌ **Assuming every edit removes the trailing newline** - Many edits preserve existing newlines
 
 **REMEMBER:** Git diff is the ultimate authority. When in doubt, check `git diff --check`.
 
