@@ -1025,11 +1025,8 @@ fun new(): I64 {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(
-        source,
-        &TestContext::with_config(config).skip_type_check(true),
-    ) // skip_type_check - imports incorrectly take priority over local functions with type checking
-    .expect("Transpilation should succeed");
+    let rust_code =
+        transpile(source, &TestContext::with_config(config)).expect("Transpilation should succeed");
 
     // Debug: print the generated code
     println!("Generated Rust code:\n{}", rust_code);

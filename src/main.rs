@@ -134,6 +134,12 @@ fn format_type_error(error: &TypeCheckError) -> String {
                 location.file, location.line, message
             )
         }
+        TypeCheckError::UnsupportedFeature { feature, location } => {
+            format!(
+                "Unsupported feature at {}:{}: {}",
+                location.file, location.line, feature
+            )
+        }
         TypeCheckError::_InvalidType {
             type_name,
             reason,

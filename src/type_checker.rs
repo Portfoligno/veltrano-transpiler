@@ -89,6 +89,10 @@ pub enum TypeCheckError {
         message: String,
         location: SourceLocation,
     },
+    UnsupportedFeature {
+        feature: String,
+        location: SourceLocation,
+    },
     _InvalidType {
         type_name: String,
         reason: String,
@@ -698,75 +702,20 @@ impl VeltranoTypeChecker {
                 return self.check_data_class_constructor_call(func_name, &data_class, call);
             }
 
-            // Check if this is an imported method being called as a function
-            if let Some(imports) = self.imports.get(func_name).cloned() {
-                // For standalone method calls, we need to handle them specially
-                // This handles cases like `newVec()` where `newVec` is an alias for `Vec.new`
-                return self.check_imported_standalone_method_call(func_name, &imports, call);
-            }
+            // Check user-defined functions first (highest priority)
+            if let Some(func_sig) = self.env.lookup_function(func_name).cloned() {
+                // Check argument count (excluding standalone comments)
+                let actual_arg_count = call
+                    .args
+                    .iter()
+                    .filter(|arg| !matches!(arg, Argument::StandaloneComment(_, _)))
+                    .count();
 
-            // Check user-defined functions
-            let func_sig = self
-                .env
-                .lookup_function(func_name)
-                .cloned()
-                .ok_or_else(|| TypeCheckError::FunctionNotFound {
-                    name: func_name.clone(),
-                    location: SourceLocation {
-                        file: "unknown".to_string(),
-                        line: 0,
-                        _column: 0,
-                        _source_line: "".to_string(),
-                    },
-                })?;
-
-            // Check argument count (excluding standalone comments)
-            let actual_arg_count = call
-                .args
-                .iter()
-                .filter(|arg| !matches!(arg, Argument::StandaloneComment(_, _)))
-                .count();
-
-            if actual_arg_count != func_sig.parameters.len() {
-                return Err(TypeCheckError::ArgumentCountMismatch {
-                    function: func_name.clone(),
-                    expected: func_sig.parameters.len(),
-                    actual: actual_arg_count,
-                    location: SourceLocation {
-                        file: "unknown".to_string(),
-                        line: 0,
-                        _column: 0,
-                        _source_line: "".to_string(),
-                    },
-                });
-            }
-
-            // Check if this is a generic function
-            let has_generic_params = func_sig
-                .parameters
-                .iter()
-                .any(|p| matches!(&p.constructor, TypeConstructor::Generic(_, _)));
-
-            if has_generic_params {
-                // Handle generic function instantiation
-                return self.check_generic_function_call(func_name, &func_sig, call);
-            }
-
-            // Check argument types with strict matching
-            for (_i, (arg, expected_param)) in
-                call.args.iter().zip(&func_sig.parameters).enumerate()
-            {
-                let actual_param = match arg {
-                    Argument::Bare(expr, _) => self.check_expression(expr)?,
-                    Argument::Named(_, expr, _) => self.check_expression(expr)?,
-                    Argument::Shorthand(var_name, _) => self.check_identifier(var_name)?,
-                    Argument::StandaloneComment(_, _) => continue, // Skip comments
-                };
-
-                if !self.types_equal(expected_param, &actual_param) {
-                    return Err(TypeCheckError::TypeMismatch {
-                        expected: expected_param.clone(),
-                        actual: actual_param,
+                if actual_arg_count != func_sig.parameters.len() {
+                    return Err(TypeCheckError::ArgumentCountMismatch {
+                        function: func_name.clone(),
+                        expected: func_sig.parameters.len(),
+                        actual: actual_arg_count,
                         location: SourceLocation {
                             file: "unknown".to_string(),
                             line: 0,
@@ -775,9 +724,90 @@ impl VeltranoTypeChecker {
                         },
                     });
                 }
+
+                // Check if this is a generic function
+                let has_generic_params = func_sig
+                    .parameters
+                    .iter()
+                    .any(|p| matches!(&p.constructor, TypeConstructor::Generic(_, _)));
+
+                if has_generic_params {
+                    // Handle generic function instantiation
+                    return self.check_generic_function_call(func_name, &func_sig, call);
+                }
+
+                // Type check arguments
+                for (i, arg) in call
+                    .args
+                    .iter()
+                    .filter(|arg| !matches!(arg, Argument::StandaloneComment(_, _)))
+                    .enumerate()
+                {
+                    let arg_expr = match arg {
+                        Argument::Bare(expr, _) => expr,
+                        Argument::Named(name, _, _) => {
+                            return Err(TypeCheckError::UnsupportedFeature {
+                                feature: format!("Named argument '{}'", name),
+                                location: SourceLocation {
+                                    file: "unknown".to_string(),
+                                    line: 0,
+                                    _column: 0,
+                                    _source_line: "".to_string(),
+                                },
+                            });
+                        }
+                        Argument::Shorthand(field, _) => {
+                            return Err(TypeCheckError::UnsupportedFeature {
+                                feature: format!("Shorthand argument '.{}'", field),
+                                location: SourceLocation {
+                                    file: "unknown".to_string(),
+                                    line: 0,
+                                    _column: 0,
+                                    _source_line: "".to_string(),
+                                },
+                            });
+                        }
+                        Argument::StandaloneComment(_, _) => unreachable!(), // filtered out
+                    };
+
+                    let expected_type = &func_sig.parameters[i];
+                    let actual_type =
+                        self.check_expression_with_expected_type(arg_expr, Some(expected_type))?;
+
+                    if &actual_type != expected_type {
+                        return Err(TypeCheckError::TypeMismatch {
+                            expected: expected_type.clone(),
+                            actual: actual_type,
+                            location: SourceLocation {
+                                file: "unknown".to_string(),
+                                line: 0,
+                                _column: 0,
+                                _source_line: "".to_string(),
+                            },
+                        });
+                    }
+                }
+
+                return Ok(func_sig.return_type.clone());
             }
 
-            Ok(func_sig.return_type.clone())
+            // Check if this is an imported method being called as a function
+            if let Some(imports) = self.imports.get(func_name).cloned() {
+                // For standalone method calls, we need to handle them specially
+                // This handles cases like `newVec()` where `newVec` is an alias for `Vec.new`
+                return self.check_imported_standalone_method_call(func_name, &imports, call);
+            }
+
+            // Function not found in any scope
+            Err(TypeCheckError::FunctionNotFound {
+                name: func_name.clone(),
+                location: SourceLocation {
+                    file: "unknown".to_string(),
+                    line: 0,
+                    _column: 0,
+                    _source_line: "".to_string(),
+                },
+            })
         } else {
             // For now, only support direct function calls
             Err(TypeCheckError::FunctionNotFound {

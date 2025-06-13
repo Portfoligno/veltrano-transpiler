@@ -31,20 +31,20 @@ fun main() {
         2
     );
     
-    // Multiline function call with named arguments
+    // Multiline function call with comments showing parameter names
     val result3 = complexCalculation(
-        x = 1,
-        y = 2,
-        z = 3,
-        multiplier = 4
+        1,    // x
+        2,    // y
+        3,    // z
+        4     // multiplier
     );
     
-    // Multiline function call with mixed bare and named arguments
+    // Multiline function call with inline comments
     val result4 = complexCalculation(
-        100,
-        200,
-        z = 300,
-        multiplier = 1
+        100,  // x
+        200,  // y
+        300,  // z
+        1     // multiplier
     );
     
     // Nested multiline function calls
