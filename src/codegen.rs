@@ -432,7 +432,9 @@ impl CodeGenerator {
                 self.generate_expression(&binary.right);
             }
             Expr::Call(call) => {
-                self.generate_call_expression(call);
+                if let Err(e) = self.generate_call_expression(call) {
+                    panic!("Code generation error: {}", e);
+                }
             }
             Expr::MethodCall(method_call) => {
                 self.generate_method_call_expression(method_call);
@@ -756,7 +758,7 @@ impl CodeGenerator {
         self.output.push(')');
     }
 
-    fn generate_call_expression(&mut self, call: &CallExpr) {
+    fn generate_call_expression(&mut self, call: &CallExpr) -> Result<(), CodegenError> {
         // First check if we have a type-checked resolution for this call (e.g., import alias)
         if let Some(resolution) = self.method_resolutions.get(&call.id) {
             // This is a resolved import alias (e.g., newVec -> Vec::new)
@@ -775,7 +777,7 @@ impl CodeGenerator {
             );
 
             self.output.push(')');
-            return;
+            return Ok(());
         }
 
         if let Expr::Identifier(name) = call.callee.as_ref() {
@@ -786,16 +788,16 @@ impl CodeGenerator {
                 self.output.push_str(" { ");
                 self.generate_comma_separated_args_for_struct_init(&call.args);
                 self.output.push_str(" }");
-                return;
+                return Ok(());
             }
 
             if name == "MutRef" {
                 // Special case: MutRef(value) becomes &mut (&value).clone()
                 if call.args.len() != 1 {
-                    panic!(
-                        "MutRef() requires exactly one argument, found {}",
-                        call.args.len()
-                    );
+                    return Err(CodegenError::InvalidBuiltinArguments {
+                        builtin: "MutRef".to_string(),
+                        reason: format!("requires exactly one argument, found {}", call.args.len()),
+                    });
                 }
                 self.output.push_str("&mut (&");
                 match &call.args[0] {
@@ -808,10 +810,16 @@ impl CodeGenerator {
                         self.output.push_str(&snake_name);
                     }
                     Argument::Named(_, _, _) => {
-                        panic!("MutRef() does not support named arguments");
+                        return Err(CodegenError::InvalidBuiltinArguments {
+                            builtin: "MutRef".to_string(),
+                            reason: "does not support named arguments".to_string(),
+                        });
                     }
                     Argument::StandaloneComment(_, _) => {
-                        panic!("MutRef() cannot have standalone comments as arguments");
+                        return Err(CodegenError::InvalidBuiltinArguments {
+                            builtin: "MutRef".to_string(),
+                            reason: "cannot have standalone comments as arguments".to_string(),
+                        });
                     }
                 }
                 self.output.push_str(").clone()");
@@ -862,6 +870,7 @@ impl CodeGenerator {
         } else {
             self.generate_generic_call(call);
         }
+        Ok(())
     }
 
     // Helper to collect all comments from a method chain
