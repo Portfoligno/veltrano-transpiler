@@ -306,7 +306,13 @@ fn main() {
         veltrano::debug_println!("  ID {}: {:?}.{}", id, res.rust_type, res.method_name);
     }
     codegen.set_method_resolutions(resolutions);
-    let rust_code = codegen.generate(&program);
+    let rust_code = match codegen.generate(&program) {
+        Ok(code) => code,
+        Err(err) => {
+            eprintln!("Code generation error: {}", err);
+            process::exit(1);
+        }
+    };
 
     let output_file = if input_file.ends_with(".vl") {
         format!("{}.rs", &input_file[..input_file.len() - 3])

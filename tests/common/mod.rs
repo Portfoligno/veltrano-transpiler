@@ -99,7 +99,9 @@ fn generate_rust_code(
     if let Some(resolutions) = method_resolutions {
         codegen.set_method_resolutions(resolutions);
     }
-    codegen.generate(program)
+    codegen
+        .generate(program)
+        .expect("Code generation should succeed")
 }
 
 /// Shared utility to parse and type check Veltrano code

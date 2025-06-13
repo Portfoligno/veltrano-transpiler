@@ -91,7 +91,7 @@ impl CodeGenerator {
         self.method_resolutions = resolutions;
     }
 
-    pub fn generate(&mut self, program: &Program) -> String {
+    pub fn generate(&mut self, program: &Program) -> Result<String, CodegenError> {
         // First pass: collect all locally defined function names and data classes with lifetimes
         for stmt in &program.statements {
             match stmt {
@@ -125,7 +125,7 @@ impl CodeGenerator {
         for stmt in &program.statements {
             self.generate_statement(stmt);
         }
-        self.output.clone()
+        Ok(self.output.clone())
     }
 
     fn generate_statement(&mut self, stmt: &Stmt) {
