@@ -123,12 +123,12 @@ impl CodeGenerator {
 
         // Second pass: generate code
         for stmt in &program.statements {
-            self.generate_statement(stmt);
+            self.generate_statement(stmt)?;
         }
         Ok(self.output.clone())
     }
 
-    fn generate_statement(&mut self, stmt: &Stmt) {
+    fn generate_statement(&mut self, stmt: &Stmt) -> Result<(), CodegenError> {
         match stmt {
             Stmt::Expression(expr, inline_comment) => {
                 self.indent();
@@ -140,7 +140,7 @@ impl CodeGenerator {
                     None
                 };
 
-                self.generate_expression(expr);
+                self.generate_expression(expr)?;
                 self.output.push(';');
 
                 // Generate method comment after semicolon, or statement comment if no method comment
@@ -153,23 +153,23 @@ impl CodeGenerator {
                 self.output.push('\n');
             }
             Stmt::VarDecl(var_decl, inline_comment) => {
-                self.generate_var_declaration(var_decl, inline_comment);
+                self.generate_var_declaration(var_decl, inline_comment)?;
             }
             Stmt::FunDecl(fun_decl) => {
-                self.generate_function_declaration(fun_decl);
+                self.generate_function_declaration(fun_decl)?;
             }
             Stmt::If(if_stmt) => {
-                self.generate_if_statement(if_stmt);
+                self.generate_if_statement(if_stmt)?;
             }
             Stmt::While(while_stmt) => {
-                self.generate_while_statement(while_stmt);
+                self.generate_while_statement(while_stmt)?;
             }
             Stmt::Return(expr, inline_comment) => {
                 self.indent();
                 self.output.push_str("return");
                 if let Some(expr) = expr {
                     self.output.push(' ');
-                    self.generate_expression(expr);
+                    self.generate_expression(expr)?;
                 }
                 self.output.push(';');
                 self.generate_inline_comment(inline_comment);
@@ -179,7 +179,7 @@ impl CodeGenerator {
                 self.output.push_str("{\n");
                 self.indent_level += 1;
                 for stmt in statements {
-                    self.generate_statement(stmt);
+                    self.generate_statement(stmt)?;
                 }
                 self.indent_level -= 1;
                 self.indent();
@@ -204,13 +204,14 @@ impl CodeGenerator {
                 self.generate_data_class(data_class);
             }
         }
+        Ok(())
     }
 
     fn generate_var_declaration(
         &mut self,
         var_decl: &VarDeclStmt,
         inline_comment: &Option<(String, String)>,
-    ) {
+    ) -> Result<(), CodegenError> {
         self.indent();
 
         self.output.push_str("let ");
@@ -229,7 +230,7 @@ impl CodeGenerator {
             // Collect all comments from method chain if this is a method call
             let method_chain_comments = self.collect_method_chain_comments(initializer);
 
-            self.generate_expression(initializer);
+            self.generate_expression(initializer)?;
             self.output.push(';');
 
             // Generate all method chain comments after semicolon
@@ -254,9 +255,13 @@ impl CodeGenerator {
         }
 
         self.output.push('\n');
+        Ok(())
     }
 
-    fn generate_function_declaration(&mut self, fun_decl: &FunDeclStmt) {
+    fn generate_function_declaration(
+        &mut self,
+        fun_decl: &FunDeclStmt,
+    ) -> Result<(), CodegenError> {
         self.indent();
         self.output.push_str("fn ");
         let snake_name = camel_to_snake_case(&fun_decl.name);
@@ -303,39 +308,41 @@ impl CodeGenerator {
             // Generate the body content but skip the outer braces since we're handling them
             if let Stmt::Block(statements) = fun_decl.body.as_ref() {
                 for stmt in statements {
-                    self.generate_statement(stmt);
+                    self.generate_statement(stmt)?;
                 }
             } else {
-                self.generate_statement(&fun_decl.body);
+                self.generate_statement(&fun_decl.body)?;
             }
 
             self.indent_level -= 1;
             self.indent();
             self.output.push_str("}\n");
         } else {
-            self.generate_statement(&fun_decl.body);
+            self.generate_statement(&fun_decl.body)?;
         }
 
         // Reset bump function flag
         self.generating_bump_function = false;
+        Ok(())
     }
 
-    fn generate_if_statement(&mut self, if_stmt: &IfStmt) {
+    fn generate_if_statement(&mut self, if_stmt: &IfStmt) -> Result<(), CodegenError> {
         self.indent();
         self.output.push_str("if ");
-        self.generate_expression(&if_stmt.condition);
+        self.generate_expression(&if_stmt.condition)?;
         self.output.push(' ');
 
-        self.generate_statement(&if_stmt.then_branch);
+        self.generate_statement(&if_stmt.then_branch)?;
 
         if let Some(else_branch) = &if_stmt.else_branch {
             self.indent();
             self.output.push_str("else ");
-            self.generate_statement(else_branch);
+            self.generate_statement(else_branch)?;
         }
+        Ok(())
     }
 
-    fn generate_while_statement(&mut self, while_stmt: &WhileStmt) {
+    fn generate_while_statement(&mut self, while_stmt: &WhileStmt) -> Result<(), CodegenError> {
         self.indent();
 
         // Check if this is an infinite loop (while true)
@@ -343,11 +350,12 @@ impl CodeGenerator {
             self.output.push_str("loop ");
         } else {
             self.output.push_str("while ");
-            self.generate_expression(&while_stmt.condition);
+            self.generate_expression(&while_stmt.condition)?;
             self.output.push(' ');
         }
 
-        self.generate_statement(&while_stmt.body);
+        self.generate_statement(&while_stmt.body)?;
+        Ok(())
     }
 
     fn generate_data_class(&mut self, data_class: &DataClassStmt) {
@@ -391,7 +399,7 @@ impl CodeGenerator {
         self.output.push_str("}\n\n");
     }
 
-    fn generate_expression(&mut self, expr: &Expr) {
+    fn generate_expression(&mut self, expr: &Expr) -> Result<(), CodegenError> {
         match expr {
             Expr::Literal(literal) => {
                 self.generate_literal(literal);
@@ -407,17 +415,17 @@ impl CodeGenerator {
                         // Wrap non-simple expressions in parentheses
                         match unary.operand.as_ref() {
                             Expr::Literal(_) | Expr::Identifier(_) => {
-                                self.generate_expression(&unary.operand);
+                                self.generate_expression(&unary.operand)?;
                             }
                             Expr::Unary(_) => {
                                 // Wrap nested unary to avoid -- (double negation)
                                 self.output.push('(');
-                                self.generate_expression(&unary.operand);
+                                self.generate_expression(&unary.operand)?;
                                 self.output.push(')');
                             }
                             _ => {
                                 self.output.push('(');
-                                self.generate_expression(&unary.operand);
+                                self.generate_expression(&unary.operand)?;
                                 self.output.push(')');
                             }
                         }
@@ -425,26 +433,23 @@ impl CodeGenerator {
                 }
             }
             Expr::Binary(binary) => {
-                self.generate_expression(&binary.left);
+                self.generate_expression(&binary.left)?;
                 self.output.push(' ');
                 self.generate_binary_operator(&binary.operator);
                 self.output.push(' ');
-                self.generate_expression(&binary.right);
+                self.generate_expression(&binary.right)?;
             }
             Expr::Call(call) => {
-                if let Err(e) = self.generate_call_expression(call) {
-                    panic!("Code generation error: {}", e);
-                }
+                self.generate_call_expression(call)?;
             }
             Expr::MethodCall(method_call) => {
-                if let Err(e) = self.generate_method_call_expression(method_call) {
-                    panic!("Code generation error: {}", e);
-                }
+                self.generate_method_call_expression(method_call)?;
             }
             Expr::FieldAccess(field_access) => {
-                self.generate_field_access(field_access);
+                self.generate_field_access(field_access)?;
             }
         }
+        Ok(())
     }
 
     fn generate_literal(&mut self, literal: &LiteralExpr) {
@@ -656,7 +661,7 @@ impl CodeGenerator {
                 Argument::Named(name, expr, comment) => {
                     self.output.push_str(&camel_to_snake_case(name));
                     self.output.push_str(": ");
-                    self.generate_expression(expr);
+                    self.generate_expression(expr)?;
                     self.generate_inline_comment(comment);
                 }
                 Argument::Shorthand(field_name, comment) => {
@@ -687,7 +692,7 @@ impl CodeGenerator {
 
                 match arg {
                     Argument::Bare(expr, comment) => {
-                        self.generate_expression(expr);
+                        self.generate_expression(expr)?;
                         if i < args.len() - 1 {
                             self.output.push(',');
                         }
@@ -695,7 +700,7 @@ impl CodeGenerator {
                     }
                     // For function calls, named arguments are just treated as positional
                     Argument::Named(_, expr, comment) => {
-                        self.generate_expression(expr);
+                        self.generate_expression(expr)?;
                         if i < args.len() - 1 {
                             self.output.push(',');
                         }
@@ -740,12 +745,12 @@ impl CodeGenerator {
                 first = false;
                 match arg {
                     Argument::Bare(expr, comment) => {
-                        self.generate_expression(expr);
+                        self.generate_expression(expr)?;
                         self.generate_inline_comment_as_block(comment);
                     }
                     // For function calls, named arguments are just treated as positional
                     Argument::Named(_, expr, comment) => {
-                        self.generate_expression(expr);
+                        self.generate_expression(expr)?;
                         self.generate_inline_comment_as_block(comment);
                     }
                     Argument::Shorthand(field_name, _) => {
@@ -767,7 +772,7 @@ impl CodeGenerator {
     }
 
     fn generate_generic_call(&mut self, call: &CallExpr) -> Result<(), CodegenError> {
-        self.generate_expression(&call.callee);
+        self.generate_expression(&call.callee)?;
         self.output.push('(');
         self.generate_comma_separated_args_for_function_call_with_multiline(
             &call.args,
@@ -821,7 +826,7 @@ impl CodeGenerator {
                 self.output.push_str("&mut (&");
                 match &call.args[0] {
                     Argument::Bare(expr, _) => {
-                        self.generate_expression(expr);
+                        self.generate_expression(expr)?;
                     }
                     Argument::Shorthand(field_name, _) => {
                         // Shorthand behaves like Bare - just generate the identifier
@@ -935,12 +940,12 @@ impl CodeGenerator {
             self.output.push('(');
 
             // First argument is the object
-            self.generate_expression(&method_call.object);
+            self.generate_expression(&method_call.object)?;
 
             // Then the rest of the arguments
             for arg in &method_call.args {
                 self.output.push_str(", ");
-                self.generate_expression(arg);
+                self.generate_expression(arg)?;
             }
             self.output.push(')');
         } else if let Some((type_name, original_method)) = self.imports.get(&method_call.method) {
@@ -952,41 +957,41 @@ impl CodeGenerator {
             self.output.push('(');
 
             // First argument is the object
-            self.generate_expression(&method_call.object);
+            self.generate_expression(&method_call.object)?;
 
             // Then the rest of the arguments
             for arg in &method_call.args {
                 self.output.push_str(", ");
-                self.generate_expression(arg);
+                self.generate_expression(arg)?;
             }
             self.output.push(')');
         } else if method_call.method == "ref" && method_call.args.is_empty() {
             // Special case: ownedValue.ref() becomes &ownedValue
             // This converts Own<T> to T (which is &T in Rust)
             self.output.push('&');
-            self.generate_expression(&method_call.object);
+            self.generate_expression(&method_call.object)?;
         } else if method_call.method == "bumpRef" && method_call.args.is_empty() {
             // Special case: value.bumpRef() becomes bump.alloc(value)
             // This moves the value to bump allocation
             self.output.push_str("bump.alloc(");
-            self.generate_expression(&method_call.object);
+            self.generate_expression(&method_call.object)?;
             self.output.push(')');
         } else if method_call.method == "mutRef" && method_call.args.is_empty() {
             // Special case: obj.mutRef() becomes &mut obj
             // No automatic cloning - users must explicitly call .clone() if needed
             self.output.push_str("&mut ");
-            self.generate_expression(&method_call.object);
+            self.generate_expression(&method_call.object)?;
         } else if method_call.method == "clone" && method_call.args.is_empty() {
             // Special case: obj.clone() becomes Clone::clone(obj) using UFCS
             // This avoids auto-ref and makes borrowing explicit
             self.output.push_str("Clone::clone(");
-            self.generate_expression(&method_call.object);
+            self.generate_expression(&method_call.object)?;
             self.output.push(')');
         } else if method_call.method == "toString" && method_call.args.is_empty() {
             // Special case: obj.toString() becomes ToString::to_string(obj) using UFCS
             // This is pre-imported like clone
             self.output.push_str("ToString::to_string(");
-            self.generate_expression(&method_call.object);
+            self.generate_expression(&method_call.object)?;
             self.output.push(')');
         } else {
             // Method requires import but wasn't imported
@@ -1053,11 +1058,15 @@ impl CodeGenerator {
         }
     }
 
-    fn generate_field_access(&mut self, field_access: &FieldAccessExpr) {
-        self.generate_expression(&field_access.object);
+    fn generate_field_access(
+        &mut self,
+        field_access: &FieldAccessExpr,
+    ) -> Result<(), CodegenError> {
+        self.generate_expression(&field_access.object)?;
         self.output.push('.');
         self.output
             .push_str(&camel_to_snake_case(&field_access.field));
+        Ok(())
     }
 
     fn uses_bump_allocation(&self, stmt: &Stmt) -> bool {
