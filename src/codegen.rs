@@ -632,7 +632,10 @@ impl CodeGenerator {
         self.indent();
     }
 
-    fn generate_comma_separated_args_for_struct_init(&mut self, args: &[Argument]) {
+    fn generate_comma_separated_args_for_struct_init(
+        &mut self,
+        args: &[Argument],
+    ) -> Result<(), CodegenError> {
         let mut first = true;
         for arg in args {
             if !first {
@@ -641,7 +644,12 @@ impl CodeGenerator {
             first = false;
             match arg {
                 Argument::Bare(_, _) => {
-                    panic!("Data class constructors don't support positional arguments. Use named arguments or .field shorthand syntax");
+                    // We need the data class name for the error, but we don't have it here
+                    // For now, use a generic message
+                    return Err(CodegenError::InvalidDataClassSyntax {
+                        constructor: "data class".to_string(),
+                        reason: "Data class constructors don't support positional arguments. Use named arguments or .field shorthand syntax".to_string(),
+                    });
                 }
                 Argument::Named(name, expr, comment) => {
                     self.output.push_str(&camel_to_snake_case(name));
@@ -660,13 +668,14 @@ impl CodeGenerator {
                 }
             }
         }
+        Ok(())
     }
 
     fn generate_comma_separated_args_for_function_call_with_multiline(
         &mut self,
         args: &[Argument],
         is_multiline: bool,
-    ) {
+    ) -> Result<(), CodegenError> {
         if is_multiline && !args.is_empty() {
             // Generate multiline format
             self.output.push('\n');
@@ -691,7 +700,10 @@ impl CodeGenerator {
                         self.generate_inline_comment(comment);
                     }
                     Argument::Shorthand(field_name, _) => {
-                        panic!("Shorthand syntax (.{}) is only valid for data class constructors, not function calls", field_name);
+                        return Err(CodegenError::InvalidShorthandUsage {
+                            field_name: field_name.clone(),
+                            context: "function calls".to_string(),
+                        });
                     }
                     Argument::StandaloneComment(content, whitespace) => {
                         // Generate standalone comment as its own line
@@ -746,16 +758,18 @@ impl CodeGenerator {
                 }
             }
         }
+        Ok(())
     }
 
-    fn generate_generic_call(&mut self, call: &CallExpr) {
+    fn generate_generic_call(&mut self, call: &CallExpr) -> Result<(), CodegenError> {
         self.generate_expression(&call.callee);
         self.output.push('(');
         self.generate_comma_separated_args_for_function_call_with_multiline(
             &call.args,
             call.is_multiline,
-        );
+        )?;
         self.output.push(')');
+        Ok(())
     }
 
     fn generate_call_expression(&mut self, call: &CallExpr) -> Result<(), CodegenError> {
@@ -774,7 +788,7 @@ impl CodeGenerator {
             self.generate_comma_separated_args_for_function_call_with_multiline(
                 &call.args,
                 call.is_multiline,
-            );
+            )?;
 
             self.output.push(')');
             return Ok(());
@@ -786,7 +800,7 @@ impl CodeGenerator {
                 // This is struct initialization (works with positional, named, or mixed arguments)
                 self.output.push_str(name);
                 self.output.push_str(" { ");
-                self.generate_comma_separated_args_for_struct_init(&call.args);
+                self.generate_comma_separated_args_for_struct_init(&call.args)?;
                 self.output.push_str(" }");
                 return Ok(());
             }
@@ -840,7 +854,7 @@ impl CodeGenerator {
                 self.generate_comma_separated_args_for_function_call_with_multiline(
                     &call.args,
                     call.is_multiline,
-                );
+                )?;
                 self.output.push(')');
             } else if let Some((type_name, original_method)) = self.imports.get(name) {
                 // Imported function/constructor: use UFCS
@@ -852,7 +866,7 @@ impl CodeGenerator {
                 self.generate_comma_separated_args_for_function_call_with_multiline(
                     &call.args,
                     call.is_multiline,
-                );
+                )?;
                 self.output.push(')');
             } else if self.is_rust_macro(name) {
                 self.output.push_str(name);
@@ -861,14 +875,14 @@ impl CodeGenerator {
                 self.generate_comma_separated_args_for_function_call_with_multiline(
                     &call.args,
                     call.is_multiline,
-                );
+                )?;
                 self.output.push(')');
             } else {
                 // Default case for identifiers that aren't special
-                self.generate_generic_call(call);
+                self.generate_generic_call(call)?;
             }
         } else {
-            self.generate_generic_call(call);
+            self.generate_generic_call(call)?;
         }
         Ok(())
     }
