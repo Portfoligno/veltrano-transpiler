@@ -5,6 +5,55 @@ use crate::rust_interop::RustInteropRegistry;
 use crate::type_checker::MethodResolution;
 use crate::types::VeltranoType;
 use std::collections::{HashMap, HashSet};
+use std::fmt;
+
+/// Errors that can occur during code generation
+#[derive(Debug)]
+pub enum CodegenError {
+    /// Invalid syntax when calling a data class constructor
+    InvalidDataClassSyntax { constructor: String, reason: String },
+    /// Shorthand syntax used in wrong context
+    InvalidShorthandUsage { field_name: String, context: String },
+    /// Invalid arguments for built-in functions
+    InvalidBuiltinArguments { builtin: String, reason: String },
+    /// Method requires import but wasn't imported
+    MissingImport { method: String, type_name: String },
+}
+
+impl fmt::Display for CodegenError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CodegenError::InvalidDataClassSyntax {
+                constructor,
+                reason,
+            } => {
+                write!(
+                    f,
+                    "Invalid syntax for data class '{}': {}",
+                    constructor, reason
+                )
+            }
+            CodegenError::InvalidShorthandUsage {
+                field_name,
+                context,
+            } => {
+                write!(
+                    f,
+                    "Shorthand syntax (.{}) is only valid for data class constructors, not {}",
+                    field_name, context
+                )
+            }
+            CodegenError::InvalidBuiltinArguments { builtin, reason } => {
+                write!(f, "Invalid arguments for {}: {}", builtin, reason)
+            }
+            CodegenError::MissingImport { method, type_name } => {
+                write!(f, "Method '{}' requires an explicit import. Add 'import {}.{}' at the top of your file.", method, type_name, method)
+            }
+        }
+    }
+}
+
+impl std::error::Error for CodegenError {}
 
 pub struct CodeGenerator {
     output: String,
