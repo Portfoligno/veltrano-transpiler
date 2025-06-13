@@ -136,7 +136,7 @@ fn test_readme_veltrano_snippets_transpile_and_compile() {
 
         // Inject Veltrano variable declarations for common undefined variables
         let mut modified_code = veltrano_code.clone();
-        
+
         // Check if code uses 'x' without defining it
         if modified_code.contains("if (x") || modified_code.contains("if x") {
             if !modified_code.contains("val x") && !modified_code.contains("var x") {
@@ -144,7 +144,7 @@ fn test_readme_veltrano_snippets_transpile_and_compile() {
                 modified_code = format!("val x = 10\n{}", modified_code);
             }
         }
-        
+
         // Check if code uses 'counter' without defining it
         if modified_code.contains("while (counter") || modified_code.contains("while counter") {
             if !modified_code.contains("val counter") && !modified_code.contains("var counter") {
@@ -155,8 +155,7 @@ fn test_readme_veltrano_snippets_transpile_and_compile() {
 
         match transpile_and_compile(
             &modified_code,
-            &TestContext::with_config(config)
-                .with_name(&format!("readme_veltrano_{}", index)),
+            &TestContext::with_config(config).with_name(&format!("readme_veltrano_{}", index)),
         ) {
             Ok(_) => {
                 // Success - test passed
@@ -525,11 +524,8 @@ fn test_mut_ref_type_and_method() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(
-        veltrano_code,
-        &TestContext::with_config(config.clone()),
-    )
-    .expect("Transpilation should succeed");
+    let rust_code = transpile(veltrano_code, &TestContext::with_config(config.clone()))
+        .expect("Transpilation should succeed");
 
     // Check that MutRef<T> becomes &mut T (no automatic .clone())
     assert!(
@@ -550,11 +546,8 @@ fn test_mut_ref_type_and_method() {
     val another = "test".mutRef()
 }"#;
 
-    let rust_code2 = transpile(
-        veltrano_code2,
-        &TestContext::with_config(config),
-    )
-    .expect("Transpilation should succeed");
+    let rust_code2 = transpile(veltrano_code2, &TestContext::with_config(config))
+        .expect("Transpilation should succeed");
 
     // Check that .mutRef() becomes &mut x (no automatic .clone())
     assert!(
@@ -735,11 +728,8 @@ fn test_mut_ref_function() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(
-        veltrano_code,
-        &TestContext::with_config(config),
-    )
-    .expect("Transpilation should succeed");
+    let rust_code = transpile(veltrano_code, &TestContext::with_config(config))
+        .expect("Transpilation should succeed");
 
     // Check &mut (&value).clone() generation
     assert!(
@@ -777,11 +767,8 @@ fn test_mutref_method_chaining() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(
-        veltrano_code,
-        &TestContext::with_config(config),
-    )
-    .expect("Transpilation should succeed");
+    let rust_code = transpile(veltrano_code, &TestContext::with_config(config))
+        .expect("Transpilation should succeed");
 
     // Check chaining patterns
     assert!(
@@ -877,11 +864,8 @@ fn test_unit_literal() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(
-        source,
-        &TestContext::with_config(config),
-    )
-    .expect("Unit literal should parse and generate");
+    let rust_code = transpile(source, &TestContext::with_config(config))
+        .expect("Unit literal should parse and generate");
 
     // Check that Unit literal is transpiled to ()
     assert!(rust_code.contains("let x: () = ()"));
@@ -907,11 +891,8 @@ fn test_unary_expressions() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(
-        source,
-        &TestContext::with_config(config),
-    )
-    .expect("Unary expressions should parse and generate");
+    let rust_code = transpile(source, &TestContext::with_config(config))
+        .expect("Unary expressions should parse and generate");
 
     // Check that unary expressions are correctly transpiled
     assert!(rust_code.contains("let negative = -42"));
@@ -942,8 +923,8 @@ import String.len
 
 fun main() {
     val items = newVec()
-    items.push(42)
-    val text: String = "hello"
+    items.mutRef().push(42)
+    val text: String = "hello".toString().ref()
     val length = text.len()
 }
 "#;
@@ -951,18 +932,15 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(
-        source,
-        &TestContext::with_config(config).skip_type_check(true),
-    ) // skip_type_check for imports
-    .expect("Transpilation should succeed");
+    let rust_code =
+        transpile(source, &TestContext::with_config(config)).expect("Transpilation should succeed");
 
     // Check that imports don't generate any Rust code
     assert!(!rust_code.contains("import"));
 
     // Check that method calls use UFCS
     assert!(rust_code.contains("Vec::new()")); // newVec() -> Vec::new()
-    assert!(rust_code.contains("Vec::push(items, 42)"));
+    assert!(rust_code.contains("Vec::push(&mut items, 42)"));
     assert!(rust_code.contains("String::len(text)"));
 }
 
@@ -1023,11 +1001,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(
-        source,
-        &TestContext::with_config(config),
-    )
-    .expect("Import alias test should parse and generate");
+    let rust_code = transpile(source, &TestContext::with_config(config))
+        .expect("Import alias test should parse and generate");
 
     // Check that alias works and maps to correct UFCS call
     assert!(rust_code.contains("ToString::to_string(num)"));
@@ -1130,11 +1105,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(
-        source,
-        &TestContext::with_config(config),
-    )
-    .expect("Transpilation should succeed");
+    let rust_code =
+        transpile(source, &TestContext::with_config(config)).expect("Transpilation should succeed");
 
     // Check struct initialization syntax
     assert!(rust_code.contains("let p1 = Point { x: 10, y: 20 };"));
@@ -1166,11 +1138,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(
-        source,
-        &TestContext::with_config(config),
-    )
-    .expect("Transpilation should succeed");
+    let rust_code =
+        transpile(source, &TestContext::with_config(config)).expect("Transpilation should succeed");
 
     // Check field shorthand syntax
     assert!(rust_code.contains("let p1 = Point { x, y };"));
@@ -1202,11 +1171,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(
-        source,
-        &TestContext::with_config(config),
-    )
-    .expect("Transpilation should succeed");
+    let rust_code =
+        transpile(source, &TestContext::with_config(config)).expect("Transpilation should succeed");
 
     // All should generate correct struct initialization regardless of order
     assert!(rust_code.contains("let p1 = Person { name: \"Alice\", age: 30 };"));
@@ -1249,11 +1215,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(
-        source,
-        &TestContext::with_config(config),
-    )
-    .expect("Data class mixed args test should parse and generate");
+    let rust_code = transpile(source, &TestContext::with_config(config))
+        .expect("Data class mixed args test should parse and generate");
 
     // Verify correct struct initialization with mixed bare/named args
     assert!(rust_code.contains("let p1 = Person { name, age: 25 };"));
@@ -1364,11 +1327,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(
-        source,
-        &TestContext::with_config(config),
-    )
-    .expect("Transpilation should succeed");
+    let rust_code =
+        transpile(source, &TestContext::with_config(config)).expect("Transpilation should succeed");
 
     // Check field access generation
     assert!(rust_code.contains("let x = p.x;"));
@@ -1409,11 +1369,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(
-        source,
-        &TestContext::with_config(config),
-    )
-    .expect("Transpilation should succeed");
+    let rust_code =
+        transpile(source, &TestContext::with_config(config)).expect("Transpilation should succeed");
 
     // All variations should generate bump allocations
     assert!(rust_code.contains("let hello: &&str = bump.alloc(\"Hello\");"));
@@ -1466,11 +1423,8 @@ fun main() {
     let config = Config {
         preserve_comments: true,
     };
-    let rust_code = transpile(
-        veltrano_code,
-        &TestContext::with_config(config),
-    )
-    .expect("Nested function comment test should parse and generate");
+    let rust_code = transpile(veltrano_code, &TestContext::with_config(config))
+        .expect("Nested function comment test should parse and generate");
 
     // Check proper indentation at different nesting levels
     let lines: Vec<&str> = rust_code.lines().collect();
@@ -1666,11 +1620,8 @@ fun testNoFallback() {
     };
 
     // The example should transpile successfully (commented out error line)
-    let rust_code = transpile(
-        source,
-        &TestContext::with_config(config),
-    )
-    .expect("Import shadowing test should succeed");
+    let rust_code = transpile(source, &TestContext::with_config(config))
+        .expect("Import shadowing test should succeed");
 
     assert!(rust_code.contains("String::len(text)"));
 }

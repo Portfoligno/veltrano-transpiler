@@ -258,21 +258,48 @@ impl VeltranoTypeChecker {
 
         // First, try to parse as a type and check if the method exists on that type
         if let Ok(rust_type) = RustTypeParser::parse(&import.type_name) {
+            crate::debug_println!(
+                "DEBUG: Parsed import type '{}' as {:?}",
+                import.type_name,
+                rust_type
+            );
             // Check if this type has the requested method
             if let Ok(Some(_)) = self
                 .trait_checker
                 .query_method_signature(&rust_type, &import.method_name)
             {
+                crate::debug_println!(
+                    "DEBUG: Found method '{}' on type {:?}, storing as TypeMethod",
+                    import.method_name,
+                    rust_type
+                );
                 // This is a valid type-based import
                 self.imports
-                    .entry(key)
+                    .entry(key.clone())
                     .or_insert_with(Vec::new)
                     .push(ImportedMethod::TypeMethod {
                         rust_type,
                         method_name: import.method_name.clone(),
                     });
+                crate::debug_println!(
+                    "DEBUG: Stored import with key '{}' (alias: {:?}, method: {})",
+                    key,
+                    import.alias,
+                    import.method_name
+                );
                 return Ok(());
+            } else {
+                crate::debug_println!(
+                    "DEBUG: Method '{}' not found on type {:?}",
+                    import.method_name,
+                    rust_type
+                );
             }
+        } else {
+            crate::debug_println!(
+                "DEBUG: Failed to parse '{}' as a Rust type",
+                import.type_name
+            );
         }
 
         // If it's not a valid type-based import, assume it's a trait import
@@ -1297,26 +1324,15 @@ impl VeltranoTypeChecker {
                         .type_implements_trait(rust_type, "Copy")
                         .unwrap_or(false)
                     {
-                        // Copy types need MutRef<Ref<Self>>
-                        if let (TypeConstructor::MutRef, Some(inner)) =
-                            (&receiver_type.constructor, receiver_type.inner())
-                        {
-                            matches!(&inner.constructor, TypeConstructor::Ref)
-                                && inner.inner() == Some(&import_veltrano_type)
-                        } else {
-                            false
-                        }
+                        // Copy types need MutRef<Self>
+                        matches!(&receiver_type.constructor, TypeConstructor::MutRef)
+                            && receiver_type.inner() == Some(&import_veltrano_type)
                     } else {
-                        // Non-Copy types use MutRef<Self>
+                        // Non-Copy types use MutRef<Own<Self>>
                         if matches!(&receiver_type.constructor, TypeConstructor::MutRef) {
                             if let Some(inner) = receiver_type.inner() {
-                                // Check if the inner type matches, handling Own wrapper
-                                if matches!(&import_veltrano_type.constructor, TypeConstructor::Own)
-                                {
-                                    import_veltrano_type.inner() == Some(inner)
-                                } else {
-                                    inner == &import_veltrano_type
-                                }
+                                // inner should be Own<T> and import_veltrano_type should be Own<T>
+                                inner == &import_veltrano_type
                             } else {
                                 false
                             }

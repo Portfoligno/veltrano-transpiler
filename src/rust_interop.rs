@@ -245,7 +245,18 @@ impl RustType {
             }
 
             // Custom types
-            RustType::Custom { name, .. } => Ok(VeltranoType::custom(name.clone())),
+            RustType::Custom { name, generics } => {
+                // Special handling for known generic types without explicit generics
+                match name.as_str() {
+                    "Vec" if generics.is_empty() => {
+                        // Vec without generics -> Vec<$T> (generic T)
+                        Ok(VeltranoType::own(VeltranoType::vec(VeltranoType::custom(
+                            "$T".to_string(),
+                        ))))
+                    }
+                    _ => Ok(VeltranoType::custom(name.clone())),
+                }
+            }
 
             // Generic parameters
             RustType::Generic(name) => Ok(VeltranoType::custom(format!("${}", name))), // Prefix with $ to indicate generic
@@ -312,6 +323,26 @@ impl RustInteropRegistry {
                 },
             )],
             _return_type: RustType::String,
+            _is_unsafe: false,
+        });
+
+        // Vec::push
+        self.register(ExternItem::Method {
+            type_name: "Vec".to_string(),
+            method_name: "push".to_string(),
+            _self_kind: SelfKind::MutRef,
+            _params: vec![("value".to_string(), RustType::Generic("T".to_string()))],
+            _return_type: RustType::Unit,
+            _is_unsafe: false,
+        });
+
+        // String::len
+        self.register(ExternItem::Method {
+            type_name: "String".to_string(),
+            method_name: "len".to_string(),
+            _self_kind: SelfKind::Ref,
+            _params: vec![],
+            _return_type: RustType::USize,
             _is_unsafe: false,
         });
     }
