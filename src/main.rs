@@ -190,12 +190,16 @@ fn print_help(program_name: &str) {
     println!("ARGS:");
     println!("    <input.vl>               The Veltrano source file to transpile");
     println!();
+    println!("ENVIRONMENT:");
+    println!("    VELTRANO_DEBUG           Set to any value to enable debug output");
+    println!();
     println!("EXAMPLES:");
     println!("    {} hello.vl", program_name);
     println!(
         "    {} --preserve-comments examples/fibonacci.vl",
         program_name
     );
+    println!("    VELTRANO_DEBUG=1 {} input.vl", program_name);
 }
 
 fn main() {
