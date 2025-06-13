@@ -11,6 +11,73 @@ use veltrano::{
     type_checker::{TypeCheckError, VeltranoTypeChecker},
 };
 
+/// Test context that holds all common parameters for testing functions
+#[derive(Clone)]
+pub struct TestContext {
+    pub config: Config,
+    pub skip_type_check: bool,
+    pub variable_injections: Vec<(String, String)>,
+    pub test_name: String,
+    pub expected_error: Option<String>,
+    pub remove_error_lines: bool,
+}
+
+impl Default for TestContext {
+    fn default() -> Self {
+        TestContext {
+            config: Config {
+                preserve_comments: false,
+            },
+            skip_type_check: false,
+            variable_injections: Vec::new(),
+            test_name: "test".to_string(),
+            expected_error: None,
+            remove_error_lines: false,
+        }
+    }
+}
+
+impl TestContext {
+    /// Create a new TestContext with the given config
+    pub fn with_config(config: Config) -> Self {
+        TestContext {
+            config,
+            ..Default::default()
+        }
+    }
+
+    /// Set the test name
+    pub fn with_name(mut self, name: &str) -> Self {
+        self.test_name = name.to_string();
+        self
+    }
+
+    /// Set skip_type_check flag
+    pub fn skip_type_check(mut self, skip: bool) -> Self {
+        self.skip_type_check = skip;
+        self
+    }
+
+    /// Add a variable injection
+    pub fn with_injection(mut self, var_name: &str, init_code: &str) -> Self {
+        self.variable_injections
+            .push((var_name.to_string(), init_code.to_string()));
+        self
+    }
+
+    /// Set expected error message
+    pub fn expect_error(mut self, error: &str) -> Self {
+        self.expected_error = Some(error.to_string());
+        self
+    }
+
+    /// Set remove_error_lines flag
+    pub fn remove_error_lines(mut self, remove: bool) -> Self {
+        self.remove_error_lines = remove;
+        self
+    }
+}
+
 /// Shared utility to parse Veltrano code into an AST
 fn parse_veltrano_code(code: &str, config: Config) -> Result<Program, String> {
     let mut lexer = Lexer::with_config(code.to_string(), config);
@@ -61,18 +128,21 @@ pub fn parse_and_type_check(
 }
 
 /// Shared utility to perform full transpilation pipeline: lex → parse → type check → codegen
-/// TODO: Remove skip_type_check parameter once built-in functions are properly handled
-pub fn transpile(code: &str, config: Config, skip_type_check: bool) -> Result<String, String> {
-    let (program, resolutions) = if skip_type_check {
+pub fn transpile(code: &str, ctx: &TestContext) -> Result<String, String> {
+    let (program, resolutions) = if ctx.skip_type_check {
         (
-            parse_veltrano_code(code, config.clone())?,
+            parse_veltrano_code(code, ctx.config.clone())?,
             std::collections::HashMap::new(),
         )
     } else {
-        parse_and_type_check(code, config.clone()).map_err(format_type_check_errors)?
+        parse_and_type_check(code, ctx.config.clone()).map_err(format_type_check_errors)?
     };
 
-    Ok(generate_rust_code(&program, config, Some(resolutions)))
+    Ok(generate_rust_code(
+        &program,
+        ctx.config.clone(),
+        Some(resolutions),
+    ))
 }
 
 /// Format type checking errors into a user-friendly message
@@ -197,15 +267,8 @@ bumpalo = "3.0"
 }
 
 /// Full transpilation and compilation pipeline with variable injections
-/// TODO: Remove skip_type_check parameter once built-in functions are properly handled
-pub fn transpile_and_compile(
-    code: &str,
-    config: Config,
-    test_name: &str,
-    skip_type_check: bool,
-    variable_injections: &[(&str, &str)], // (var_name, initialization_code)
-) -> Result<String, String> {
-    let rust_code = transpile(code, config, skip_type_check)?;
+pub fn transpile_and_compile(code: &str, ctx: &TestContext) -> Result<String, String> {
+    let rust_code = transpile(code, ctx)?;
 
     // Wrap in main function if needed
     let complete_rust_code = if rust_code.contains("fn main") {
@@ -217,19 +280,20 @@ pub fn transpile_and_compile(
         let mut injections = String::from("    let bump = &bumpalo::Bump::new();\n");
 
         // Special case handling for common patterns
-        if code.contains("if x") && !variable_injections.iter().any(|(name, _)| *name == "x") {
+        if code.contains("if x") && !ctx.variable_injections.iter().any(|(name, _)| name == "x") {
             injections.push_str("    let x = 10;\n");
         }
         if code.contains("while counter")
-            && !variable_injections
+            && !ctx
+                .variable_injections
                 .iter()
-                .any(|(name, _)| *name == "counter")
+                .any(|(name, _)| name == "counter")
         {
             injections.push_str("    let counter = 0;\n");
         }
 
         // Add custom variable injections
-        for (var_name, init_code) in variable_injections {
+        for (var_name, init_code) in &ctx.variable_injections {
             if code.contains(var_name) {
                 injections.push_str(&format!("    {}\n", init_code));
             }
@@ -238,7 +302,7 @@ pub fn transpile_and_compile(
         format!("{}\n\nfn main() {{\n{}{}\n}}", imports, injections, code)
     };
 
-    compile_with_bumpalo(&complete_rust_code, test_name)?;
+    compile_with_bumpalo(&complete_rust_code, &ctx.test_name)?;
     Ok(rust_code)
 }
 
@@ -253,13 +317,9 @@ fn wrap_in_main_if_needed(rust_code: &str) -> String {
 }
 
 /// Helper to compile already-generated Rust code with proper wrapping
-pub fn compile_rust_code(
-    rust_code: &str,
-    test_name: &str,
-    remove_error_lines: bool,
-) -> Result<(), String> {
+pub fn compile_rust_code(rust_code: &str, ctx: &TestContext) -> Result<(), String> {
     // Optionally remove lines with intentional errors (marked with // ERROR comment)
-    let cleaned_rust_code = if remove_error_lines {
+    let cleaned_rust_code = if ctx.remove_error_lines {
         rust_code
             .lines()
             .filter(|line| !line.contains("// ERROR"))
@@ -270,18 +330,14 @@ pub fn compile_rust_code(
     };
 
     let complete_rust_code = wrap_in_main_if_needed(&cleaned_rust_code);
-    compile_with_bumpalo(&complete_rust_code, test_name)
+    compile_with_bumpalo(&complete_rust_code, &ctx.test_name)
 }
 
 /// Helper to assert parsing fails with optional specific error message
-pub fn assert_parse_error(
-    code: &str,
-    config: Config,
-    expected_error: Option<&str>,
-) -> Result<String, String> {
-    match parse_veltrano_code(code, config) {
+pub fn assert_parse_error(code: &str, ctx: &TestContext) -> Result<String, String> {
+    match parse_veltrano_code(code, ctx.config.clone()) {
         Ok(_) => Err("Expected parsing to fail, but it succeeded".to_string()),
-        Err(error) => match expected_error {
+        Err(error) => match &ctx.expected_error {
             Some(expected) if error.contains(expected) => Ok(error),
             Some(expected) => Err(format!(
                 "Expected error containing '{}', but got: '{}'",
@@ -296,10 +352,9 @@ pub fn assert_parse_error(
 pub fn assert_transpilation_match(
     veltrano_code: &str,
     expected_rust: &str,
-    config: Config,
-    skip_type_check: bool,
+    ctx: &TestContext,
 ) -> Result<(), String> {
-    let actual_rust = transpile(veltrano_code, config, skip_type_check)?;
+    let actual_rust = transpile(veltrano_code, ctx)?;
 
     // Compare with trimmed whitespace to handle trailing newlines
     if actual_rust.trim() != expected_rust.trim() {
@@ -316,11 +371,10 @@ pub fn assert_transpilation_match(
 pub fn assert_transpilation_output(
     veltrano_code: &str,
     expected_rust: &str,
-    config: Config,
+    ctx: &TestContext,
     context: &str, // For error reporting (e.g., "file: example.vl, config: tuf")
-    skip_type_check: bool,
 ) -> Result<(), String> {
-    let actual_rust = transpile(veltrano_code, config, skip_type_check)?;
+    let actual_rust = transpile(veltrano_code, ctx)?;
 
     // Compare output (trim to handle trailing newlines)
     if actual_rust.trim() != expected_rust.trim() {
@@ -335,16 +389,12 @@ pub fn assert_transpilation_output(
 }
 
 /// Helper to assert type checking fails with optional specific error message
-pub fn assert_type_check_error(
-    code: &str,
-    config: Config,
-    expected_error: Option<&str>,
-) -> Result<String, String> {
-    match parse_and_type_check(code, config) {
+pub fn assert_type_check_error(code: &str, ctx: &TestContext) -> Result<String, String> {
+    match parse_and_type_check(code, ctx.config.clone()) {
         Ok(_) => Err("Expected type checking to fail, but it succeeded".to_string()),
         Err(errors) => {
             let error_message = format_type_check_errors(errors);
-            match expected_error {
+            match &ctx.expected_error {
                 Some(expected) if error_message.contains(expected) => Ok(error_message),
                 Some(expected) => Err(format!(
                     "Expected error containing '{}', but got: '{}'",
@@ -358,16 +408,12 @@ pub fn assert_type_check_error(
 
 /// Helper to assert either parsing or type checking fails with optional specific error message
 /// This tries parsing first, and if that succeeds, tries type checking
-pub fn assert_parse_or_type_check_error(
-    code: &str,
-    config: Config,
-    expected_error: Option<&str>,
-) -> Result<String, String> {
+pub fn assert_parse_or_type_check_error(code: &str, ctx: &TestContext) -> Result<String, String> {
     // First try parsing only
-    match parse_veltrano_code(code, config.clone()) {
+    match parse_veltrano_code(code, ctx.config.clone()) {
         Err(parse_error) => {
             // Parse failed - check if this matches expected error
-            match expected_error {
+            match &ctx.expected_error {
                 Some(expected) if parse_error.contains(expected) => Ok(parse_error),
                 Some(expected) => Err(format!(
                     "Expected error containing '{}', but got: '{}'",
@@ -378,7 +424,7 @@ pub fn assert_parse_or_type_check_error(
         }
         Ok(_) => {
             // Parse succeeded - try type checking
-            assert_type_check_error(code, config, expected_error)
+            assert_type_check_error(code, ctx)
         }
     }
 }

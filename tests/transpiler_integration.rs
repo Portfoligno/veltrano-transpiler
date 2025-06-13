@@ -7,7 +7,7 @@ mod test_configs;
 use common::{
     assert_parse_error, assert_parse_or_type_check_error, assert_transpilation_match,
     assert_transpilation_output, assert_type_check_error, compile_rust_code, transpile,
-    transpile_and_compile,
+    transpile_and_compile, TestContext,
 };
 
 #[test]
@@ -45,7 +45,8 @@ fun calculateSum(firstNumber: I64, secondNumber: I64): I64 {
     let config = Config {
         preserve_comments: true,
     };
-    let rust_code = transpile(source, config, false).expect("Transpilation should succeed");
+    let rust_code =
+        transpile(source, &TestContext::with_config(config)).expect("Transpilation should succeed");
 
     assert!(rust_code.contains("fn calculate_sum"));
     assert!(rust_code.contains("first_number: i64"));
@@ -72,8 +73,11 @@ fn test_readme_examples() {
         let config = Config {
             preserve_comments: true,
         };
-        if let Err(error) = assert_transpilation_match(&veltrano_code, &expected_rust, config, true)
-        {
+        if let Err(error) = assert_transpilation_match(
+            &veltrano_code,
+            &expected_rust,
+            &TestContext::with_config(config).skip_type_check(true),
+        ) {
             panic!("README example failed: {}", error);
         }
     }
@@ -95,8 +99,9 @@ fn test_readme_rust_outputs_compile() {
         // Use the helper to compile Rust code, removing ERROR lines and wrapping in main
         if let Err(error) = compile_rust_code(
             rust_code,
-            &format!("readme_{}", index),
-            true, // remove_error_lines
+            &TestContext::default()
+                .with_name(&format!("readme_{}", index))
+                .remove_error_lines(true),
         ) {
             panic!(
                 "README Rust example {} failed to compile:\n{}\n\nCode:\n{}",
@@ -133,10 +138,9 @@ fn test_readme_veltrano_snippets_transpile_and_compile() {
         // The helper automatically handles special cases like "if x" and "while counter"
         match transpile_and_compile(
             veltrano_code,
-            config,
-            &format!("readme_veltrano_{}", index),
-            true, // skip_type_check
-            &[],
+            &TestContext::with_config(config)
+                .with_name(&format!("readme_veltrano_{}", index))
+                .skip_type_check(true),
         ) {
             Ok(_) => {
                 // Success - test passed
@@ -192,7 +196,10 @@ fn test_examples_with_config(preserve_comments: bool) {
 
         // Use the new utility that handles everything including wrapping in main
         // Enable type checking to support import resolution
-        match transpile_and_compile(&veltrano_code, config, &test_name, false, &[]) {
+        match transpile_and_compile(
+            &veltrano_code,
+            &TestContext::with_config(config).with_name(&test_name),
+        ) {
             Ok(_) => {
                 // Success - test passed
             }
@@ -400,7 +407,7 @@ fn test_while_true_to_loop_conversion() {
     let config = Config {
         preserve_comments: false,
     };
-    let actual_rust = transpile(veltrano_code, config, false) // enable type checking
+    let actual_rust = transpile(veltrano_code, &TestContext::with_config(config)) // enable type checking
         .expect("Transpilation should succeed");
 
     // Check that the output contains "loop" instead of "while true"
@@ -445,10 +452,16 @@ fn test_inline_comments_with_and_without_preservation() {
     let config_without_comments = Config {
         preserve_comments: false,
     };
-    let rust_code_with_comments = transpile(veltrano_code, config_with_comments, true) // skip_type_check for println
-        .expect("Failed to transpile with comments");
-    let rust_code_no_comments = transpile(veltrano_code, config_without_comments, true) // skip_type_check for println
-        .expect("Failed to transpile without comments");
+    let rust_code_with_comments = transpile(
+        veltrano_code,
+        &TestContext::with_config(config_with_comments).skip_type_check(true),
+    ) // skip_type_check for println
+    .expect("Failed to transpile with comments");
+    let rust_code_no_comments = transpile(
+        veltrano_code,
+        &TestContext::with_config(config_without_comments).skip_type_check(true),
+    ) // skip_type_check for println
+    .expect("Failed to transpile without comments");
 
     // Check that all comments are preserved
     assert!(rust_code_with_comments.contains("// Simple inline comment"));
@@ -494,8 +507,11 @@ fn test_mut_ref_type_and_method() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(veltrano_code, config.clone(), true) // skip_type_check for MutRef
-        .expect("Transpilation should succeed");
+    let rust_code = transpile(
+        veltrano_code,
+        &TestContext::with_config(config.clone()).skip_type_check(true),
+    ) // skip_type_check for MutRef
+    .expect("Transpilation should succeed");
 
     // Check that MutRef<T> becomes &mut T (no automatic .clone())
     assert!(
@@ -515,8 +531,11 @@ fn test_mut_ref_type_and_method() {
     val another = "test".mutRef()
 }"#;
 
-    let rust_code2 = transpile(veltrano_code2, config, true) // skip_type_check for methods
-        .expect("Transpilation should succeed");
+    let rust_code2 = transpile(
+        veltrano_code2,
+        &TestContext::with_config(config).skip_type_check(true),
+    ) // skip_type_check for methods
+    .expect("Transpilation should succeed");
 
     // Check that .mutRef() becomes &mut x (no automatic .clone())
     assert!(
@@ -540,32 +559,30 @@ fn test_own_value_type_validation() {
     // Test that Own<I64> is rejected
     assert_type_check_error(
         r#"fun main() { val x: Own<I64> = 42 }"#,
-        config.clone(),
-        Some("Cannot use Own<I64>. Types that implement Copy are always owned by default and don't need the Own<> wrapper."),
+        &TestContext::with_config(config.clone())
+            .expect_error("Cannot use Own<I64>. Types that implement Copy are always owned by default and don't need the Own<> wrapper."),
     )
     .expect("Own<I64> should be rejected");
 
     // Test that Own<Bool> is rejected
     assert_type_check_error(
         r#"fun main() { val flag: Own<Bool> = true }"#,
-        config.clone(),
-        Some("Types that implement Copy are always owned by default and don't need the Own<> wrapper."),
+        &TestContext::with_config(config.clone())
+            .expect_error("Types that implement Copy are always owned by default and don't need the Own<> wrapper."),
     )
     .expect("Own<Bool> should be rejected");
 
     // Test that Own<String> is accepted
     transpile(
         r#"fun main() { val text: Own<String> = "hello".toString() }"#,
-        config.clone(),
-        false,
+        &TestContext::with_config(config.clone()),
     )
     .expect("Own<String> should be accepted");
 
     // Test that Own<MutRef<T>> is rejected
     assert_type_check_error(
         r#"fun main() { val x: Own<MutRef<String>> = something }"#,
-        config.clone(),
-        Some("MutRef<T> is already owned"),
+        &TestContext::with_config(config.clone()).expect_error("MutRef<T> is already owned"),
     )
     .expect("Own<MutRef<T>> should be rejected");
 
@@ -573,16 +590,15 @@ fn test_own_value_type_validation() {
     // Just test that the type is valid by using a declaration without initialization
     transpile(
         r#"fun main() { val x: Own<Box<String>> }"#,
-        config.clone(),
-        false, // don't skip_type_check
+        &TestContext::with_config(config.clone()), // don't skip_type_check
     )
     .expect("Own<Box<T>> should be accepted");
 
     // Test that Own<Own<T>> is rejected
     assert_type_check_error(
         r#"fun main() { val x: Own<Own<String>> = something }"#,
-        config,
-        Some("Cannot use Own<Own<T>>. This creates double ownership."),
+        &TestContext::with_config(config)
+            .expect_error("Cannot use Own<Own<T>>. This creates double ownership."),
     )
     .expect("Own<Own<T>> should be rejected");
 }
@@ -637,8 +653,10 @@ fn test_fail_examples() {
         let config = Config {
             preserve_comments: false,
         };
-        if let Err(error) = assert_parse_or_type_check_error(&veltrano_code, config, Some(expected_error))
-        {
+        if let Err(error) = assert_parse_or_type_check_error(
+            &veltrano_code,
+            &TestContext::with_config(config).expect_error(expected_error),
+        ) {
             panic!(
                 "Parse failure validation failed for {}: {}",
                 fail_file, error
@@ -664,8 +682,8 @@ fn test_clone_ufcs_generation() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code =
-        transpile(veltrano_code, config, false).expect("Clone UFCS test should parse and generate");
+    let rust_code = transpile(veltrano_code, &TestContext::with_config(config))
+        .expect("Clone UFCS test should parse and generate");
 
     // Check UFCS generation for clone with explicit conversions
     assert!(
@@ -698,8 +716,11 @@ fn test_mut_ref_function() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(veltrano_code, config, true) // skip_type_check for MutRef
-        .expect("Transpilation should succeed");
+    let rust_code = transpile(
+        veltrano_code,
+        &TestContext::with_config(config).skip_type_check(true),
+    ) // skip_type_check for MutRef
+    .expect("Transpilation should succeed");
 
     // Check &mut (&value).clone() generation
     assert!(
@@ -737,8 +758,11 @@ fn test_mutref_method_chaining() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(veltrano_code, config, true) // skip_type_check for method chaining
-        .expect("Transpilation should succeed");
+    let rust_code = transpile(
+        veltrano_code,
+        &TestContext::with_config(config).skip_type_check(true),
+    ) // skip_type_check for method chaining
+    .expect("Transpilation should succeed");
 
     // Check chaining patterns
     assert!(
@@ -784,13 +808,14 @@ fn test_readme_table_examples() {
         ];
 
         // First try to transpile as-is
-        let result = transpile_and_compile(
-            example,
-            config.clone(),
-            &format!("table_{}", index),
-            false,
-            &variable_injections,
-        );
+        let mut ctx =
+            TestContext::with_config(config.clone()).with_name(&format!("table_{}", index));
+
+        for (var_name, init_code) in &variable_injections {
+            ctx = ctx.with_injection(var_name, init_code);
+        }
+
+        let result = transpile_and_compile(example, &ctx);
 
         match result {
             Ok(_) => {
@@ -800,13 +825,14 @@ fn test_readme_table_examples() {
                 // Some table examples might be fragments, try wrapping in a function
                 let wrapped_example = format!("fun main() {{\n    {}\n}}", example);
 
-                match transpile_and_compile(
-                    &wrapped_example,
-                    config,
-                    &format!("table_{}_wrapped", index),
-                    false,
-                    &variable_injections,
-                ) {
+                let mut ctx =
+                    TestContext::with_config(config).with_name(&format!("table_{}_wrapped", index));
+
+                for (var_name, init_code) in &variable_injections {
+                    ctx = ctx.with_injection(var_name, init_code);
+                }
+
+                match transpile_and_compile(&wrapped_example, &ctx) {
                     Ok(_) => {
                         // Success with wrapping
                     }
@@ -832,8 +858,11 @@ fn test_unit_literal() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code =
-        transpile(source, config, true).expect("Unit literal should parse and generate");
+    let rust_code = transpile(
+        source,
+        &TestContext::with_config(config).skip_type_check(true),
+    )
+    .expect("Unit literal should parse and generate");
 
     // Check that Unit literal is transpiled to ()
     assert!(rust_code.contains("let x: () = ()"));
@@ -859,8 +888,11 @@ fn test_unary_expressions() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code =
-        transpile(source, config, true).expect("Unary expressions should parse and generate");
+    let rust_code = transpile(
+        source,
+        &TestContext::with_config(config).skip_type_check(true),
+    )
+    .expect("Unary expressions should parse and generate");
 
     // Check that unary expressions are correctly transpiled
     assert!(rust_code.contains("let negative = -42"));
@@ -877,8 +909,7 @@ fn test_double_minus_forbidden() {
     };
     assert_parse_error(
         r#"fun main() { val bad = --5 }"#,
-        config,
-        Some("Double minus (--) is not allowed"),
+        &TestContext::with_config(config).expect_error("Double minus (--) is not allowed"),
     )
     .expect("Double minus should be forbidden");
 }
@@ -901,8 +932,11 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(source, config, true) // skip_type_check for imports
-        .expect("Transpilation should succeed");
+    let rust_code = transpile(
+        source,
+        &TestContext::with_config(config).skip_type_check(true),
+    ) // skip_type_check for imports
+    .expect("Transpilation should succeed");
 
     // Check that imports don't generate any Rust code
     assert!(!rust_code.contains("import"));
@@ -929,7 +963,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(source, config, false).expect("Transpilation should succeed");
+    let rust_code =
+        transpile(source, &TestContext::with_config(config)).expect("Transpilation should succeed");
 
     // Check pre-imported methods with explicit conversions
     assert!(rust_code.contains("Clone::clone(borrowed)"));
@@ -950,8 +985,8 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code =
-        transpile(source, config, false).expect("Import priority test should parse and generate");
+    let rust_code = transpile(source, &TestContext::with_config(config))
+        .expect("Import priority test should parse and generate");
 
     // Check that explicit import generates UFCS call
     assert!(rust_code.contains("i64::abs"));
@@ -969,8 +1004,11 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code =
-        transpile(source, config, true).expect("Import alias test should parse and generate");
+    let rust_code = transpile(
+        source,
+        &TestContext::with_config(config).skip_type_check(true),
+    )
+    .expect("Import alias test should parse and generate");
 
     // Check that alias works and maps to correct UFCS call
     assert!(rust_code.contains("ToString::to_string(num)"));
@@ -993,8 +1031,11 @@ fun new(): I64 {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(source, config, true) // skip_type_check for function priority
-        .expect("Transpilation should succeed");
+    let rust_code = transpile(
+        source,
+        &TestContext::with_config(config).skip_type_check(true),
+    ) // skip_type_check for function priority
+    .expect("Transpilation should succeed");
 
     // Debug: print the generated code
     println!("Generated Rust code:\n{}", rust_code);
@@ -1014,8 +1055,8 @@ data class Point(val x: I64, val y: I64)
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code =
-        transpile(source1, config.clone(), false).expect("Transpilation should succeed");
+    let rust_code = transpile(source1, &TestContext::with_config(config.clone()))
+        .expect("Transpilation should succeed");
 
     // Check struct generation without lifetime
     assert!(rust_code.contains("#[derive(Debug, Clone)]"));
@@ -1032,8 +1073,8 @@ data class Point(val x: I64, val y: I64)
 data class Person(val name: String, val age: I64)
 "#;
 
-    let rust_code2 =
-        transpile(source2, config.clone(), false).expect("Transpilation should succeed");
+    let rust_code2 = transpile(source2, &TestContext::with_config(config.clone()))
+        .expect("Transpilation should succeed");
 
     // Check struct generation with lifetime
     assert!(rust_code2.contains("#[derive(Debug, Clone)]"));
@@ -1046,7 +1087,8 @@ data class Person(val name: String, val age: I64)
 data class Container(val item: MyType, val count: I64)
 "#;
 
-    let rust_code3 = transpile(source3, config, false).expect("Transpilation should succeed");
+    let rust_code3 = transpile(source3, &TestContext::with_config(config))
+        .expect("Transpilation should succeed");
 
     // Check struct generation with custom type (needs lifetime)
     assert!(rust_code3.contains("pub struct Container<'a> {"));
@@ -1069,8 +1111,11 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(source, config, true) // skip_type_check for data classes
-        .expect("Transpilation should succeed");
+    let rust_code = transpile(
+        source,
+        &TestContext::with_config(config).skip_type_check(true),
+    ) // skip_type_check for data classes
+    .expect("Transpilation should succeed");
 
     // Check struct initialization syntax
     assert!(rust_code.contains("let p1 = Point { x: 10, y: 20 };"));
@@ -1102,8 +1147,11 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(source, config, true) // skip_type_check for data classes
-        .expect("Transpilation should succeed");
+    let rust_code = transpile(
+        source,
+        &TestContext::with_config(config).skip_type_check(true),
+    ) // skip_type_check for data classes
+    .expect("Transpilation should succeed");
 
     // Check field shorthand syntax
     assert!(rust_code.contains("let p1 = Point { x, y };"));
@@ -1135,8 +1183,11 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(source, config, true) // skip_type_check for data classes
-        .expect("Transpilation should succeed");
+    let rust_code = transpile(
+        source,
+        &TestContext::with_config(config).skip_type_check(true),
+    ) // skip_type_check for data classes
+    .expect("Transpilation should succeed");
 
     // All should generate correct struct initialization regardless of order
     assert!(rust_code.contains("let p1 = Person { name: \"Alice\", age: 30 };"));
@@ -1179,8 +1230,11 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(source, config, true)
-        .expect("Data class mixed args test should parse and generate");
+    let rust_code = transpile(
+        source,
+        &TestContext::with_config(config).skip_type_check(true),
+    )
+    .expect("Data class mixed args test should parse and generate");
 
     // Verify correct struct initialization with mixed bare/named args
     assert!(rust_code.contains("let p1 = Person { name, age: 25 };"));
@@ -1211,7 +1265,7 @@ fun main() {
     let config = Config {
         preserve_comments: true,
     };
-    let rust_code = transpile(veltrano_code, config, false)
+    let rust_code = transpile(veltrano_code, &TestContext::with_config(config))
         .expect("Failed to transpile contextual indentation test");
 
     // Check that comments have proper indentation without double indentation
@@ -1291,8 +1345,11 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(source, config, true) // skip_type_check for data classes
-        .expect("Transpilation should succeed");
+    let rust_code = transpile(
+        source,
+        &TestContext::with_config(config).skip_type_check(true),
+    ) // skip_type_check for data classes
+    .expect("Transpilation should succeed");
 
     // Check field access generation
     assert!(rust_code.contains("let x = p.x;"));
@@ -1333,8 +1390,11 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(source, config, true) // skip_type_check for method chains
-        .expect("Transpilation should succeed");
+    let rust_code = transpile(
+        source,
+        &TestContext::with_config(config).skip_type_check(true),
+    ) // skip_type_check for method chains
+    .expect("Transpilation should succeed");
 
     // All variations should generate bump allocations
     assert!(rust_code.contains("let single: &str = bump.alloc(&hello);"));
@@ -1386,8 +1446,11 @@ fun main() {
     let config = Config {
         preserve_comments: true,
     };
-    let rust_code = transpile(veltrano_code, config, true)
-        .expect("Nested function comment test should parse and generate");
+    let rust_code = transpile(
+        veltrano_code,
+        &TestContext::with_config(config).skip_type_check(true),
+    )
+    .expect("Nested function comment test should parse and generate");
 
     // Check proper indentation at different nesting levels
     let lines: Vec<&str> = rust_code.lines().collect();
@@ -1508,9 +1571,12 @@ fn test_expected_outputs() {
 
         // Test transpilation against expected output
         let context = format!("File: {}, Config: {}", expected_filename, config_key);
-        if let Err(error) =
-            assert_transpilation_output(&veltrano_code, &expected_rust, config, &context, true)
-        {
+        if let Err(error) = assert_transpilation_output(
+            &veltrano_code,
+            &expected_rust,
+            &TestContext::with_config(config).skip_type_check(true),
+            &context,
+        ) {
             panic!(
                 "Output mismatch for {} with config '{}': {}",
                 base_name, config_key, error
@@ -1548,7 +1614,7 @@ fun main() {
     let config = Config {
         preserve_comments: false,
     };
-    let rust_code = transpile(source, config, false) // don't skip type check - needed for import resolution
+    let rust_code = transpile(source, &TestContext::with_config(config)) // don't skip type check - needed for import resolution
         .expect("Multiple imports with same name should succeed");
 
     // Check that the correct methods are called via UFCS
@@ -1580,7 +1646,11 @@ fun testNoFallback() {
     };
 
     // The example should transpile successfully (commented out error line)
-    let rust_code = transpile(source, config, true).expect("Import shadowing test should succeed");
+    let rust_code = transpile(
+        source,
+        &TestContext::with_config(config).skip_type_check(true),
+    )
+    .expect("Import shadowing test should succeed");
 
     assert!(rust_code.contains("String::len(text)"));
 }
