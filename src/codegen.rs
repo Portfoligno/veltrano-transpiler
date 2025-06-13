@@ -437,7 +437,9 @@ impl CodeGenerator {
                 }
             }
             Expr::MethodCall(method_call) => {
-                self.generate_method_call_expression(method_call);
+                if let Err(e) = self.generate_method_call_expression(method_call) {
+                    panic!("Code generation error: {}", e);
+                }
             }
             Expr::FieldAccess(field_access) => {
                 self.generate_field_access(field_access);
@@ -747,7 +749,10 @@ impl CodeGenerator {
                         self.generate_inline_comment_as_block(comment);
                     }
                     Argument::Shorthand(field_name, _) => {
-                        panic!("Shorthand syntax (.{}) is only valid for data class constructors, not function calls", field_name);
+                        return Err(CodegenError::InvalidShorthandUsage {
+                            field_name: field_name.clone(),
+                            context: "function calls".to_string(),
+                        });
                     }
                     Argument::StandaloneComment(_, _) => {
                         // For single-line calls, standalone comments force multiline format
@@ -904,7 +909,10 @@ impl CodeGenerator {
         comments
     }
 
-    fn generate_method_call_expression(&mut self, method_call: &MethodCallExpr) {
+    fn generate_method_call_expression(
+        &mut self,
+        method_call: &MethodCallExpr,
+    ) -> Result<(), CodegenError> {
         // First check if we have a type-checked resolution for this method call
         crate::debug_println!(
             "DEBUG codegen: Looking for resolution for method call ID {}, method: {}",
@@ -982,13 +990,14 @@ impl CodeGenerator {
             self.output.push(')');
         } else {
             // Method requires import but wasn't imported
-            panic!(
-                "Method '{}' requires an explicit import. Add 'import {{Type}}.{}' at the top of your file.",
-                method_call.method, method_call.method
-            );
+            return Err(CodegenError::MissingImport {
+                method: method_call.method.clone(),
+                type_name: "Type".to_string(), // We don't have the exact type here
+            });
         }
 
         // Note: Method call comments are now handled by the statement generator to ensure proper placement after semicolons
+        Ok(())
     }
 
     fn generate_comment(&mut self, comment: &CommentStmt) {
