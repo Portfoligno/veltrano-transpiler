@@ -280,28 +280,43 @@ pub struct Program {
 }
 
 /// Extension trait for expression traversal
+///
+/// Provides functional-style traversal methods for AST analysis with early exit.
 pub trait ExprExt {
-    /// Walk the expression tree in pre-order, calling the visitor function on each node
+    /// Walk the expression tree in pre-order
+    ///
+    /// Calls visitor on current node before its children. Return Err to stop early.
     fn walk<F, E>(&self, visitor: &mut F) -> Result<(), E>
     where
         F: FnMut(&Expr) -> Result<(), E>;
 
-    /// Walk the expression tree in post-order (children first, then parent)
+    /// Walk the expression tree in post-order
+    ///
+    /// Calls visitor on children before current node. Useful for bottom-up analysis.
     fn walk_post<F, E>(&self, visitor: &mut F) -> Result<(), E>
     where
         F: FnMut(&Expr) -> Result<(), E>;
 
     /// Find all sub-expressions matching a predicate
+    ///
+    /// Returns vector of all expressions matching the predicate.
+    #[allow(dead_code)]
     fn find_subexpressions<F>(&self, predicate: F) -> Vec<&Expr>
     where
         F: Fn(&Expr) -> bool;
 
     /// Check if any sub-expression matches a predicate
+    ///
+    /// Short-circuits on first match for efficiency.
+    #[allow(dead_code)]
     fn any_subexpr<F>(&self, predicate: F) -> bool
     where
         F: Fn(&Expr) -> bool;
 
     /// Check if all sub-expressions match a predicate
+    ///
+    /// Short-circuits on first non-match for efficiency.
+    #[allow(dead_code)]
     fn all_subexprs<F>(&self, predicate: F) -> bool
     where
         F: Fn(&Expr) -> bool;
@@ -476,28 +491,41 @@ impl ExprExt for Expr {
 }
 
 /// Extension trait for statement traversal
+///
+/// Provides traversal methods for analyzing control flow, declarations, and nested structures.
 pub trait StmtExt {
-    /// Walk the statement tree in pre-order, calling the visitor function on each node
+    /// Walk the statement tree in pre-order
+    ///
+    /// Calls visitor on each statement before its children. Return Err to stop early.
     fn walk<F, E>(&self, visitor: &mut F) -> Result<(), E>
     where
         F: FnMut(&Stmt) -> Result<(), E>;
 
-    /// Walk the statement tree in post-order (children first, then parent)
+    /// Walk the statement tree in post-order
+    ///
+    /// Useful for bottom-up analysis or cleanup operations.
     fn walk_post<F, E>(&self, visitor: &mut F) -> Result<(), E>
     where
         F: FnMut(&Stmt) -> Result<(), E>;
 
     /// Find all sub-statements matching a predicate
+    ///
+    /// Recursively searches the statement tree for matching statements.
+    #[allow(dead_code)]
     fn find_statements<F>(&self, predicate: F) -> Vec<&Stmt>
     where
         F: Fn(&Stmt) -> bool;
 
     /// Walk all expressions within this statement
+    ///
+    /// Visits all expressions in the statement tree for expression-level analysis.
     fn walk_expressions<F, E>(&self, visitor: &mut F) -> Result<(), E>
     where
         F: FnMut(&Expr) -> Result<(), E>;
 
-    /// Check if the statement tree can exit early (has return statements)
+    /// Check if the statement tree can exit early
+    ///
+    /// Returns true if the statement or any sub-statement contains a return.
     fn can_exit_early(&self) -> bool;
 }
 
