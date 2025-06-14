@@ -1,4 +1,6 @@
+use crate::ast::query::AstQuery;
 use crate::ast::*;
+use crate::ast_types::StmtExt;
 use crate::config::Config;
 use crate::rust_interop::camel_to_snake_case;
 use crate::rust_interop::RustInteropRegistry;
@@ -299,7 +301,7 @@ impl CodeGenerator {
             self.indent_level += 1;
 
             // Check if bump allocation is actually used in the main function body
-            let needs_bump = self.uses_bump_allocation(&fun_decl.body);
+            let needs_bump = self.check_function_needs_bump(fun_decl);
             if needs_bump {
                 self.indent();
                 self.output.push_str("let bump = &bumpalo::Bump::new();\n");
@@ -1069,76 +1071,26 @@ impl CodeGenerator {
         Ok(())
     }
 
-    fn uses_bump_allocation(&self, stmt: &Stmt) -> bool {
-        match stmt {
-            Stmt::Expression(expr, _) => self.expr_uses_bump_allocation(expr),
-            Stmt::VarDecl(var_decl, _) => {
-                if let Some(initializer) = &var_decl.initializer {
-                    self.expr_uses_bump_allocation(initializer)
-                } else {
-                    false
-                }
-            }
-            Stmt::FunDecl(_) => false, // Function declarations don't use bump directly
-            Stmt::If(if_stmt) => {
-                self.expr_uses_bump_allocation(&if_stmt.condition)
-                    || self.uses_bump_allocation(&if_stmt.then_branch)
-                    || if_stmt
-                        .else_branch
-                        .as_ref()
-                        .map_or(false, |stmt| self.uses_bump_allocation(stmt))
-            }
-            Stmt::While(while_stmt) => {
-                self.expr_uses_bump_allocation(&while_stmt.condition)
-                    || self.uses_bump_allocation(&while_stmt.body)
-            }
-            Stmt::Return(expr, _) => expr
-                .as_ref()
-                .map_or(false, |e| self.expr_uses_bump_allocation(e)),
-            Stmt::Block(statements) => statements
-                .iter()
-                .any(|stmt| self.uses_bump_allocation(stmt)),
-            Stmt::Comment(_) | Stmt::Import(_) | Stmt::DataClass(_) => false,
+    fn check_function_needs_bump(&self, fun_decl: &FunDeclStmt) -> bool {
+        // First check for direct bump allocation usage
+        if AstQuery::function_requires_bump(fun_decl) {
+            return true;
         }
-    }
 
-    fn expr_uses_bump_allocation(&self, expr: &Expr) -> bool {
-        match expr {
-            Expr::Literal(_) | Expr::Identifier(_) => false,
-            Expr::Unary(unary) => self.expr_uses_bump_allocation(&unary.operand),
-            Expr::Binary(binary) => {
-                self.expr_uses_bump_allocation(&binary.left)
-                    || self.expr_uses_bump_allocation(&binary.right)
-            }
-            Expr::Call(call) => {
-                // Check if this is a call to a function that requires bump
+        // Also check if this function calls other functions that use bump
+        let mut uses_bump = false;
+        let _ = fun_decl.body.walk_expressions(&mut |expr| {
+            if let Expr::Call(call) = expr {
                 if let Expr::Identifier(name) = call.callee.as_ref() {
                     if self.local_functions_with_bump.contains(name) {
-                        return true;
+                        uses_bump = true;
+                        return Err(()); // Early exit
                     }
                 }
+            }
+            Ok::<(), ()>(())
+        });
 
-                self.expr_uses_bump_allocation(&call.callee)
-                    || call.args.iter().any(|arg| match arg {
-                        Argument::Bare(expr, _) => self.expr_uses_bump_allocation(expr),
-                        Argument::Named(_, expr, _) => self.expr_uses_bump_allocation(expr),
-                        Argument::Shorthand(_, _) => false, // Shorthand is just an identifier, doesn't use bump allocation
-                        Argument::StandaloneComment(_, _) => false, // Comments don't use bump allocation
-                    })
-            }
-            Expr::MethodCall(method_call) => {
-                // Check if this is a .bumpRef() method call
-                if method_call.method == "bumpRef" && method_call.args.is_empty() {
-                    return true;
-                }
-                // Also check the object and arguments
-                self.expr_uses_bump_allocation(&method_call.object)
-                    || method_call
-                        .args
-                        .iter()
-                        .any(|arg| self.expr_uses_bump_allocation(arg))
-            }
-            Expr::FieldAccess(field_access) => self.expr_uses_bump_allocation(&field_access.object),
-        }
+        uses_bump
     }
 }
