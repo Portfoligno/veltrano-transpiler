@@ -34,6 +34,7 @@ impl Comment {
     }
 
     /// Create from parser representation (content, whitespace) tuple
+    #[allow(dead_code)]
     pub fn from_tuple(tuple: (String, String)) -> Self {
         let (content, whitespace) = tuple;
         // Detect style from content
@@ -55,6 +56,7 @@ impl Comment {
     }
 
     /// Convert line comment to block style
+    #[allow(dead_code)]
     pub fn to_block_style(&self) -> Self {
         match self.style {
             CommentStyle::Block => self.clone(),
@@ -74,6 +76,7 @@ impl Comment {
     }
 
     /// Get raw content without delimiters
+    #[allow(dead_code)]
     pub fn raw_content(&self) -> &str {
         match self.style {
             CommentStyle::Line => {
@@ -95,6 +98,7 @@ impl Comment {
     }
 
     /// Format for output with optional style conversion
+    #[allow(dead_code)]
     pub fn format(&self, force_block: bool) -> String {
         if force_block && self.style == CommentStyle::Line {
             self.to_block_style().content
@@ -104,17 +108,20 @@ impl Comment {
     }
 
     /// Check if this is a block comment
+    #[allow(dead_code)]
     pub fn is_block(&self) -> bool {
         matches!(self.style, CommentStyle::Block)
     }
 
     /// Check if this is a line comment
+    #[allow(dead_code)]
     pub fn is_line(&self) -> bool {
         matches!(self.style, CommentStyle::Line)
     }
 }
 
 /// Extension trait for AST nodes with comments
+#[allow(dead_code)]
 pub trait HasComment {
     /// Get the comment field
     fn comment(&self) -> Option<&(String, String)>;

@@ -5,6 +5,7 @@
 //! expressions, statements, function declarations, and data classes.
 
 use crate::ast::*;
+use crate::comments::{Comment, CommentStyle};
 use crate::lexer::{Token, TokenType};
 use crate::types::VeltranoType;
 
@@ -877,17 +878,24 @@ impl Parser {
     fn parse_inline_comment(&mut self) -> Option<(String, String)> {
         match &self.peek().token_type {
             TokenType::LineComment(content, whitespace) => {
-                let content = content.clone();
-                let whitespace = whitespace.clone();
+                // Lexer returns line comment content without // prefix
+                let comment = Comment::new(
+                    content.clone(),
+                    whitespace.clone(),
+                    CommentStyle::Line,
+                );
                 self.advance();
-                Some((content, whitespace))
+                Some(comment.to_tuple())
             }
             TokenType::BlockComment(content, whitespace) => {
                 // For block comments, content is just the inner text, so wrap it with /* */
-                let content = format!("/*{}*/", content);
-                let whitespace = whitespace.clone();
+                let comment = Comment::new(
+                    format!("/*{}*/", content),
+                    whitespace.clone(),
+                    CommentStyle::Block,
+                );
                 self.advance();
-                Some((content, whitespace))
+                Some(comment.to_tuple())
             }
             _ => None,
         }
