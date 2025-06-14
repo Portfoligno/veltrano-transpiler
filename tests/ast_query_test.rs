@@ -1,7 +1,7 @@
 use veltrano::ast::query::AstQuery;
 use veltrano::{
-    BinaryExpr, BinaryOp, CallExpr, Expr, FunDeclStmt, IfStmt, LiteralExpr, MethodCallExpr, Stmt,
-    VarDeclStmt,
+    BinaryExpr, BinaryOp, CallExpr, Expr, FunDeclStmt, IfStmt, LiteralExpr, MethodCallExpr,
+    Program, Stmt, VarDeclStmt,
 };
 
 #[test]
@@ -195,4 +195,151 @@ fn test_function_requires_bump() {
         has_hidden_bump: false,
     };
     assert!(!AstQuery::function_requires_bump(&fun_without_bump));
+}
+
+#[test]
+fn test_find_var_decls() {
+    // Create a block with multiple variable declarations
+    let block = Stmt::Block(vec![
+        Stmt::VarDecl(
+            VarDeclStmt {
+                name: "x".to_string(),
+                type_annotation: None,
+                initializer: Some(Expr::Literal(LiteralExpr::Int(42))),
+            },
+            None,
+        ),
+        Stmt::VarDecl(
+            VarDeclStmt {
+                name: "y".to_string(),
+                type_annotation: None,
+                initializer: Some(Expr::Identifier("x".to_string())),
+            },
+            None,
+        ),
+        Stmt::If(IfStmt {
+            condition: Expr::Identifier("condition".to_string()),
+            then_branch: Box::new(Stmt::VarDecl(
+                VarDeclStmt {
+                    name: "z".to_string(),
+                    type_annotation: None,
+                    initializer: Some(Expr::Literal(LiteralExpr::Bool(true))),
+                },
+                None,
+            )),
+            else_branch: None,
+        }),
+    ]);
+
+    let vars = AstQuery::find_var_decls(&block);
+    assert_eq!(vars.len(), 3);
+    assert_eq!(vars[0].name, "x");
+    assert_eq!(vars[1].name, "y");
+    assert_eq!(vars[2].name, "z");
+}
+
+#[test]
+fn test_find_function_decls() {
+    // Create a block with nested function declarations
+    let block = Stmt::Block(vec![
+        Stmt::FunDecl(FunDeclStmt {
+            name: "foo".to_string(),
+            params: vec![],
+            return_type: None,
+            body: Box::new(Stmt::Block(vec![])),
+            has_hidden_bump: false,
+        }),
+        Stmt::If(IfStmt {
+            condition: Expr::Literal(LiteralExpr::Bool(true)),
+            then_branch: Box::new(Stmt::FunDecl(FunDeclStmt {
+                name: "bar".to_string(),
+                params: vec![],
+                return_type: None,
+                body: Box::new(Stmt::Block(vec![])),
+                has_hidden_bump: false,
+            })),
+            else_branch: None,
+        }),
+    ]);
+
+    let funs = AstQuery::find_function_decls(&block);
+    assert_eq!(funs.len(), 2);
+    assert_eq!(funs[0].name, "foo");
+    assert_eq!(funs[1].name, "bar");
+}
+
+#[test]
+fn test_collect_variable_references() {
+    // Create a statement with various variable references
+    let stmt = Stmt::Block(vec![
+        Stmt::VarDecl(
+            VarDeclStmt {
+                name: "x".to_string(),
+                type_annotation: None,
+                initializer: Some(Expr::Binary(BinaryExpr {
+                    left: Box::new(Expr::Identifier("a".to_string())),
+                    operator: BinaryOp::Add,
+                    right: Box::new(Expr::Identifier("b".to_string())),
+                })),
+            },
+            None,
+        ),
+        Stmt::If(IfStmt {
+            condition: Expr::Identifier("c".to_string()),
+            then_branch: Box::new(Stmt::Expression(
+                Expr::MethodCall(MethodCallExpr {
+                    object: Box::new(Expr::Identifier("d".to_string())),
+                    method: "method".to_string(),
+                    args: vec![Expr::Identifier("e".to_string())],
+                    inline_comment: None,
+                    id: 0,
+                }),
+                None,
+            )),
+            else_branch: None,
+        }),
+    ]);
+
+    let refs = AstQuery::collect_variable_references(&stmt);
+    assert_eq!(refs.len(), 5);
+    assert!(refs.contains("a"));
+    assert!(refs.contains("b"));
+    assert!(refs.contains("c"));
+    assert!(refs.contains("d"));
+    assert!(refs.contains("e"));
+}
+
+#[test]
+fn test_find_program_functions() {
+    let program = Program {
+        statements: vec![
+            Stmt::VarDecl(
+                VarDeclStmt {
+                    name: "global".to_string(),
+                    type_annotation: None,
+                    initializer: None,
+                },
+                None,
+            ),
+            Stmt::FunDecl(FunDeclStmt {
+                name: "main".to_string(),
+                params: vec![],
+                return_type: None,
+                body: Box::new(Stmt::Block(vec![])),
+                has_hidden_bump: false,
+            }),
+            Stmt::FunDecl(FunDeclStmt {
+                name: "helper".to_string(),
+                params: vec![],
+                return_type: None,
+                body: Box::new(Stmt::Block(vec![])),
+                has_hidden_bump: false,
+            }),
+        ],
+    };
+
+    let funs = AstQuery::find_program_functions(&program);
+    assert_eq!(funs.len(), 2);
+    assert_eq!(funs[0].name, "main");
+    assert_eq!(funs[1].name, "helper");
 }

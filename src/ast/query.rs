@@ -1,5 +1,5 @@
 // Use types re-exported in the parent module (ast/mod.rs)
-use super::{Argument, Expr, FunDeclStmt, Stmt};
+use super::{Argument, Expr, FunDeclStmt, Program, Stmt, VarDeclStmt};
 use std::collections::HashSet;
 
 /// Query API for common AST traversal patterns
@@ -142,6 +142,126 @@ impl AstQuery {
     /// Check if a function requires bump allocation based on its body
     pub fn function_requires_bump(fun_decl: &FunDeclStmt) -> bool {
         Self::stmt_uses_bump_allocation(&fun_decl.body)
+    }
+
+    /// Find all variable declarations in a statement
+    pub fn find_var_decls(stmt: &Stmt) -> Vec<&VarDeclStmt> {
+        let mut decls = Vec::new();
+        Self::collect_var_decls(stmt, &mut decls);
+        decls
+    }
+
+    fn collect_var_decls<'a>(stmt: &'a Stmt, acc: &mut Vec<&'a VarDeclStmt>) {
+        match stmt {
+            Stmt::VarDecl(var_decl, _) => acc.push(var_decl),
+            Stmt::Block(statements) => {
+                for s in statements {
+                    Self::collect_var_decls(s, acc);
+                }
+            }
+            Stmt::If(if_stmt) => {
+                Self::collect_var_decls(&if_stmt.then_branch, acc);
+                if let Some(else_branch) = &if_stmt.else_branch {
+                    Self::collect_var_decls(else_branch, acc);
+                }
+            }
+            Stmt::While(while_stmt) => {
+                Self::collect_var_decls(&while_stmt.body, acc);
+            }
+            _ => {}
+        }
+    }
+
+    /// Find all function declarations in a statement
+    pub fn find_function_decls(stmt: &Stmt) -> Vec<&FunDeclStmt> {
+        let mut decls = Vec::new();
+        Self::collect_function_decls(stmt, &mut decls);
+        decls
+    }
+
+    fn collect_function_decls<'a>(stmt: &'a Stmt, acc: &mut Vec<&'a FunDeclStmt>) {
+        match stmt {
+            Stmt::FunDecl(fun_decl) => acc.push(fun_decl),
+            Stmt::Block(statements) => {
+                for s in statements {
+                    Self::collect_function_decls(s, acc);
+                }
+            }
+            Stmt::If(if_stmt) => {
+                Self::collect_function_decls(&if_stmt.then_branch, acc);
+                if let Some(else_branch) = &if_stmt.else_branch {
+                    Self::collect_function_decls(else_branch, acc);
+                }
+            }
+            Stmt::While(while_stmt) => {
+                Self::collect_function_decls(&while_stmt.body, acc);
+            }
+            _ => {}
+        }
+    }
+
+    /// Collect all variable references (identifiers) in a statement
+    pub fn collect_variable_references(stmt: &Stmt) -> HashSet<String> {
+        let mut refs = HashSet::new();
+        Self::collect_stmt_variable_refs(stmt, &mut refs);
+        refs
+    }
+
+    fn collect_stmt_variable_refs(stmt: &Stmt, acc: &mut HashSet<String>) {
+        match stmt {
+            Stmt::Expression(expr, _) => {
+                acc.extend(Self::collect_identifiers(expr));
+            }
+            Stmt::VarDecl(var_decl, _) => {
+                if let Some(init) = &var_decl.initializer {
+                    acc.extend(Self::collect_identifiers(init));
+                }
+            }
+            Stmt::Return(Some(expr), _) => {
+                acc.extend(Self::collect_identifiers(expr));
+            }
+            Stmt::If(if_stmt) => {
+                acc.extend(Self::collect_identifiers(&if_stmt.condition));
+                Self::collect_stmt_variable_refs(&if_stmt.then_branch, acc);
+                if let Some(else_branch) = &if_stmt.else_branch {
+                    Self::collect_stmt_variable_refs(else_branch, acc);
+                }
+            }
+            Stmt::While(while_stmt) => {
+                acc.extend(Self::collect_identifiers(&while_stmt.condition));
+                Self::collect_stmt_variable_refs(&while_stmt.body, acc);
+            }
+            Stmt::Block(statements) => {
+                for s in statements {
+                    Self::collect_stmt_variable_refs(s, acc);
+                }
+            }
+            Stmt::FunDecl(fun_decl) => {
+                Self::collect_stmt_variable_refs(&fun_decl.body, acc);
+            }
+            _ => {}
+        }
+    }
+
+    /// Find function declarations at the top level of a program
+    pub fn find_program_functions(program: &Program) -> Vec<&FunDeclStmt> {
+        program
+            .statements
+            .iter()
+            .filter_map(|stmt| match stmt {
+                Stmt::FunDecl(fun_decl) => Some(fun_decl),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Find all variable declarations in a program
+    pub fn find_program_variables(program: &Program) -> Vec<&VarDeclStmt> {
+        let mut vars = Vec::new();
+        for stmt in &program.statements {
+            vars.extend(Self::find_var_decls(stmt));
+        }
+        vars
     }
 }
 
