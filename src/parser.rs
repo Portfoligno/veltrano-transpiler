@@ -8,6 +8,7 @@ use crate::ast::*;
 use crate::comments::{Comment, CommentStyle};
 use crate::lexer::{Token, TokenType};
 use crate::types::VeltranoType;
+use nonempty::NonEmpty;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -42,7 +43,7 @@ impl Parser {
             }
 
             match self.declaration() {
-                Ok(stmts) => statements.extend(stmts),
+                Ok(stmts) => statements.extend(stmts.into_iter()),
                 Err(err) => return Err(err),
             }
         }
@@ -87,15 +88,15 @@ impl Parser {
         }
     }
 
-    fn declaration(&mut self) -> Result<Vec<Stmt>, String> {
+    fn declaration(&mut self) -> Result<NonEmpty<Stmt>, String> {
         if self.match_token(&TokenType::Fun) {
-            Ok(vec![self.function_declaration()?])
+            Ok(NonEmpty::singleton(self.function_declaration()?))
         } else if self.match_token(&TokenType::Val) {
             self.var_declaration()
         } else if self.match_token(&TokenType::Import) {
-            Ok(vec![self.import_declaration()?])
+            Ok(NonEmpty::singleton(self.import_declaration()?))
         } else if self.match_token(&TokenType::Data) {
-            Ok(vec![self.data_class_declaration()?])
+            Ok(NonEmpty::singleton(self.data_class_declaration()?))
         } else {
             self.statement()
         }
@@ -175,7 +176,7 @@ impl Parser {
         }))
     }
 
-    fn var_declaration(&mut self) -> Result<Vec<Stmt>, String> {
+    fn var_declaration(&mut self) -> Result<NonEmpty<Stmt>, String> {
         let name = self.consume_identifier("Expected variable name")?;
 
         let type_annotation = if self.match_token(&TokenType::Colon) {
@@ -192,14 +193,14 @@ impl Parser {
 
         let inline_comment = self.consume_newline()?;
 
-        Ok(vec![Stmt::VarDecl(
+        Ok(NonEmpty::singleton(Stmt::VarDecl(
             VarDeclStmt {
                 name,
                 type_annotation,
                 initializer,
             },
             inline_comment,
-        )])
+        )))
     }
 
     fn import_declaration(&mut self) -> Result<Stmt, String> {
@@ -271,15 +272,15 @@ impl Parser {
         Ok(Stmt::DataClass(DataClassStmt { name, fields }))
     }
 
-    fn statement(&mut self) -> Result<Vec<Stmt>, String> {
+    fn statement(&mut self) -> Result<NonEmpty<Stmt>, String> {
         if self.match_token(&TokenType::If) {
-            Ok(vec![self.if_statement()?])
+            Ok(NonEmpty::singleton(self.if_statement()?))
         } else if self.match_token(&TokenType::While) {
-            Ok(vec![self.while_statement()?])
+            Ok(NonEmpty::singleton(self.while_statement()?))
         } else if self.match_token(&TokenType::Return) {
-            Ok(vec![self.return_statement()?])
+            Ok(NonEmpty::singleton(self.return_statement()?))
         } else if self.match_token(&TokenType::LeftBrace) {
-            Ok(vec![self.block_statement()?])
+            Ok(NonEmpty::singleton(self.block_statement()?))
         } else {
             self.expression_statement()
         }
@@ -291,19 +292,11 @@ impl Parser {
         self.consume(&TokenType::RightParen, "Expected ')' after if condition")?;
 
         let then_stmts = self.statement()?;
-        let then_branch = if then_stmts.len() == 1 {
-            Box::new(then_stmts.into_iter().next().unwrap())
-        } else {
-            Box::new(Stmt::Block(then_stmts))
-        };
+        let then_branch = Self::nonempty_to_stmt(then_stmts);
 
         let else_branch = if self.match_token(&TokenType::Else) {
             let else_stmts = self.statement()?;
-            Some(if else_stmts.len() == 1 {
-                Box::new(else_stmts.into_iter().next().unwrap())
-            } else {
-                Box::new(Stmt::Block(else_stmts))
-            })
+            Some(Self::nonempty_to_stmt(else_stmts))
         } else {
             None
         };
@@ -321,11 +314,7 @@ impl Parser {
         self.consume(&TokenType::RightParen, "Expected ')' after while condition")?;
 
         let body_stmts = self.statement()?;
-        let body = if body_stmts.len() == 1 {
-            Box::new(body_stmts.into_iter().next().unwrap())
-        } else {
-            Box::new(Stmt::Block(body_stmts))
-        };
+        let body = Self::nonempty_to_stmt(body_stmts);
 
         Ok(Stmt::While(WhileStmt { condition, body }))
     }
@@ -339,6 +328,17 @@ impl Parser {
 
         let inline_comment = self.consume_newline()?;
         Ok(Stmt::Return(value, inline_comment))
+    }
+
+    /// Convert a non-empty vector of statements to a single statement.
+    /// If the vector contains exactly one statement, extract it.
+    /// Otherwise, wrap the statements in a Block.
+    fn nonempty_to_stmt(statements: NonEmpty<Stmt>) -> Box<Stmt> {
+        if statements.len() == 1 {
+            Box::new(statements.head)
+        } else {
+            Box::new(Stmt::Block(statements.into()))
+        }
     }
 
     fn block_statement(&mut self) -> Result<Stmt, String> {
@@ -356,18 +356,18 @@ impl Parser {
                 continue;
             }
 
-            statements.extend(self.declaration()?);
+            statements.extend(self.declaration()?.into_iter());
         }
 
         self.consume(&TokenType::RightBrace, "Expected '}' after block")?;
         Ok(Stmt::Block(statements))
     }
 
-    fn expression_statement(&mut self) -> Result<Vec<Stmt>, String> {
+    fn expression_statement(&mut self) -> Result<NonEmpty<Stmt>, String> {
         let expr = self.expression()?;
         let inline_comment = self.consume_newline()?;
 
-        Ok(vec![Stmt::Expression(expr, inline_comment)])
+        Ok(NonEmpty::singleton(Stmt::Expression(expr, inline_comment)))
     }
 
     fn expression(&mut self) -> Result<Expr, String> {
@@ -879,11 +879,7 @@ impl Parser {
         match &self.peek().token_type {
             TokenType::LineComment(content, whitespace) => {
                 // Lexer returns line comment content without // prefix
-                let comment = Comment::new(
-                    content.clone(),
-                    whitespace.clone(),
-                    CommentStyle::Line,
-                );
+                let comment = Comment::new(content.clone(), whitespace.clone(), CommentStyle::Line);
                 self.advance();
                 Some(comment.to_tuple())
             }
