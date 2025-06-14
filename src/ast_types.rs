@@ -528,3 +528,196 @@ impl ExprExt for Expr {
         all_match
     }
 }
+
+/// Extension trait for statement traversal
+pub trait StmtExt {
+    /// Walk the statement tree in pre-order, calling the visitor function on each node
+    fn walk<F, E>(&self, visitor: &mut F) -> Result<(), E>
+    where
+        F: FnMut(&Stmt) -> Result<(), E>;
+
+    /// Walk the statement tree in post-order (children first, then parent)
+    fn walk_post<F, E>(&self, visitor: &mut F) -> Result<(), E>
+    where
+        F: FnMut(&Stmt) -> Result<(), E>;
+
+    /// Find all sub-statements matching a predicate
+    fn find_statements<F>(&self, predicate: F) -> Vec<&Stmt>
+    where
+        F: Fn(&Stmt) -> bool;
+
+    /// Walk all expressions within this statement
+    fn walk_expressions<F, E>(&self, visitor: &mut F) -> Result<(), E>
+    where
+        F: FnMut(&Expr) -> Result<(), E>;
+
+    /// Check if the statement tree can exit early (has return statements)
+    fn can_exit_early(&self) -> bool;
+}
+
+impl StmtExt for Stmt {
+    fn walk<F, E>(&self, visitor: &mut F) -> Result<(), E>
+    where
+        F: FnMut(&Stmt) -> Result<(), E>,
+    {
+        // Visit this node first (pre-order)
+        visitor(self)?;
+
+        // Then visit children
+        match self {
+            Stmt::Block(statements) => {
+                for stmt in statements {
+                    stmt.walk(visitor)?;
+                }
+            }
+            Stmt::If(if_stmt) => {
+                if_stmt.then_branch.walk(visitor)?;
+                if let Some(else_branch) = &if_stmt.else_branch {
+                    else_branch.walk(visitor)?;
+                }
+            }
+            Stmt::While(while_stmt) => {
+                while_stmt.body.walk(visitor)?;
+            }
+            Stmt::FunDecl(fun_decl) => {
+                fun_decl.body.walk(visitor)?;
+            }
+            // Leaf nodes
+            Stmt::Expression(_, _)
+            | Stmt::VarDecl(_, _)
+            | Stmt::Return(_, _)
+            | Stmt::Comment(_)
+            | Stmt::Import(_)
+            | Stmt::DataClass(_) => {}
+        }
+        Ok(())
+    }
+
+    fn walk_post<F, E>(&self, visitor: &mut F) -> Result<(), E>
+    where
+        F: FnMut(&Stmt) -> Result<(), E>,
+    {
+        // Visit children first (post-order)
+        match self {
+            Stmt::Block(statements) => {
+                for stmt in statements {
+                    stmt.walk_post(visitor)?;
+                }
+            }
+            Stmt::If(if_stmt) => {
+                if_stmt.then_branch.walk_post(visitor)?;
+                if let Some(else_branch) = &if_stmt.else_branch {
+                    else_branch.walk_post(visitor)?;
+                }
+            }
+            Stmt::While(while_stmt) => {
+                while_stmt.body.walk_post(visitor)?;
+            }
+            Stmt::FunDecl(fun_decl) => {
+                fun_decl.body.walk_post(visitor)?;
+            }
+            // Leaf nodes
+            Stmt::Expression(_, _)
+            | Stmt::VarDecl(_, _)
+            | Stmt::Return(_, _)
+            | Stmt::Comment(_)
+            | Stmt::Import(_)
+            | Stmt::DataClass(_) => {}
+        }
+
+        // Then visit this node
+        visitor(self)
+    }
+
+    fn find_statements<F>(&self, predicate: F) -> Vec<&Stmt>
+    where
+        F: Fn(&Stmt) -> bool,
+    {
+        fn collect<'a, F>(stmt: &'a Stmt, predicate: &F, results: &mut Vec<&'a Stmt>)
+        where
+            F: Fn(&Stmt) -> bool,
+        {
+            if predicate(stmt) {
+                results.push(stmt);
+            }
+
+            match stmt {
+                Stmt::Block(statements) => {
+                    for s in statements {
+                        collect(s, predicate, results);
+                    }
+                }
+                Stmt::If(if_stmt) => {
+                    collect(&if_stmt.then_branch, predicate, results);
+                    if let Some(else_branch) = &if_stmt.else_branch {
+                        collect(else_branch, predicate, results);
+                    }
+                }
+                Stmt::While(while_stmt) => {
+                    collect(&while_stmt.body, predicate, results);
+                }
+                Stmt::FunDecl(fun_decl) => {
+                    collect(&fun_decl.body, predicate, results);
+                }
+                _ => {}
+            }
+        }
+
+        let mut results = Vec::new();
+        collect(self, &predicate, &mut results);
+        results
+    }
+
+    fn walk_expressions<F, E>(&self, visitor: &mut F) -> Result<(), E>
+    where
+        F: FnMut(&Expr) -> Result<(), E>,
+    {
+        match self {
+            Stmt::Expression(expr, _) => expr.walk(visitor)?,
+            Stmt::VarDecl(var_decl, _) => {
+                if let Some(init) = &var_decl.initializer {
+                    init.walk(visitor)?;
+                }
+            }
+            Stmt::Return(Some(expr), _) => expr.walk(visitor)?,
+            Stmt::If(if_stmt) => {
+                if_stmt.condition.walk(visitor)?;
+                if_stmt.then_branch.walk_expressions(visitor)?;
+                if let Some(else_branch) = &if_stmt.else_branch {
+                    else_branch.walk_expressions(visitor)?;
+                }
+            }
+            Stmt::While(while_stmt) => {
+                while_stmt.condition.walk(visitor)?;
+                while_stmt.body.walk_expressions(visitor)?;
+            }
+            Stmt::Block(statements) => {
+                for stmt in statements {
+                    stmt.walk_expressions(visitor)?;
+                }
+            }
+            Stmt::FunDecl(fun_decl) => {
+                fun_decl.body.walk_expressions(visitor)?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn can_exit_early(&self) -> bool {
+        match self {
+            Stmt::Return(_, _) => true,
+            Stmt::Block(statements) => statements.iter().any(|s| s.can_exit_early()),
+            Stmt::If(if_stmt) => {
+                if_stmt.then_branch.can_exit_early()
+                    || if_stmt
+                        .else_branch
+                        .as_ref()
+                        .map_or(false, |s| s.can_exit_early())
+            }
+            Stmt::While(while_stmt) => while_stmt.body.can_exit_early(),
+            Stmt::FunDecl(fun_decl) => fun_decl.body.can_exit_early(),
+            _ => false,
+        }
+    }
+}

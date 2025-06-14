@@ -1,0 +1,238 @@
+use veltrano::{
+    BinaryExpr, BinaryOp, Expr, FunDeclStmt, IfStmt, LiteralExpr, Stmt, StmtExt, VarDeclStmt,
+    WhileStmt,
+};
+
+#[test]
+fn test_walk_statements() {
+    // Create a block with various statement types
+    let block = Stmt::Block(vec![
+        Stmt::VarDecl(
+            VarDeclStmt {
+                name: "x".to_string(),
+                type_annotation: None,
+                initializer: Some(Expr::Literal(LiteralExpr::Int(42))),
+            },
+            None,
+        ),
+        Stmt::Expression(Expr::Identifier("x".to_string()), None),
+        Stmt::Return(Some(Expr::Identifier("x".to_string())), None),
+    ]);
+
+    let mut visited = Vec::new();
+    let result = block.walk(&mut |stmt| {
+        match stmt {
+            Stmt::Block(_) => visited.push("block"),
+            Stmt::VarDecl(_, _) => visited.push("var_decl"),
+            Stmt::Expression(_, _) => visited.push("expression"),
+            Stmt::Return(_, _) => visited.push("return"),
+            _ => visited.push("other"),
+        }
+        Ok::<(), ()>(())
+    });
+
+    assert!(result.is_ok());
+    assert_eq!(visited, vec!["block", "var_decl", "expression", "return"]);
+}
+
+#[test]
+fn test_walk_post_order_statements() {
+    // Create an if statement with blocks
+    let if_stmt = Stmt::If(IfStmt {
+        condition: Expr::Literal(LiteralExpr::Bool(true)),
+        then_branch: Box::new(Stmt::Block(vec![Stmt::Expression(
+            Expr::Literal(LiteralExpr::Int(1)),
+            None,
+        )])),
+        else_branch: Some(Box::new(Stmt::Block(vec![Stmt::Expression(
+            Expr::Literal(LiteralExpr::Int(2)),
+            None,
+        )]))),
+    });
+
+    let mut visited = Vec::new();
+    let result = if_stmt.walk_post(&mut |stmt| {
+        match stmt {
+            Stmt::If(_) => visited.push("if"),
+            Stmt::Block(_) => visited.push("block"),
+            Stmt::Expression(Expr::Literal(LiteralExpr::Int(n)), _) => {
+                visited.push(if *n == 1 { "expr_1" } else { "expr_2" });
+            }
+            _ => visited.push("other"),
+        }
+        Ok::<(), ()>(())
+    });
+
+    assert!(result.is_ok());
+    assert_eq!(visited, vec!["expr_1", "block", "expr_2", "block", "if"]);
+}
+
+#[test]
+fn test_find_statements() {
+    // Create nested statements
+    let stmt = Stmt::Block(vec![
+        Stmt::VarDecl(
+            VarDeclStmt {
+                name: "x".to_string(),
+                type_annotation: None,
+                initializer: None,
+            },
+            None,
+        ),
+        Stmt::If(IfStmt {
+            condition: Expr::Literal(LiteralExpr::Bool(true)),
+            then_branch: Box::new(Stmt::VarDecl(
+                VarDeclStmt {
+                    name: "y".to_string(),
+                    type_annotation: None,
+                    initializer: None,
+                },
+                None,
+            )),
+            else_branch: None,
+        }),
+        Stmt::While(WhileStmt {
+            condition: Expr::Literal(LiteralExpr::Bool(true)),
+            body: Box::new(Stmt::VarDecl(
+                VarDeclStmt {
+                    name: "z".to_string(),
+                    type_annotation: None,
+                    initializer: None,
+                },
+                None,
+            )),
+        }),
+    ]);
+
+    // Find all variable declarations
+    let var_decls = stmt.find_statements(|s| matches!(s, Stmt::VarDecl(_, _)));
+    assert_eq!(var_decls.len(), 3);
+
+    // Extract names
+    let names: Vec<&str> = var_decls
+        .iter()
+        .filter_map(|s| match s {
+            Stmt::VarDecl(v, _) => Some(v.name.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(names, vec!["x", "y", "z"]);
+}
+
+#[test]
+fn test_walk_expressions_in_statements() {
+    // Create statements with embedded expressions
+    let stmt = Stmt::Block(vec![
+        Stmt::VarDecl(
+            VarDeclStmt {
+                name: "sum".to_string(),
+                type_annotation: None,
+                initializer: Some(Expr::Binary(BinaryExpr {
+                    left: Box::new(Expr::Identifier("a".to_string())),
+                    operator: BinaryOp::Add,
+                    right: Box::new(Expr::Identifier("b".to_string())),
+                })),
+            },
+            None,
+        ),
+        Stmt::If(IfStmt {
+            condition: Expr::Identifier("c".to_string()),
+            then_branch: Box::new(Stmt::Expression(Expr::Identifier("d".to_string()), None)),
+            else_branch: None,
+        }),
+    ]);
+
+    let mut identifiers = Vec::new();
+    let result = stmt.walk_expressions(&mut |expr| {
+        if let Expr::Identifier(name) = expr {
+            identifiers.push(name.clone());
+        }
+        Ok::<(), ()>(())
+    });
+
+    assert!(result.is_ok());
+    assert_eq!(identifiers, vec!["a", "b", "c", "d"]);
+}
+
+#[test]
+fn test_can_exit_early() {
+    // Statement without return
+    let no_return = Stmt::Block(vec![
+        Stmt::VarDecl(
+            VarDeclStmt {
+                name: "x".to_string(),
+                type_annotation: None,
+                initializer: None,
+            },
+            None,
+        ),
+        Stmt::Expression(Expr::Identifier("x".to_string()), None),
+    ]);
+    assert!(!no_return.can_exit_early());
+
+    // Statement with return
+    let with_return = Stmt::Block(vec![
+        Stmt::VarDecl(
+            VarDeclStmt {
+                name: "x".to_string(),
+                type_annotation: None,
+                initializer: None,
+            },
+            None,
+        ),
+        Stmt::Return(Some(Expr::Identifier("x".to_string())), None),
+    ]);
+    assert!(with_return.can_exit_early());
+
+    // If statement with return in one branch
+    let if_with_return = Stmt::If(IfStmt {
+        condition: Expr::Literal(LiteralExpr::Bool(true)),
+        then_branch: Box::new(Stmt::Return(Some(Expr::Literal(LiteralExpr::Int(1))), None)),
+        else_branch: Some(Box::new(Stmt::Expression(
+            Expr::Literal(LiteralExpr::Int(2)),
+            None,
+        ))),
+    });
+    assert!(if_with_return.can_exit_early());
+}
+
+#[test]
+fn test_nested_function_traversal() {
+    // Create a function with nested statements
+    let fun = Stmt::FunDecl(FunDeclStmt {
+        name: "test".to_string(),
+        params: vec![],
+        return_type: None,
+        body: Box::new(Stmt::Block(vec![
+            Stmt::VarDecl(
+                VarDeclStmt {
+                    name: "local".to_string(),
+                    type_annotation: None,
+                    initializer: Some(Expr::Literal(LiteralExpr::Int(42))),
+                },
+                None,
+            ),
+            Stmt::Return(Some(Expr::Identifier("local".to_string())), None),
+        ])),
+        has_hidden_bump: false,
+    });
+
+    // Count different statement types
+    let mut counts = std::collections::HashMap::new();
+    let _ = fun.walk(&mut |stmt| {
+        let key = match stmt {
+            Stmt::FunDecl(_) => "function",
+            Stmt::Block(_) => "block",
+            Stmt::VarDecl(_, _) => "var_decl",
+            Stmt::Return(_, _) => "return",
+            _ => "other",
+        };
+        *counts.entry(key).or_insert(0) += 1;
+        Ok::<(), ()>(())
+    });
+
+    assert_eq!(counts.get("function"), Some(&1));
+    assert_eq!(counts.get("block"), Some(&1));
+    assert_eq!(counts.get("var_decl"), Some(&1));
+    assert_eq!(counts.get("return"), Some(&1));
+}
