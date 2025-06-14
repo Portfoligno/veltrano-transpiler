@@ -532,7 +532,7 @@ impl VeltranoTypeChecker {
         match &object_type.constructor {
             TypeConstructor::Custom(class_name) => {
                 // Look up the data class definition
-                if let Some(data_class) = self.env.lookup_data_class(class_name) {
+                if let Some(data_class) = self.env.lookup_data_class(&class_name) {
                     // Find the field in the data class
                     if let Some(field_def) = data_class
                         .fields
@@ -560,7 +560,7 @@ impl VeltranoTypeChecker {
                 if let Some(inner_type) = object_type.inner() {
                     if let TypeConstructor::Custom(class_name) = &inner_type.constructor {
                         // Look up the data class definition
-                        if let Some(data_class) = self.env.lookup_data_class(class_name) {
+                        if let Some(data_class) = self.env.lookup_data_class(&class_name) {
                             // Find the field in the data class
                             if let Some(field_def) = data_class
                                 .fields
