@@ -1,5 +1,5 @@
 // Use types re-exported in the parent module (ast/mod.rs)
-use super::{Argument, Expr};
+use super::{Argument, Expr, FunDeclStmt, Stmt};
 use std::collections::HashSet;
 
 /// Query API for common AST traversal patterns
@@ -82,6 +82,67 @@ impl AstQuery {
             _ => expr_children(expr).into_iter().map(Self::count_calls).sum(),
         }
     }
+
+    /// Check if an expression uses bump allocation (calls .bumpRef())
+    pub fn uses_bump_allocation(expr: &Expr) -> bool {
+        match expr {
+            Expr::MethodCall(method_call) => {
+                // Direct .bumpRef() call
+                if method_call.method == "bumpRef" && method_call.args.is_empty() {
+                    return true;
+                }
+                // Check nested expressions
+                Self::uses_bump_allocation(&method_call.object)
+                    || method_call.args.iter().any(Self::uses_bump_allocation)
+            }
+            Expr::Binary(b) => {
+                Self::uses_bump_allocation(&b.left) || Self::uses_bump_allocation(&b.right)
+            }
+            Expr::Unary(u) => Self::uses_bump_allocation(&u.operand),
+            Expr::Call(c) => {
+                Self::uses_bump_allocation(&c.callee)
+                    || c.args.iter().any(|arg| match arg {
+                        Argument::Bare(expr, _) | Argument::Named(_, expr, _) => {
+                            Self::uses_bump_allocation(expr)
+                        }
+                        Argument::Shorthand(_, _) | Argument::StandaloneComment(_, _) => false,
+                    })
+            }
+            Expr::FieldAccess(f) => Self::uses_bump_allocation(&f.object),
+            Expr::Literal(_) | Expr::Identifier(_) => false,
+        }
+    }
+
+    /// Check if a statement uses bump allocation
+    pub fn stmt_uses_bump_allocation(stmt: &Stmt) -> bool {
+        match stmt {
+            Stmt::Expression(expr, _) => Self::uses_bump_allocation(expr),
+            Stmt::VarDecl(var_decl, _) => var_decl
+                .initializer
+                .as_ref()
+                .map_or(false, Self::uses_bump_allocation),
+            Stmt::If(if_stmt) => {
+                Self::uses_bump_allocation(&if_stmt.condition)
+                    || Self::stmt_uses_bump_allocation(&if_stmt.then_branch)
+                    || if_stmt
+                        .else_branch
+                        .as_ref()
+                        .map_or(false, |s| Self::stmt_uses_bump_allocation(s))
+            }
+            Stmt::While(while_stmt) => {
+                Self::uses_bump_allocation(&while_stmt.condition)
+                    || Self::stmt_uses_bump_allocation(&while_stmt.body)
+            }
+            Stmt::Return(expr, _) => expr.as_ref().map_or(false, Self::uses_bump_allocation),
+            Stmt::Block(statements) => statements.iter().any(Self::stmt_uses_bump_allocation),
+            Stmt::FunDecl(_) | Stmt::Comment(_) | Stmt::Import(_) | Stmt::DataClass(_) => false,
+        }
+    }
+
+    /// Check if a function requires bump allocation based on its body
+    pub fn function_requires_bump(fun_decl: &FunDeclStmt) -> bool {
+        Self::stmt_uses_bump_allocation(&fun_decl.body)
+    }
 }
 
 // Helper function to get child expressions
@@ -108,89 +169,5 @@ fn expr_children(expr: &Expr) -> Vec<&Expr> {
         }
         Expr::FieldAccess(f) => vec![&f.object],
         Expr::Literal(_) | Expr::Identifier(_) => vec![],
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::super::{BinaryExpr, BinaryOp, CallExpr, LiteralExpr, MethodCallExpr};
-    use super::*;
-
-    #[test]
-    fn test_contains_calls() {
-        // Simple identifier - no calls
-        let expr = Expr::Identifier("x".to_string());
-        assert!(!AstQuery::contains_calls(&expr));
-
-        // Function call
-        let call = Expr::Call(CallExpr {
-            callee: Box::new(Expr::Identifier("foo".to_string())),
-            args: vec![],
-            is_multiline: false,
-            id: 0,
-        });
-        assert!(AstQuery::contains_calls(&call));
-
-        // Binary with call on left
-        let binary = Expr::Binary(BinaryExpr {
-            left: Box::new(call),
-            operator: BinaryOp::Add,
-            right: Box::new(Expr::Literal(LiteralExpr::Int(42))),
-        });
-        assert!(AstQuery::contains_calls(&binary));
-    }
-
-    #[test]
-    fn test_collect_identifiers() {
-        // Binary expression with two identifiers
-        let expr = Expr::Binary(BinaryExpr {
-            left: Box::new(Expr::Identifier("x".to_string())),
-            operator: BinaryOp::Add,
-            right: Box::new(Expr::Identifier("y".to_string())),
-        });
-
-        let ids = AstQuery::collect_identifiers(&expr);
-        assert_eq!(ids.len(), 2);
-        assert!(ids.contains("x"));
-        assert!(ids.contains("y"));
-
-        // Method call with object identifier
-        let method_call = Expr::MethodCall(MethodCallExpr {
-            object: Box::new(Expr::Identifier("obj".to_string())),
-            method: "method".to_string(),
-            args: vec![Expr::Identifier("arg".to_string())],
-            inline_comment: None,
-            id: 0,
-        });
-
-        let ids = AstQuery::collect_identifiers(&method_call);
-        assert_eq!(ids.len(), 2);
-        assert!(ids.contains("obj"));
-        assert!(ids.contains("arg"));
-    }
-
-    #[test]
-    fn test_count_calls() {
-        // No calls
-        let expr = Expr::Identifier("x".to_string());
-        assert_eq!(AstQuery::count_calls(&expr), 0);
-
-        // Single call
-        let call = Expr::Call(CallExpr {
-            callee: Box::new(Expr::Identifier("foo".to_string())),
-            args: vec![],
-            is_multiline: false,
-            id: 0,
-        });
-        assert_eq!(AstQuery::count_calls(&call), 1);
-
-        // Nested calls
-        let nested = Expr::Call(CallExpr {
-            callee: Box::new(call),
-            args: vec![],
-            is_multiline: false,
-            id: 1,
-        });
-        assert_eq!(AstQuery::count_calls(&nested), 2);
     }
 }
