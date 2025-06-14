@@ -1,3 +1,9 @@
+//! Lexical analysis for the Veltrano language
+//!
+//! This module implements the lexer (tokenizer) that converts raw Veltrano source
+//! code into a stream of tokens for the parser. It handles all token types including
+//! keywords, identifiers, literals, operators, and comments.
+
 use crate::config::Config;
 
 #[derive(Debug, Clone, PartialEq)]

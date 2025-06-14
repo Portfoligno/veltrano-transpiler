@@ -1,3 +1,9 @@
+//! Abstract Syntax Tree (AST) type definitions for Veltrano
+//!
+//! This module contains all the AST node types used by the Veltrano transpiler,
+//! including expressions, statements, and the program structure. It also provides
+//! extension traits for AST traversal and analysis.
+
 use crate::types::VeltranoType;
 
 #[derive(Debug, Clone)]

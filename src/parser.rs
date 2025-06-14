@@ -1,3 +1,9 @@
+//! Parser for the Veltrano language
+//!
+//! This module implements a recursive descent parser that converts a stream of tokens
+//! into an Abstract Syntax Tree (AST). It handles all language constructs including
+//! expressions, statements, function declarations, and data classes.
+
 use crate::ast::*;
 use crate::lexer::{Token, TokenType};
 use crate::types::VeltranoType;
