@@ -2,6 +2,7 @@ pub mod ast;
 pub mod ast_types;
 pub mod builtins;
 pub mod codegen;
+pub mod comments;
 pub mod config;
 pub mod debug;
 pub mod lexer;
