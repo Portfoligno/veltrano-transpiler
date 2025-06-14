@@ -14,6 +14,13 @@ use super::types::{substitute_generic_type, TypeValidator};
 use super::VeltranoTypeChecker;
 
 impl VeltranoTypeChecker {
+    /// Helper to filter out standalone comment arguments
+    fn filter_non_comment_args(args: &[Argument]) -> Vec<&Argument> {
+        args.iter()
+            .filter(|arg| !matches!(arg, Argument::StandaloneComment(_, _)))
+            .collect()
+    }
+
     /// Check expression with an optional expected type for inference
     pub(super) fn check_expression_with_expected_type(
         &mut self,
@@ -190,11 +197,8 @@ impl VeltranoTypeChecker {
             // Check user-defined functions first (highest priority)
             if let Some(func_sig) = self.env.lookup_function(func_name).cloned() {
                 // Check argument count (excluding standalone comments)
-                let actual_arg_count = call
-                    .args
-                    .iter()
-                    .filter(|arg| !matches!(arg, Argument::StandaloneComment(_, _)))
-                    .count();
+                let non_comment_args = Self::filter_non_comment_args(&call.args);
+                let actual_arg_count = non_comment_args.len();
 
                 if actual_arg_count != func_sig.parameters.len() {
                     return Err(TypeCheckError::ArgumentCountMismatch {
@@ -222,12 +226,7 @@ impl VeltranoTypeChecker {
                 }
 
                 // Type check arguments
-                for (i, arg) in call
-                    .args
-                    .iter()
-                    .filter(|arg| !matches!(arg, Argument::StandaloneComment(_, _)))
-                    .enumerate()
-                {
+                for (i, arg) in non_comment_args.iter().enumerate() {
                     let arg_expr = match arg {
                         Argument::Bare(expr, _) => expr,
                         Argument::Named(name, _, _) => {
@@ -320,11 +319,8 @@ impl VeltranoTypeChecker {
         call: &CallExpr,
     ) -> Result<VeltranoType, TypeCheckError> {
         // For now, we only support single-parameter generic functions
-        let actual_arg_count = call
-            .args
-            .iter()
-            .filter(|arg| !matches!(arg, Argument::StandaloneComment(_, _)))
-            .count();
+        let non_comment_args = Self::filter_non_comment_args(&call.args);
+        let actual_arg_count = non_comment_args.len();
 
         if actual_arg_count != 1 || func_sig.parameters.len() != 1 {
             return Err(TypeCheckError::ArgumentCountMismatch {
@@ -341,11 +337,7 @@ impl VeltranoTypeChecker {
         }
 
         // Check the argument type (skip standalone comments)
-        let first_non_comment_arg = call
-            .args
-            .iter()
-            .find(|arg| !matches!(arg, Argument::StandaloneComment(_, _)))
-            .unwrap(); // Safe because we already checked count
+        let first_non_comment_arg = non_comment_args[0]; // Safe because we already checked count
 
         let arg_type = match first_non_comment_arg {
             Argument::Bare(expr, _) => self.check_expression(expr)?,
@@ -397,11 +389,7 @@ impl VeltranoTypeChecker {
         call: &CallExpr,
     ) -> Result<VeltranoType, TypeCheckError> {
         // Filter out comments to get actual arguments
-        let actual_args: Vec<&Argument> = call
-            .args
-            .iter()
-            .filter(|arg| !matches!(arg, Argument::StandaloneComment(_, _)))
-            .collect();
+        let actual_args = Self::filter_non_comment_args(&call.args);
 
         // Check argument count
         if actual_args.len() != data_class.fields.len() {

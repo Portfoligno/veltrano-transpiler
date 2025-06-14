@@ -4,6 +4,7 @@
 //! including variable declarations, function declarations, control flow,
 //! and data class declarations.
 
+use crate::ast::query::AstQuery;
 use crate::ast::*;
 use crate::types::{
     DataClassDefinition, DataClassFieldSignature, FunctionSignature, SourceLocation, VeltranoType,
@@ -148,36 +149,15 @@ impl VeltranoTypeChecker {
         &mut self,
         stmt: &Stmt,
     ) -> Result<(), TypeCheckError> {
-        match stmt {
-            Stmt::FunDecl(fun_decl) => {
-                // Collect this function's signature
-                self.collect_function_signature(fun_decl)?;
-                // Also collect any nested function signatures from the body
-                self.collect_function_signatures_from_statement(&fun_decl.body)
-            }
-            Stmt::Block(statements) => {
-                // Recursively collect from all statements in the block
-                for statement in statements {
-                    self.collect_function_signatures_from_statement(statement)?;
-                }
-                Ok(())
-            }
-            Stmt::If(if_stmt) => {
-                // Check then branch
-                self.collect_function_signatures_from_statement(&if_stmt.then_branch)?;
-                // Check else branch if it exists
-                if let Some(else_branch) = &if_stmt.else_branch {
-                    self.collect_function_signatures_from_statement(else_branch)?;
-                }
-                Ok(())
-            }
-            Stmt::While(while_stmt) => {
-                // Check body
-                self.collect_function_signatures_from_statement(&while_stmt.body)
-            }
-            // Other statement types don't contain function declarations
-            _ => Ok(()),
+        // Use the query infrastructure to find all function declarations
+        let function_decls = AstQuery::find_function_decls(stmt);
+
+        // Collect signatures for all found functions
+        for fun_decl in function_decls {
+            self.collect_function_signature(fun_decl)?;
         }
+
+        Ok(())
     }
 
     /// Collect function signature in the first pass (doesn't check body)
@@ -235,6 +215,10 @@ impl VeltranoTypeChecker {
                 .declare_variable(param.name.clone(), param.param_type.clone());
         }
 
+        // First collect any nested function signatures within the body
+        self.collect_function_signatures_from_statement(&fun_decl.body)?;
+
+        // Then check the body
         self.check_statement(&fun_decl.body)?;
 
         self.env.exit_scope();

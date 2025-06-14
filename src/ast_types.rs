@@ -127,7 +127,32 @@ impl FunDeclStmt {
         &self,
         functions_with_bump: &std::collections::HashSet<String>,
     ) -> bool {
-        self.name != "main" && bump_usage_analyzer::stmt_uses_bump(&self.body, functions_with_bump)
+        use crate::ast::query::AstQuery;
+
+        if self.name == "main" {
+            return false;
+        }
+
+        // Check if the function body uses bump allocation
+        if AstQuery::stmt_uses_bump_allocation(&self.body) {
+            return true;
+        }
+
+        // Check if we call any functions that use bump
+        let mut uses_bump = false;
+        let _ = self.body.walk_expressions(&mut |expr| {
+            if let Expr::Call(call) = expr {
+                if let Expr::Identifier(name) = call.callee.as_ref() {
+                    if functions_with_bump.contains(name) {
+                        uses_bump = true;
+                        return Err(()); // Early exit
+                    }
+                }
+            }
+            Ok::<(), ()>(())
+        });
+
+        uses_bump
     }
 
     /// Analyzes if this function needs lifetime parameters (for bump allocation or reference handling)
@@ -206,85 +231,6 @@ impl FunDeclStmt {
             | TypeConstructor::Nothing => false,
             // For other constructors, conservatively assume they might need lifetimes
             _ => type_.args.iter().any(|arg| self.type_needs_lifetime(arg)),
-        }
-    }
-}
-
-mod bump_usage_analyzer {
-    use super::*;
-    use std::collections::HashSet;
-
-    pub fn stmt_uses_bump(stmt: &Stmt, functions_with_bump: &HashSet<String>) -> bool {
-        match stmt {
-            Stmt::Expression(expr, _) => expr_uses_bump(expr, functions_with_bump),
-            Stmt::VarDecl(var_decl, _) => {
-                if let Some(initializer) = &var_decl.initializer {
-                    expr_uses_bump(initializer, functions_with_bump)
-                } else {
-                    false
-                }
-            }
-            Stmt::FunDecl(_) => false, // Nested function declarations don't affect bump usage
-            Stmt::If(if_stmt) => {
-                expr_uses_bump(&if_stmt.condition, functions_with_bump)
-                    || stmt_uses_bump(&if_stmt.then_branch, functions_with_bump)
-                    || if_stmt.else_branch.as_ref().map_or(false, |else_branch| {
-                        stmt_uses_bump(else_branch, functions_with_bump)
-                    })
-            }
-            Stmt::While(while_stmt) => {
-                expr_uses_bump(&while_stmt.condition, functions_with_bump)
-                    || stmt_uses_bump(&while_stmt.body, functions_with_bump)
-            }
-            Stmt::Return(expr_opt, _) => expr_opt
-                .as_ref()
-                .map_or(false, |expr| expr_uses_bump(expr, functions_with_bump)),
-            Stmt::Block(statements) => statements
-                .iter()
-                .any(|stmt| stmt_uses_bump(stmt, functions_with_bump)),
-            Stmt::Comment(_) | Stmt::Import(_) | Stmt::DataClass(_) => false,
-        }
-    }
-
-    pub fn expr_uses_bump(expr: &Expr, functions_with_bump: &HashSet<String>) -> bool {
-        match expr {
-            Expr::Literal(_) | Expr::Identifier(_) => false,
-            Expr::Unary(unary) => expr_uses_bump(&unary.operand, functions_with_bump),
-            Expr::Binary(binary) => {
-                expr_uses_bump(&binary.left, functions_with_bump)
-                    || expr_uses_bump(&binary.right, functions_with_bump)
-            }
-            Expr::Call(call) => {
-                // Check if calling a function that uses bump
-                if let Expr::Identifier(name) = call.callee.as_ref() {
-                    if functions_with_bump.contains(name) {
-                        return true;
-                    }
-                }
-                // Check arguments
-                expr_uses_bump(&call.callee, functions_with_bump)
-                    || call.args.iter().any(|arg| match arg {
-                        Argument::Bare(expr, _) => expr_uses_bump(expr, functions_with_bump),
-                        Argument::Named(_, expr, _) => expr_uses_bump(expr, functions_with_bump),
-                        Argument::Shorthand(_, _) => false, // Shorthand is just an identifier, doesn't use bump allocation
-                        Argument::StandaloneComment(_, _) => false, // Comments don't use bump allocation
-                    })
-            }
-            Expr::MethodCall(method_call) => {
-                // Check for .bumpRef() method calls
-                if method_call.method == "bumpRef" {
-                    return true;
-                }
-                // Check object and arguments
-                expr_uses_bump(&method_call.object, functions_with_bump)
-                    || method_call
-                        .args
-                        .iter()
-                        .any(|expr| expr_uses_bump(expr, functions_with_bump))
-            }
-            Expr::FieldAccess(field_access) => {
-                expr_uses_bump(&field_access.object, functions_with_bump)
-            }
         }
     }
 }
