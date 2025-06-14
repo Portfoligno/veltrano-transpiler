@@ -27,6 +27,7 @@ pub use registry::RustInteropRegistry;
 pub use types::{RustType, SelfKind};
 pub use utils::camel_to_snake_case;
 
+use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 
 /// Represents an external Rust item (function, method, or type)
@@ -164,7 +165,8 @@ impl RustTypeParser {
             "String" => Ok(RustType::String),
             _ => {
                 // Assume it's a custom type or generic parameter
-                if trimmed.len() == 1 && trimmed.chars().next().map_or(false, |c| c.is_uppercase()) {
+                if trimmed.len() == 1 && trimmed.chars().next().map_or(false, |c| c.is_uppercase())
+                {
                     Ok(RustType::Generic(trimmed.to_string()))
                 } else {
                     Ok(RustType::Custom {
@@ -212,15 +214,17 @@ pub trait RustQuerier: std::fmt::Debug {
 /// This will be replaced with proper rustdoc parsing in the future
 #[derive(Debug)]
 pub struct StdLibQuerier {
-    cache: Option<CrateInfo>,
+    cache: OnceCell<CrateInfo>,
 }
 
 impl StdLibQuerier {
     pub fn new() -> Self {
-        Self { cache: None }
+        Self {
+            cache: OnceCell::new(),
+        }
     }
 
-    fn create_std_crate_info(&self) -> CrateInfo {
+    fn create_std_crate_info() -> CrateInfo {
         let mut crate_info = CrateInfo {
             name: "std".to_string(),
             version: "1.0.0".to_string(),
@@ -498,10 +502,9 @@ impl StdLibQuerier {
 impl RustQuerier for StdLibQuerier {
     fn query_crate(&mut self, crate_name: &str) -> Result<CrateInfo, RustInteropError> {
         if crate_name == "std" {
-            if self.cache.is_none() {
-                self.cache = Some(self.create_std_crate_info());
-            }
-            Ok(self.cache.as_ref().unwrap().clone())
+            // OnceCell ensures initialization happens only once
+            let crate_info = self.cache.get_or_init(Self::create_std_crate_info);
+            Ok(crate_info.clone())
         } else {
             Err(RustInteropError::CrateNotFound(crate_name.to_string()))
         }
