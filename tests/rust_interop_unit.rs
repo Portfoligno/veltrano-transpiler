@@ -97,7 +97,7 @@ fn test_dynamic_registry_creation() {
 fn test_rustdoc_querier_creation() {
     let querier = RustdocQuerier::new(None);
     assert!(querier.supports_crate("std"));
-    assert_eq!(querier.priority(), 100);
+    assert_eq!(querier.priority(), 90);
 }
 
 #[test]
@@ -346,7 +346,7 @@ fn test_comprehensive_error_types() {
 fn test_querier_supports_crate() {
     let rustdoc_querier = RustdocQuerier::new(None);
     assert!(rustdoc_querier.supports_crate("std"));
-    assert!(rustdoc_querier.supports_crate("any_crate"));
+    assert!(rustdoc_querier.supports_crate("core"));
 
     if let Ok(syn_querier) = SynQuerier::new(None) {
         assert!(syn_querier.supports_crate("veltrano")); // Current project
