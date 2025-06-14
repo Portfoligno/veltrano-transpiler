@@ -153,8 +153,7 @@ fn test_error_analyzer_suggestions() {
         },
     };
 
-    let analyzer = ErrorAnalyzer;
-    let enhanced = analyzer.enhance_error(error);
+    let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
         TypeCheckError::TypeMismatchWithSuggestion { suggestion, .. } => {

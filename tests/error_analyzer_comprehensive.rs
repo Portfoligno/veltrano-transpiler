@@ -17,8 +17,7 @@ fn test_owned_to_borrowed_suggestion() {
         },
     };
 
-    let analyzer = ErrorAnalyzer;
-    let enhanced = analyzer.enhance_error(error);
+    let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
         TypeCheckError::TypeMismatchWithSuggestion { suggestion, .. } => {
@@ -43,8 +42,7 @@ fn test_owned_string_to_str_suggestion() {
         },
     };
 
-    let analyzer = ErrorAnalyzer;
-    let enhanced = analyzer.enhance_error(error);
+    let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
         TypeCheckError::TypeMismatch { .. } => {
@@ -69,8 +67,7 @@ fn test_borrowed_string_to_str_suggestion() {
         },
     };
 
-    let analyzer = ErrorAnalyzer;
-    let enhanced = analyzer.enhance_error(error);
+    let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
         TypeCheckError::TypeMismatch { .. } => {
@@ -93,8 +90,7 @@ fn test_mutref_to_borrowed_suggestion() {
         },
     };
 
-    let analyzer = ErrorAnalyzer;
-    let enhanced = analyzer.enhance_error(error);
+    let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
         TypeCheckError::TypeMismatchWithSuggestion { suggestion, .. } => {
@@ -119,8 +115,7 @@ fn test_vec_to_slice_suggestion() {
         },
     };
 
-    let analyzer = ErrorAnalyzer;
-    let enhanced = analyzer.enhance_error(error);
+    let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
         TypeCheckError::TypeMismatchWithSuggestion { suggestion, .. } => {
@@ -145,8 +140,7 @@ fn test_array_to_slice_suggestion() {
         },
     };
 
-    let analyzer = ErrorAnalyzer;
-    let enhanced = analyzer.enhance_error(error);
+    let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
         TypeCheckError::TypeMismatchWithSuggestion { suggestion, .. } => {
@@ -171,8 +165,7 @@ fn test_owned_array_to_slice_suggestion() {
         },
     };
 
-    let analyzer = ErrorAnalyzer;
-    let enhanced = analyzer.enhance_error(error);
+    let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
         TypeCheckError::TypeMismatchWithSuggestion { suggestion, .. } => {
@@ -197,8 +190,7 @@ fn test_method_not_found_suggestion() {
         },
     };
 
-    let analyzer = ErrorAnalyzer;
-    let enhanced = analyzer.enhance_error(error);
+    let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
         TypeCheckError::MethodNotFoundWithSuggestion { suggestion, .. } => {
@@ -223,8 +215,7 @@ fn test_field_not_found_suggestion() {
         },
     };
 
-    let analyzer = ErrorAnalyzer;
-    let enhanced = analyzer.enhance_error(error);
+    let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     // ErrorAnalyzer doesn't have access to data class definitions,
     // so it can't provide suggestions for field access.
@@ -250,8 +241,7 @@ fn test_no_suggestion_for_unrelated_types() {
         },
     };
 
-    let analyzer = ErrorAnalyzer;
-    let enhanced = analyzer.enhance_error(error);
+    let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
         TypeCheckError::TypeMismatch { .. } => {

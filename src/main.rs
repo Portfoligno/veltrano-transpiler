@@ -17,7 +17,7 @@ use codegen::CodeGenerator;
 use config::Config;
 use lexer::Lexer;
 use parser::Parser;
-use type_checker::{ErrorAnalyzer, TypeCheckError, VeltranoTypeChecker};
+use type_checker::{TypeCheckError, VeltranoTypeChecker};
 
 fn format_type_error(error: &TypeCheckError) -> String {
     match error {
@@ -287,9 +287,8 @@ fn main() {
     if let Err(errors) = type_checker.check_program(&program) {
         eprintln!("Type checking failed with {} error(s):", errors.len());
 
-        let analyzer = ErrorAnalyzer;
         for error in errors {
-            let enhanced_error = analyzer.enhance_error(error);
+            let enhanced_error = type_checker::error::ErrorAnalyzer::enhance_error(error);
             eprintln!("  {}", format_type_error(&enhanced_error));
         }
         process::exit(1);
