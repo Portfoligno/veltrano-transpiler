@@ -1,4 +1,5 @@
 pub mod error;
+mod types;
 
 use crate::ast::*;
 use crate::builtins::BuiltinRegistry;
@@ -6,6 +7,7 @@ use crate::rust_interop::RustInteropRegistry;
 use crate::types::*;
 
 pub use error::{MethodResolution, TypeCheckError};
+use types::{substitute_generic_type, TypeValidator};
 
 /// Represents an imported method, which can come from either a type or a trait
 #[derive(Debug, Clone)]
@@ -29,36 +31,6 @@ pub struct VeltranoTypeChecker {
     builtin_registry: BuiltinRegistry,
     imports: std::collections::HashMap<String, Vec<ImportedMethod>>, // method_name/alias -> Vec<ImportedMethod>
     method_resolutions: std::collections::HashMap<usize, MethodResolution>, // Maps method call IDs to their resolutions
-}
-
-/// Helper functions for trait checking on VeltranoType
-impl VeltranoType {
-    /// Validate if Own<T> type constructor is valid with the given inner type
-    pub fn validate_own_constructor(
-        inner: &VeltranoType,
-        trait_checker: &mut RustInteropRegistry,
-    ) -> Result<(), String> {
-        // Check if the inner type implements Copy (is naturally owned)
-        let is_copy = inner.implements_copy(trait_checker);
-
-        if is_copy {
-            return Err(format!(
-                "Cannot use Own<{:?}>. Types that implement Copy are always owned by default and don't need the Own<> wrapper.",
-                inner.constructor
-            ));
-        }
-
-        // Check for specific invalid combinations
-        match &inner.constructor {
-            TypeConstructor::MutRef => {
-                Err("Cannot use Own<MutRef<T>>. MutRef<T> is already owned.".to_string())
-            }
-            TypeConstructor::Own => {
-                Err("Cannot use Own<Own<T>>. This creates double ownership.".to_string())
-            }
-            _ => Ok(()),
-        }
-    }
 }
 
 impl VeltranoTypeChecker {
@@ -266,47 +238,7 @@ impl VeltranoTypeChecker {
 
     /// Validate a type recursively, checking for invalid type constructor usage
     fn validate_type(&mut self, veltrano_type: &VeltranoType) -> Result<(), TypeCheckError> {
-        match &veltrano_type.constructor {
-            TypeConstructor::Own => {
-                // Validate Own<T> type constructor
-                if let Some(inner) = veltrano_type.inner() {
-                    // First validate the inner type recursively
-                    self.validate_type(inner)?;
-
-                    // Then validate the Own<T> constraint
-                    if let Err(err_msg) =
-                        VeltranoType::validate_own_constructor(inner, &mut self.trait_checker)
-                    {
-                        return Err(TypeCheckError::InvalidTypeConstructor {
-                            message: err_msg,
-                            location: SourceLocation {
-                                file: "unknown".to_string(),
-                                line: 0,
-                                _column: 0,
-                                _source_line: "".to_string(),
-                            },
-                        });
-                    }
-                } else {
-                    return Err(TypeCheckError::InvalidTypeConstructor {
-                        message: "Own<T> requires a type parameter".to_string(),
-                        location: SourceLocation {
-                            file: "unknown".to_string(),
-                            line: 0,
-                            _column: 0,
-                            _source_line: "".to_string(),
-                        },
-                    });
-                }
-            }
-            _ => {
-                // For other type constructors, recursively validate type arguments
-                for arg in &veltrano_type.args {
-                    self.validate_type(arg)?;
-                }
-            }
-        }
-        Ok(())
+        TypeValidator::validate_type(veltrano_type, &mut self.trait_checker)
     }
 
     /// Check variable declaration
@@ -1544,33 +1476,6 @@ impl VeltranoTypeChecker {
 
     /// Core type equality check - no implicit conversion logic
     fn types_equal(&self, a: &VeltranoType, b: &VeltranoType) -> bool {
-        a == b // Simple structural equality
-    }
-}
-
-/// Substitute a generic type parameter with a concrete type
-fn substitute_generic_type(
-    type_template: &VeltranoType,
-    param_name: &str,
-    concrete_type: &VeltranoType,
-) -> VeltranoType {
-    match &type_template.constructor {
-        TypeConstructor::Generic(name, _) if name == param_name => {
-            // Replace the generic parameter with the concrete type
-            concrete_type.clone()
-        }
-        _ => {
-            // Recursively substitute in type arguments
-            let substituted_args = type_template
-                .args
-                .iter()
-                .map(|arg| substitute_generic_type(arg, param_name, concrete_type))
-                .collect();
-
-            VeltranoType {
-                constructor: type_template.constructor.clone(),
-                args: substituted_args,
-            }
-        }
+        TypeValidator::types_equal(a, b)
     }
 }
