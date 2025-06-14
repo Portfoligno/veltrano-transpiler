@@ -7,6 +7,7 @@
 use crate::ast::query::AstQuery;
 use crate::ast::*;
 use crate::ast_types::StmtExt;
+use crate::comments::{Comment, CommentStyle};
 use crate::config::Config;
 use crate::rust_interop::camel_to_snake_case;
 use crate::rust_interop::RustInteropRegistry;
@@ -726,14 +727,17 @@ impl CodeGenerator {
                             // Following the pattern from generate_comment for regular statements:
                             // The loop already called indent() to add base indentation.
                             // Now add any extra whitespace preserved by the lexer.
-                            self.output.push_str(whitespace);
-                            if content.starts_with("/*") {
-                                // Block comment
-                                self.output.push_str(content);
-                            } else {
-                                // Line comment
-                                self.output.push_str("//");
-                                self.output.push_str(content);
+                            let comment = Comment::from_tuple((content.clone(), whitespace.clone()));
+                            self.output.push_str(&comment.whitespace);
+                            
+                            match comment.style {
+                                CommentStyle::Block => {
+                                    self.output.push_str(&comment.content);
+                                }
+                                CommentStyle::Line => {
+                                    self.output.push_str("//");
+                                    self.output.push_str(&comment.content);
+                                }
                             }
                         }
                         // Note: No comma or expression - this is just a comment line
@@ -1032,16 +1036,20 @@ impl CodeGenerator {
     fn generate_inline_comment(&mut self, inline_comment: &Option<(String, String)>) {
         if let Some((content, whitespace)) = inline_comment {
             if self.config.preserve_comments {
-                self.output.push_str(whitespace);
+                let comment = Comment::from_tuple((content.clone(), whitespace.clone()));
+                self.output.push_str(&comment.whitespace);
 
-                // Check if this is a block comment (starts with /*) or line comment
-                if content.starts_with("/*") {
-                    // Block comment - output as-is
-                    self.output.push_str(content);
-                } else {
-                    // Line comment - add // prefix
-                    self.output.push_str("//");
-                    self.output.push_str(content);
+                // Use Comment to determine style and format appropriately
+                match comment.style {
+                    CommentStyle::Block => {
+                        // Block comment - output as-is
+                        self.output.push_str(&comment.content);
+                    }
+                    CommentStyle::Line => {
+                        // Line comment - add // prefix
+                        self.output.push_str("//");
+                        self.output.push_str(&comment.content);
+                    }
                 }
             }
         }
@@ -1050,18 +1058,12 @@ impl CodeGenerator {
     fn generate_inline_comment_as_block(&mut self, inline_comment: &Option<(String, String)>) {
         if let Some((content, whitespace)) = inline_comment {
             if self.config.preserve_comments {
-                self.output.push_str(whitespace);
+                let comment = Comment::from_tuple((content.clone(), whitespace.clone()));
+                self.output.push_str(&comment.whitespace);
 
-                // Check if this is a block comment (starts with /*) or line comment
-                if content.starts_with("/*") {
-                    // Already a block comment - output as-is
-                    self.output.push_str(content);
-                } else {
-                    // Line comment - convert to block comment for better syntax compatibility
-                    self.output.push_str("/*");
-                    self.output.push_str(content);
-                    self.output.push_str("*/");
-                }
+                // Use Comment's to_block_style method to convert if needed
+                let block_comment = comment.to_block_style();
+                self.output.push_str(&block_comment.content);
             }
         }
     }

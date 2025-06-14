@@ -34,7 +34,6 @@ impl Comment {
     }
 
     /// Create from parser representation (content, whitespace) tuple
-    #[allow(dead_code)]
     pub fn from_tuple(tuple: (String, String)) -> Self {
         let (content, whitespace) = tuple;
         // Detect style from content
@@ -56,7 +55,6 @@ impl Comment {
     }
 
     /// Convert line comment to block style
-    #[allow(dead_code)]
     pub fn to_block_style(&self) -> Self {
         match self.style {
             CommentStyle::Block => self.clone(),
