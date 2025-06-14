@@ -332,3 +332,199 @@ pub struct DataClassField {
 pub struct Program {
     pub statements: Vec<Stmt>,
 }
+
+/// Extension trait for expression traversal
+pub trait ExprExt {
+    /// Walk the expression tree in pre-order, calling the visitor function on each node
+    fn walk<F, E>(&self, visitor: &mut F) -> Result<(), E>
+    where
+        F: FnMut(&Expr) -> Result<(), E>;
+
+    /// Walk the expression tree in post-order (children first, then parent)
+    fn walk_post<F, E>(&self, visitor: &mut F) -> Result<(), E>
+    where
+        F: FnMut(&Expr) -> Result<(), E>;
+
+    /// Find all sub-expressions matching a predicate
+    fn find_subexpressions<F>(&self, predicate: F) -> Vec<&Expr>
+    where
+        F: Fn(&Expr) -> bool;
+
+    /// Check if any sub-expression matches a predicate
+    fn any_subexpr<F>(&self, predicate: F) -> bool
+    where
+        F: Fn(&Expr) -> bool;
+
+    /// Check if all sub-expressions match a predicate
+    fn all_subexprs<F>(&self, predicate: F) -> bool
+    where
+        F: Fn(&Expr) -> bool;
+}
+
+impl ExprExt for Expr {
+    fn walk<F, E>(&self, visitor: &mut F) -> Result<(), E>
+    where
+        F: FnMut(&Expr) -> Result<(), E>,
+    {
+        // Visit this node first (pre-order)
+        visitor(self)?;
+
+        // Then visit children
+        match self {
+            Expr::Binary(binary) => {
+                binary.left.walk(visitor)?;
+                binary.right.walk(visitor)?;
+            }
+            Expr::Unary(unary) => {
+                unary.operand.walk(visitor)?;
+            }
+            Expr::Call(call) => {
+                call.callee.walk(visitor)?;
+                for arg in &call.args {
+                    match arg {
+                        Argument::Bare(expr, _) | Argument::Named(_, expr, _) => {
+                            expr.walk(visitor)?;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Expr::MethodCall(method_call) => {
+                method_call.object.walk(visitor)?;
+                for arg in &method_call.args {
+                    arg.walk(visitor)?;
+                }
+            }
+            Expr::FieldAccess(field_access) => {
+                field_access.object.walk(visitor)?;
+            }
+            Expr::Literal(_) | Expr::Identifier(_) => {
+                // Leaf nodes - no children to visit
+            }
+        }
+        Ok(())
+    }
+
+    fn walk_post<F, E>(&self, visitor: &mut F) -> Result<(), E>
+    where
+        F: FnMut(&Expr) -> Result<(), E>,
+    {
+        // Visit children first (post-order)
+        match self {
+            Expr::Binary(binary) => {
+                binary.left.walk_post(visitor)?;
+                binary.right.walk_post(visitor)?;
+            }
+            Expr::Unary(unary) => {
+                unary.operand.walk_post(visitor)?;
+            }
+            Expr::Call(call) => {
+                call.callee.walk_post(visitor)?;
+                for arg in &call.args {
+                    match arg {
+                        Argument::Bare(expr, _) | Argument::Named(_, expr, _) => {
+                            expr.walk_post(visitor)?;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Expr::MethodCall(method_call) => {
+                method_call.object.walk_post(visitor)?;
+                for arg in &method_call.args {
+                    arg.walk_post(visitor)?;
+                }
+            }
+            Expr::FieldAccess(field_access) => {
+                field_access.object.walk_post(visitor)?;
+            }
+            Expr::Literal(_) | Expr::Identifier(_) => {
+                // Leaf nodes - no children to visit
+            }
+        }
+
+        // Then visit this node
+        visitor(self)
+    }
+
+    fn find_subexpressions<F>(&self, predicate: F) -> Vec<&Expr>
+    where
+        F: Fn(&Expr) -> bool,
+    {
+        fn collect<'a, F>(expr: &'a Expr, predicate: &F, results: &mut Vec<&'a Expr>)
+        where
+            F: Fn(&Expr) -> bool,
+        {
+            if predicate(expr) {
+                results.push(expr);
+            }
+
+            match expr {
+                Expr::Binary(binary) => {
+                    collect(&binary.left, predicate, results);
+                    collect(&binary.right, predicate, results);
+                }
+                Expr::Unary(unary) => {
+                    collect(&unary.operand, predicate, results);
+                }
+                Expr::Call(call) => {
+                    collect(&call.callee, predicate, results);
+                    for arg in &call.args {
+                        match arg {
+                            Argument::Bare(e, _) | Argument::Named(_, e, _) => {
+                                collect(e, predicate, results);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                Expr::MethodCall(method_call) => {
+                    collect(&method_call.object, predicate, results);
+                    for arg in &method_call.args {
+                        collect(arg, predicate, results);
+                    }
+                }
+                Expr::FieldAccess(field_access) => {
+                    collect(&field_access.object, predicate, results);
+                }
+                Expr::Literal(_) | Expr::Identifier(_) => {}
+            }
+        }
+
+        let mut results = Vec::new();
+        collect(self, &predicate, &mut results);
+        results
+    }
+
+    fn any_subexpr<F>(&self, predicate: F) -> bool
+    where
+        F: Fn(&Expr) -> bool,
+    {
+        let mut found = false;
+        let _ = self.walk(&mut |expr| {
+            if predicate(expr) {
+                found = true;
+                Err(()) // Early exit
+            } else {
+                Ok(())
+            }
+        });
+        found
+    }
+
+    fn all_subexprs<F>(&self, predicate: F) -> bool
+    where
+        F: Fn(&Expr) -> bool,
+    {
+        let mut all_match = true;
+        let _ = self.walk(&mut |expr| {
+            if !predicate(expr) {
+                all_match = false;
+                Err(()) // Early exit
+            } else {
+                Ok(())
+            }
+        });
+        all_match
+    }
+}
