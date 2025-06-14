@@ -9,6 +9,7 @@ mod cache;
 mod compiler;
 mod registry;
 mod types;
+mod utils;
 
 pub use cache::{
     CrateInfo, GenericParam, MethodInfo, Parameter, RustTypeSignature, TraitInfo, TypeInfo,
@@ -19,29 +20,9 @@ pub use cache::{
 pub use compiler::{RustdocQuerier, SynQuerier};
 pub use registry::{DynamicRustRegistry, RustInteropRegistry};
 pub use types::{RustType, SelfKind};
+pub use utils::camel_to_snake_case;
 
 use std::collections::{HashMap, HashSet};
-
-/// Convert camelCase to snake_case for Rust naming conventions
-pub fn camel_to_snake_case(name: &str) -> String {
-    let mut result = String::new();
-
-    for ch in name.chars() {
-        if ch == '_' {
-            // Underscore becomes double underscore
-            result.push_str("__");
-        } else if ch.is_uppercase() {
-            // Uppercase becomes underscore + lowercase
-            result.push('_');
-            result.push(ch.to_lowercase().next().unwrap_or(ch));
-        } else {
-            // Lowercase stays as is
-            result.push(ch);
-        }
-    }
-
-    result
-}
 
 /// Represents an external Rust item (function, method, or type)
 #[derive(Debug, Clone)]

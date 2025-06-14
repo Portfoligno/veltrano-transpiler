@@ -328,7 +328,7 @@ impl RustInteropRegistry {
         method_name: &str,
     ) -> Result<Option<ImportedMethodInfo>, super::RustInteropError> {
         // Convert Veltrano method name (camelCase) to Rust method name (snake_case)
-        let rust_method_name = super::camel_to_snake_case(method_name);
+        let rust_method_name = super::utils::camel_to_snake_case(method_name);
         crate::debug_println!("DEBUG: query_dynamic_method_signature - type_path: {}, method_name: {} -> rust_method_name: {}", type_path, method_name, rust_method_name);
 
         // Parse the type_path to determine which crate it comes from
