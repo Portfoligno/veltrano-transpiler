@@ -17,8 +17,13 @@ pub use cache::{
 };
 /// Exposed for testing only. Not part of the stable public API.
 #[doc(hidden)]
+#[allow(unused_imports)]
 pub use compiler::{RustdocQuerier, SynQuerier};
-pub use registry::{DynamicRustRegistry, RustInteropRegistry};
+/// Exposed for testing only. Not part of the stable public API.
+#[doc(hidden)]
+#[allow(unused_imports)]
+pub use registry::DynamicRustRegistry;
+pub use registry::RustInteropRegistry;
 pub use types::{RustType, SelfKind};
 pub use utils::camel_to_snake_case;
 

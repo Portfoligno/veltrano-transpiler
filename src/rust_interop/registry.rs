@@ -167,16 +167,19 @@ impl RustInteropRegistry {
         self.items.insert(key, item);
     }
 
+    #[allow(dead_code)]
     pub fn lookup_function(&self, name: &str) -> Option<&ExternItem> {
         self.items.get(name)
     }
 
+    #[allow(dead_code)]
     pub fn lookup_method(&self, type_name: &str, method_name: &str) -> Option<&ExternItem> {
         let key = format!("{}::{}", type_name, method_name);
         self.items.get(&key)
     }
 
     /// Query for type information dynamically
+    #[allow(dead_code)]
     pub fn query_type(&mut self, type_path: &str) -> Option<TypeInfo> {
         match self.dynamic_registry.get_type(type_path) {
             Ok(type_info) => type_info,
@@ -185,6 +188,7 @@ impl RustInteropRegistry {
     }
 
     /// Query for imported method information
+    #[allow(dead_code)]
     pub fn query_imported_method(&mut self, method_path: &str) -> Option<ImportedMethodInfo> {
         // Parse method path like "std::vec::Vec::push"
         let parts: Vec<&str> = method_path.split("::").collect();

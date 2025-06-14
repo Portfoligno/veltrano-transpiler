@@ -109,35 +109,3 @@ pub struct RustTypeSignature {
     pub lifetimes: Vec<String>,                 // ["'a"]
     pub bounds: Vec<String>,                    // Trait bounds like "T: Clone"
 }
-
-/// Simple cache implementation for crate information
-#[derive(Debug)]
-pub struct CrateInfoCache {
-    cache: HashMap<String, CrateInfo>,
-}
-
-impl CrateInfoCache {
-    pub fn new() -> Self {
-        Self {
-            cache: HashMap::new(),
-        }
-    }
-
-    pub fn get(&self, crate_name: &str) -> Option<&CrateInfo> {
-        self.cache.get(crate_name)
-    }
-
-    pub fn insert(&mut self, crate_name: String, info: CrateInfo) {
-        self.cache.insert(crate_name, info);
-    }
-
-    pub fn contains(&self, crate_name: &str) -> bool {
-        self.cache.contains_key(crate_name)
-    }
-}
-
-impl Default for CrateInfoCache {
-    fn default() -> Self {
-        Self::new()
-    }
-}

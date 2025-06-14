@@ -8,7 +8,7 @@ use veltrano::rust_interop::*;
 #[ignore] // Requires access to actual Rust source files
 fn test_syn_querier_against_veltrano_crate() {
     // Test SynQuerier against the veltrano transpiler itself
-    if let Ok(mut querier) = SynQuerier::new(None) {
+    if let Ok(querier) = SynQuerier::new(None) {
         // Try to extract information from our own crate
         let result = querier.extract_from_source("veltrano");
 
@@ -51,7 +51,7 @@ fn test_syn_querier_against_veltrano_crate() {
 #[test]
 #[ignore] // Requires cargo and rustdoc to be available
 fn test_rustdoc_querier_against_real_crate() {
-    let mut querier = RustdocQuerier::new(None);
+    let querier = RustdocQuerier::new(None);
 
     // Try to extract documentation from a simple crate
     // Note: This test will only work if we can successfully run cargo doc

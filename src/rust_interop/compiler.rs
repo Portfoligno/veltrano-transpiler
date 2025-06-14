@@ -23,6 +23,7 @@ pub struct RustdocQuerier {
 impl RustdocQuerier {
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
+    #[allow(dead_code)]
     pub fn extract_crate_info(&self, crate_name: &str) -> Result<CrateInfo, RustInteropError> {
         let json_path = self.generate_rustdoc_json(crate_name)?;
         self.parse_rustdoc_json(&json_path)
@@ -197,20 +198,20 @@ pub struct SynQuerier {
 #[derive(Debug, Clone)]
 struct CargoMetadata {
     packages: Vec<PackageMetadata>,
-    workspace_root: PathBuf,
+    _workspace_root: PathBuf,
 }
 
 #[derive(Debug, Clone)]
 struct PackageMetadata {
     name: String,
     version: String,
-    manifest_path: PathBuf,
+    _manifest_path: PathBuf,
     targets: Vec<TargetMetadata>,
 }
 
 #[derive(Debug, Clone)]
 struct TargetMetadata {
-    name: String,
+    _name: String,
     kind: Vec<String>,
     src_path: PathBuf,
 }
@@ -218,6 +219,7 @@ struct TargetMetadata {
 impl SynQuerier {
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
+    #[allow(dead_code)]
     pub fn extract_from_source(&self, crate_name: &str) -> Result<CrateInfo, RustInteropError> {
         let crate_root = self
             .find_crate_root(crate_name)
@@ -228,30 +230,35 @@ impl SynQuerier {
 
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
+    #[allow(dead_code)]
     pub fn parse_function(&self, func: &syn::ItemFn) -> Result<FunctionInfo, RustInteropError> {
         self.extract_function(func)
     }
 
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
+    #[allow(dead_code)]
     pub fn parse_struct(&self, s: &syn::ItemStruct) -> Result<TypeInfo, RustInteropError> {
         self.extract_struct(s)
     }
 
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
+    #[allow(dead_code)]
     pub fn parse_enum(&self, e: &syn::ItemEnum) -> Result<TypeInfo, RustInteropError> {
         self.extract_enum(e)
     }
 
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
+    #[allow(dead_code)]
     pub fn parse_trait(&self, t: &syn::ItemTrait) -> Result<TraitInfo, RustInteropError> {
         self.extract_trait(t)
     }
 
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
+    #[allow(dead_code)]
     pub fn parse_impl_block(
         &self,
         impl_block: &syn::ItemImpl,
@@ -262,12 +269,14 @@ impl SynQuerier {
 
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
+    #[allow(dead_code)]
     pub fn convert_syn_type_to_rust_type(&self, ty: &syn::Type) -> Option<RustType> {
         self.syn_type_to_signature(ty).parsed
     }
 
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
+    #[allow(dead_code)]
     pub fn determine_self_kind(
         &self,
         inputs: &syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>,
@@ -353,7 +362,7 @@ impl SynQuerier {
                     let src_path = PathBuf::from(target["src_path"].as_str().unwrap_or_default());
 
                     targets.push(TargetMetadata {
-                        name: target_name,
+                        _name: target_name,
                         kind: kinds,
                         src_path,
                     });
@@ -363,14 +372,14 @@ impl SynQuerier {
             package_list.push(PackageMetadata {
                 name,
                 version,
-                manifest_path,
+                _manifest_path: manifest_path,
                 targets,
             });
         }
 
         Ok(Some(CargoMetadata {
             packages: package_list,
-            workspace_root: PathBuf::from(workspace_root),
+            _workspace_root: PathBuf::from(workspace_root),
         }))
     }
 
