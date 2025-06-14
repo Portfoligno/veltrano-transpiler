@@ -164,7 +164,7 @@ impl RustTypeParser {
             "String" => Ok(RustType::String),
             _ => {
                 // Assume it's a custom type or generic parameter
-                if trimmed.len() == 1 && trimmed.chars().next().unwrap().is_uppercase() {
+                if trimmed.len() == 1 && trimmed.chars().next().map_or(false, |c| c.is_uppercase()) {
                     Ok(RustType::Generic(trimmed.to_string()))
                 } else {
                     Ok(RustType::Custom {
