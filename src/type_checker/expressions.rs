@@ -5,9 +5,8 @@
 //! and field access.
 
 use crate::ast::*;
-use crate::types::{
-    DataClassDefinition, FunctionSignature, SourceLocation, TypeConstructor, VeltranoType,
-};
+use crate::error::{SourceLocation, Span};
+use crate::types::{DataClassDefinition, FunctionSignature, TypeConstructor, VeltranoType};
 
 use super::error::TypeCheckError;
 use super::types::{substitute_generic_type, TypeValidator};
@@ -24,10 +23,10 @@ impl VeltranoTypeChecker {
     /// Check expression with an optional expected type for inference
     pub(super) fn check_expression_with_expected_type(
         &mut self,
-        expr: &Expr,
+        expr: &LocatedExpr,
         expected_type: Option<&VeltranoType>,
     ) -> Result<VeltranoType, TypeCheckError> {
-        match expr {
+        match &expr.node {
             Expr::MethodCall(method_call) => {
                 self.check_method_call_with_expected_type(method_call, expected_type)
             }
@@ -36,15 +35,18 @@ impl VeltranoTypeChecker {
     }
 
     /// Check expression and return its type
-    pub(super) fn check_expression(&mut self, expr: &Expr) -> Result<VeltranoType, TypeCheckError> {
-        match expr {
+    pub(super) fn check_expression(
+        &mut self,
+        expr: &LocatedExpr,
+    ) -> Result<VeltranoType, TypeCheckError> {
+        match &expr.node {
             Expr::Literal(literal) => self.check_literal(literal),
-            Expr::Identifier(name) => self.check_identifier(name),
-            Expr::Binary(binary) => self.check_binary_expression(binary),
-            Expr::Unary(unary) => self.check_unary_expression(unary),
-            Expr::Call(call) => self.check_call_expression(call),
+            Expr::Identifier(name) => self.check_identifier(name, &expr.span),
+            Expr::Binary(binary) => self.check_binary_expression(binary, &expr.span),
+            Expr::Unary(unary) => self.check_unary_expression(unary, &expr.span),
+            Expr::Call(call) => self.check_call_expression(call, &expr.span),
             Expr::MethodCall(method_call) => self.check_method_call(method_call),
-            Expr::FieldAccess(field_access) => self.check_field_access(field_access),
+            Expr::FieldAccess(field_access) => self.check_field_access(field_access, &expr.span),
         }
     }
 
@@ -62,18 +64,13 @@ impl VeltranoTypeChecker {
     }
 
     /// Check identifier (variable lookup)
-    fn check_identifier(&self, name: &str) -> Result<VeltranoType, TypeCheckError> {
+    fn check_identifier(&self, name: &str, span: &Span) -> Result<VeltranoType, TypeCheckError> {
         self.env
             .lookup_variable(name)
             .cloned()
             .ok_or_else(|| TypeCheckError::VariableNotFound {
                 name: name.to_string(),
-                location: SourceLocation {
-                    file: "unknown".to_string(),
-                    line: 0,
-                    _column: 0,
-                    _source_line: "".to_string(),
-                },
+                location: SourceLocation::new(span.start_line(), span.start_column()),
             })
     }
 
@@ -81,6 +78,7 @@ impl VeltranoTypeChecker {
     fn check_binary_expression(
         &mut self,
         binary: &BinaryExpr,
+        span: &Span,
     ) -> Result<VeltranoType, TypeCheckError> {
         let left_type = self.check_expression(&binary.left)?;
         let right_type = self.check_expression(&binary.right)?;
@@ -99,12 +97,10 @@ impl VeltranoTypeChecker {
                     return Err(TypeCheckError::TypeMismatch {
                         expected: expected_int,
                         actual: left_type,
-                        location: SourceLocation {
-                            file: "unknown".to_string(),
-                            line: 0,
-                            _column: 0,
-                            _source_line: "".to_string(),
-                        },
+                        location: SourceLocation::new(
+                            binary.left.span.start_line(),
+                            binary.left.span.start_column(),
+                        ),
                     });
                 }
 
@@ -112,12 +108,10 @@ impl VeltranoTypeChecker {
                     return Err(TypeCheckError::TypeMismatch {
                         expected: expected_int,
                         actual: right_type,
-                        location: SourceLocation {
-                            file: "unknown".to_string(),
-                            line: 0,
-                            _column: 0,
-                            _source_line: "".to_string(),
-                        },
+                        location: SourceLocation::new(
+                            binary.right.span.start_line(),
+                            binary.right.span.start_column(),
+                        ),
                     });
                 }
 
@@ -134,12 +128,7 @@ impl VeltranoTypeChecker {
                     return Err(TypeCheckError::TypeMismatch {
                         expected: left_type,
                         actual: right_type,
-                        location: SourceLocation {
-                            file: "unknown".to_string(),
-                            line: 0,
-                            _column: 0,
-                            _source_line: "".to_string(),
-                        },
+                        location: SourceLocation::new(span.start_line(), span.start_column()),
                     });
                 }
 
@@ -152,6 +141,7 @@ impl VeltranoTypeChecker {
     fn check_unary_expression(
         &mut self,
         unary: &UnaryExpr,
+        span: &Span,
     ) -> Result<VeltranoType, TypeCheckError> {
         let operand_type = self.check_expression(&unary.operand)?;
 
@@ -164,12 +154,7 @@ impl VeltranoTypeChecker {
                     return Err(TypeCheckError::TypeMismatch {
                         expected: expected_int,
                         actual: operand_type,
-                        location: SourceLocation {
-                            file: "unknown".to_string(),
-                            line: 0,
-                            _column: 0,
-                            _source_line: "".to_string(),
-                        },
+                        location: SourceLocation::new(span.start_line(), span.start_column()),
                     });
                 }
 
@@ -182,16 +167,17 @@ impl VeltranoTypeChecker {
     pub(super) fn check_call_expression(
         &mut self,
         call: &CallExpr,
+        span: &Span,
     ) -> Result<VeltranoType, TypeCheckError> {
-        if let Expr::Identifier(func_name) = call.callee.as_ref() {
+        if let Expr::Identifier(func_name) = &call.callee.node {
             // Check if this is a built-in function first
             if self.builtin_registry.is_rust_macro(func_name) {
-                return self.check_rust_macro_call(func_name, call);
+                return self.check_rust_macro_call(func_name, call, span);
             }
 
             // Check if this is a data class constructor
             if let Some(data_class) = self.env.lookup_data_class(func_name).cloned() {
-                return self.check_data_class_constructor_call(func_name, &data_class, call);
+                return self.check_data_class_constructor_call(func_name, &data_class, call, span);
             }
 
             // Check user-defined functions first (highest priority)
@@ -205,12 +191,7 @@ impl VeltranoTypeChecker {
                         function: func_name.clone(),
                         expected: func_sig.parameters.len(),
                         actual: actual_arg_count,
-                        location: SourceLocation {
-                            file: "unknown".to_string(),
-                            line: 0,
-                            _column: 0,
-                            _source_line: "".to_string(),
-                        },
+                        location: SourceLocation::new(span.start_line(), span.start_column()),
                     });
                 }
 
@@ -222,7 +203,7 @@ impl VeltranoTypeChecker {
 
                 if has_generic_params {
                     // Handle generic function instantiation
-                    return self.check_generic_function_call(func_name, &func_sig, call);
+                    return self.check_generic_function_call(func_name, &func_sig, call, span);
                 }
 
                 // Type check arguments
@@ -232,23 +213,19 @@ impl VeltranoTypeChecker {
                         Argument::Named(name, _, _) => {
                             return Err(TypeCheckError::UnsupportedFeature {
                                 feature: format!("Named argument '{}'", name),
-                                location: SourceLocation {
-                                    file: "unknown".to_string(),
-                                    line: 0,
-                                    _column: 0,
-                                    _source_line: "".to_string(),
-                                },
+                                location: SourceLocation::new(
+                                    span.start_line(),
+                                    span.start_column(),
+                                ),
                             });
                         }
                         Argument::Shorthand(field, _) => {
                             return Err(TypeCheckError::UnsupportedFeature {
                                 feature: format!("Shorthand argument '.{}'", field),
-                                location: SourceLocation {
-                                    file: "unknown".to_string(),
-                                    line: 0,
-                                    _column: 0,
-                                    _source_line: "".to_string(),
-                                },
+                                location: SourceLocation::new(
+                                    span.start_line(),
+                                    span.start_column(),
+                                ),
                             });
                         }
                         Argument::StandaloneComment(_, _) => unreachable!(), // filtered out
@@ -262,12 +239,10 @@ impl VeltranoTypeChecker {
                         return Err(TypeCheckError::TypeMismatch {
                             expected: expected_type.clone(),
                             actual: actual_type,
-                            location: SourceLocation {
-                                file: "unknown".to_string(),
-                                line: 0,
-                                _column: 0,
-                                _source_line: "".to_string(),
-                            },
+                            location: SourceLocation::new(
+                                arg_expr.span.start_line(),
+                                arg_expr.span.start_column(),
+                            ),
                         });
                     }
                 }
@@ -284,29 +259,20 @@ impl VeltranoTypeChecker {
                     call,
                     &mut self.trait_checker,
                     &mut self.method_resolutions,
+                    &span,
                 );
             }
 
             // Function not found in any scope
             Err(TypeCheckError::FunctionNotFound {
                 name: func_name.clone(),
-                location: SourceLocation {
-                    file: "unknown".to_string(),
-                    line: 0,
-                    _column: 0,
-                    _source_line: "".to_string(),
-                },
+                location: SourceLocation::new(span.start_line(), span.start_column()),
             })
         } else {
             // For now, only support direct function calls
             Err(TypeCheckError::FunctionNotFound {
                 name: "unknown".to_string(),
-                location: SourceLocation {
-                    file: "unknown".to_string(),
-                    line: 0,
-                    _column: 0,
-                    _source_line: "".to_string(),
-                },
+                location: SourceLocation::new(span.start_line(), span.start_column()),
             })
         }
     }
@@ -317,6 +283,7 @@ impl VeltranoTypeChecker {
         func_name: &str,
         func_sig: &FunctionSignature,
         call: &CallExpr,
+        span: &Span,
     ) -> Result<VeltranoType, TypeCheckError> {
         // For now, we only support single-parameter generic functions
         let non_comment_args = Self::filter_non_comment_args(&call.args);
@@ -327,12 +294,7 @@ impl VeltranoTypeChecker {
                 function: func_name.to_string(),
                 expected: func_sig.parameters.len(),
                 actual: actual_arg_count,
-                location: SourceLocation {
-                    file: "unknown".to_string(),
-                    line: 0,
-                    _column: 0,
-                    _source_line: "".to_string(),
-                },
+                location: SourceLocation::new(span.start_line(), span.start_column()),
             });
         }
 
@@ -346,12 +308,7 @@ impl VeltranoTypeChecker {
                     function: func_name.to_string(),
                     expected: 1,
                     actual: actual_arg_count,
-                    location: SourceLocation {
-                        file: "unknown".to_string(),
-                        line: 0,
-                        _column: 0,
-                        _source_line: "".to_string(),
-                    },
+                    location: SourceLocation::new(span.start_line(), span.start_column()),
                 });
             }
             Argument::StandaloneComment(_, _) => {
@@ -371,12 +328,7 @@ impl VeltranoTypeChecker {
             // This shouldn't happen if we detected generics correctly
             Err(TypeCheckError::FunctionNotFound {
                 name: func_name.to_string(),
-                location: SourceLocation {
-                    file: "unknown".to_string(),
-                    line: 0,
-                    _column: 0,
-                    _source_line: "".to_string(),
-                },
+                location: SourceLocation::new(span.start_line(), span.start_column()),
             })
         }
     }
@@ -387,6 +339,7 @@ impl VeltranoTypeChecker {
         class_name: &str,
         data_class: &DataClassDefinition,
         call: &CallExpr,
+        span: &Span,
     ) -> Result<VeltranoType, TypeCheckError> {
         // Filter out comments to get actual arguments
         let actual_args = Self::filter_non_comment_args(&call.args);
@@ -397,23 +350,18 @@ impl VeltranoTypeChecker {
                 function: class_name.to_string(),
                 expected: data_class.fields.len(),
                 actual: actual_args.len(),
-                location: SourceLocation {
-                    file: "unknown".to_string(),
-                    line: 0,
-                    _column: 0,
-                    _source_line: "".to_string(),
-                },
+                location: SourceLocation::new(span.start_line(), span.start_column()),
             });
         }
 
         // Check argument types, handling named arguments and field order
         for (i, arg) in actual_args.iter().enumerate() {
-            let (expected_field, actual_type) = match arg {
+            let (expected_field, actual_type, arg_span) = match arg {
                 Argument::Bare(expr, _) => {
                     // Positional argument - match by index
                     let field = &data_class.fields[i];
                     let actual_type = self.check_expression(expr)?;
-                    (field, actual_type)
+                    (field, actual_type, expr.span.clone())
                 }
                 Argument::Named(field_name, expr, _) => {
                     // Named argument - find matching field
@@ -427,15 +375,13 @@ impl VeltranoTypeChecker {
                                 args: vec![],
                             },
                             field: field_name.clone(),
-                            location: SourceLocation {
-                                file: "unknown".to_string(),
-                                line: 0,
-                                _column: 0,
-                                _source_line: "".to_string(),
-                            },
+                            location: SourceLocation::new(
+                                expr.span.start_line(),
+                                expr.span.start_column(),
+                            ),
                         })?;
                     let actual_type = self.check_expression(expr)?;
-                    (field, actual_type)
+                    (field, actual_type, expr.span.clone())
                 }
                 Argument::Shorthand(var_name, _) => {
                     // Shorthand argument - field name is the variable name
@@ -449,15 +395,11 @@ impl VeltranoTypeChecker {
                                 args: vec![],
                             },
                             field: var_name.clone(),
-                            location: SourceLocation {
-                                file: "unknown".to_string(),
-                                line: 0,
-                                _column: 0,
-                                _source_line: "".to_string(),
-                            },
+                            location: SourceLocation::new(span.start_line(), span.start_column()),
                         })?;
-                    let actual_type = self.check_identifier(var_name)?;
-                    (field, actual_type)
+                    // For shorthand, we need to create a dummy span
+                    let actual_type = self.check_identifier(var_name, span)?;
+                    (field, actual_type, span.clone())
                 }
                 Argument::StandaloneComment(_, _) => unreachable!(), // Filtered out above
             };
@@ -467,12 +409,7 @@ impl VeltranoTypeChecker {
                 return Err(TypeCheckError::TypeMismatch {
                     expected: expected_field.field_type.clone(),
                     actual: actual_type,
-                    location: SourceLocation {
-                        file: "unknown".to_string(),
-                        line: 0,
-                        _column: 0,
-                        _source_line: "".to_string(),
-                    },
+                    location: SourceLocation::new(arg_span.start_line(), arg_span.start_column()),
                 });
             }
         }
@@ -489,6 +426,7 @@ impl VeltranoTypeChecker {
         &mut self,
         _func_name: &str,
         call: &CallExpr,
+        _span: &Span,
     ) -> Result<VeltranoType, TypeCheckError> {
         // Rust macros skip type checking - they accept any arguments
         // Just validate that arguments are syntactically correct expressions
@@ -513,6 +451,7 @@ impl VeltranoTypeChecker {
     pub(super) fn check_field_access(
         &mut self,
         field_access: &FieldAccessExpr,
+        span: &Span,
     ) -> Result<VeltranoType, TypeCheckError> {
         let object_type = self.check_expression(&field_access.object)?;
 
@@ -535,12 +474,7 @@ impl VeltranoTypeChecker {
                 Err(TypeCheckError::FieldNotFound {
                     object_type,
                     field: field_access.field.clone(),
-                    location: SourceLocation {
-                        file: "unknown".to_string(),
-                        line: 0,
-                        _column: 0,
-                        _source_line: "".to_string(),
-                    },
+                    location: SourceLocation::new(span.start_line(), span.start_column()),
                 })
             }
             TypeConstructor::Own => {
@@ -565,12 +499,7 @@ impl VeltranoTypeChecker {
                 Err(TypeCheckError::FieldNotFound {
                     object_type,
                     field: field_access.field.clone(),
-                    location: SourceLocation {
-                        file: "unknown".to_string(),
-                        line: 0,
-                        _column: 0,
-                        _source_line: "".to_string(),
-                    },
+                    location: SourceLocation::new(span.start_line(), span.start_column()),
                 })
             }
             _ => {
@@ -578,12 +507,7 @@ impl VeltranoTypeChecker {
                 Err(TypeCheckError::FieldNotFound {
                     object_type,
                     field: field_access.field.clone(),
-                    location: SourceLocation {
-                        file: "unknown".to_string(),
-                        line: 0,
-                        _column: 0,
-                        _source_line: "".to_string(),
-                    },
+                    location: SourceLocation::new(span.start_line(), span.start_column()),
                 })
             }
         }

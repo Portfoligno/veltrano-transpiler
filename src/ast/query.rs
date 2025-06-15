@@ -3,7 +3,7 @@
 //! Provides static methods for querying AST nodes, finding declarations, and analyzing code patterns.
 
 // Use types re-exported in the parent module (ast/mod.rs)
-use super::{Argument, Expr, FunDeclStmt, Program, Stmt, VarDeclStmt};
+use super::{Argument, Expr, FunDeclStmt, LocatedExpr, Program, Stmt, VarDeclStmt};
 use std::collections::HashSet;
 
 /// Query API for common AST traversal patterns
@@ -17,8 +17,8 @@ impl AstQuery {
     ///
     /// Returns true if the expression or any sub-expression is a Call or MethodCall.
     #[allow(dead_code)]
-    pub fn contains_calls(expr: &Expr) -> bool {
-        match expr {
+    pub fn contains_calls(expr: &LocatedExpr) -> bool {
+        match &expr.node {
             Expr::Call(_) | Expr::MethodCall(_) => true,
             Expr::Binary(b) => Self::contains_calls(&b.left) || Self::contains_calls(&b.right),
             Expr::Unary(u) => Self::contains_calls(&u.operand),
@@ -31,15 +31,15 @@ impl AstQuery {
     ///
     /// Collects all identifier names used in the expression tree.
     #[allow(dead_code)]
-    pub fn collect_identifiers(expr: &Expr) -> HashSet<String> {
+    pub fn collect_identifiers(expr: &LocatedExpr) -> HashSet<String> {
         let mut ids = HashSet::new();
         Self::collect_identifiers_impl(expr, &mut ids);
         ids
     }
 
     #[allow(dead_code)]
-    fn collect_identifiers_impl(expr: &Expr, acc: &mut HashSet<String>) {
-        match expr {
+    fn collect_identifiers_impl(expr: &LocatedExpr, acc: &mut HashSet<String>) {
+        match &expr.node {
             Expr::Identifier(name) => {
                 acc.insert(name.clone());
             }
@@ -82,8 +82,8 @@ impl AstQuery {
     ///
     /// Counts both regular function calls and method calls.
     #[allow(dead_code)]
-    pub fn count_calls(expr: &Expr) -> usize {
-        match expr {
+    pub fn count_calls(expr: &LocatedExpr) -> usize {
+        match &expr.node {
             Expr::Call(_) => {
                 1 + expr_children(expr)
                     .into_iter()
@@ -103,8 +103,8 @@ impl AstQuery {
     /// Check if an expression uses bump allocation
     ///
     /// Returns true if the expression contains any .bumpRef() method calls.
-    pub fn uses_bump_allocation(expr: &Expr) -> bool {
-        match expr {
+    pub fn uses_bump_allocation(expr: &LocatedExpr) -> bool {
+        match &expr.node {
             Expr::MethodCall(method_call) => {
                 // Direct .bumpRef() call
                 if method_call.method == "bumpRef" && method_call.args.is_empty() {
@@ -298,8 +298,8 @@ impl AstQuery {
 
 // Helper function to get child expressions
 #[allow(dead_code)]
-fn expr_children(expr: &Expr) -> Vec<&Expr> {
-    match expr {
+fn expr_children(expr: &LocatedExpr) -> Vec<&LocatedExpr> {
+    match &expr.node {
         Expr::Binary(b) => vec![&b.left, &b.right],
         Expr::Unary(u) => vec![&u.operand],
         Expr::Call(c) => {

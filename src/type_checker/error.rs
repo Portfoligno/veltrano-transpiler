@@ -4,7 +4,7 @@
 //! and methods for error analysis and suggestions.
 
 use crate::ast::BinaryOp;
-use crate::types::SourceLocation;
+use crate::error::SourceLocation;
 use crate::types::{TypeConstructor, VeltranoType};
 
 /// Type checking errors with detailed information

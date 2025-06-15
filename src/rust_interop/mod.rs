@@ -507,7 +507,9 @@ impl RustQuerier for StdLibQuerier {
             let crate_info = self.cache.get_or_init(Self::create_std_crate_info);
             Ok(crate_info.clone())
         } else {
-            Err(VeltranoError::from(RustInteropError::CrateNotFound(crate_name.to_string())))
+            Err(VeltranoError::from(RustInteropError::CrateNotFound(
+                crate_name.to_string(),
+            )))
         }
     }
 

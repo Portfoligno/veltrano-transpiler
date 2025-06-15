@@ -145,12 +145,7 @@ fn test_error_analyzer_suggestions() {
     let error = TypeCheckError::TypeMismatch {
         expected: VeltranoType::string(), // String is naturally referenced in Veltrano
         actual: VeltranoType::own(VeltranoType::string()), // Own<String>
-        location: SourceLocation {
-            file: "test.vl".to_string(),
-            line: 1,
-            _column: 1,
-            _source_line: "test".to_string(),
-        },
+        location: error::SourceLocation::new(1, 1),
     };
 
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);

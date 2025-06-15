@@ -59,6 +59,26 @@ impl Span {
             end: location,
         }
     }
+
+    /// Get the start line number
+    pub fn start_line(&self) -> usize {
+        self.start.line
+    }
+
+    /// Get the start column number
+    pub fn start_column(&self) -> usize {
+        self.start.column
+    }
+
+    /// Get the end line number
+    pub fn end_line(&self) -> usize {
+        self.end.line
+    }
+
+    /// Get the end column number
+    pub fn end_column(&self) -> usize {
+        self.end.column
+    }
 }
 
 impl fmt::Display for Span {

@@ -9,12 +9,7 @@ fn test_owned_to_borrowed_suggestion() {
     let error = TypeCheckError::TypeMismatch {
         expected: VeltranoType::string(), // String (naturally referenced)
         actual: VeltranoType::own(VeltranoType::string()), // Own<String>
-        location: SourceLocation {
-            file: "test.vl".to_string(),
-            line: 1,
-            _column: 1,
-            _source_line: "test".to_string(),
-        },
+        location: error::SourceLocation::new(1, 1),
     };
 
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
@@ -34,12 +29,7 @@ fn test_owned_string_to_str_suggestion() {
     let error = TypeCheckError::TypeMismatch {
         expected: VeltranoType::str(),                     // Str
         actual: VeltranoType::own(VeltranoType::string()), // Own<String>
-        location: SourceLocation {
-            file: "test.vl".to_string(),
-            line: 1,
-            _column: 1,
-            _source_line: "test".to_string(),
-        },
+        location: error::SourceLocation::new(1, 1),
     };
 
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
@@ -59,12 +49,7 @@ fn test_borrowed_string_to_str_suggestion() {
     let error = TypeCheckError::TypeMismatch {
         expected: VeltranoType::str(),  // Str
         actual: VeltranoType::string(), // String (naturally referenced)
-        location: SourceLocation {
-            file: "test.vl".to_string(),
-            line: 1,
-            _column: 1,
-            _source_line: "test".to_string(),
-        },
+        location: error::SourceLocation::new(1, 1),
     };
 
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
@@ -82,12 +67,7 @@ fn test_mutref_to_borrowed_suggestion() {
     let error = TypeCheckError::TypeMismatch {
         expected: VeltranoType::ref_(VeltranoType::string()), // Ref<String>
         actual: VeltranoType::mut_ref(VeltranoType::string()), // MutRef<String>
-        location: SourceLocation {
-            file: "test.vl".to_string(),
-            line: 1,
-            _column: 1,
-            _source_line: "test".to_string(),
-        },
+        location: error::SourceLocation::new(1, 1),
     };
 
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
@@ -107,12 +87,7 @@ fn test_vec_to_slice_suggestion() {
     let error = TypeCheckError::TypeMismatch {
         expected: VeltranoType::ref_(inner_type.clone()), // Ref<Int> (slice-like)
         actual: VeltranoType::vec(inner_type),            // Vec<Int>
-        location: SourceLocation {
-            file: "test.vl".to_string(),
-            line: 1,
-            _column: 1,
-            _source_line: "test".to_string(),
-        },
+        location: error::SourceLocation::new(1, 1),
     };
 
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
@@ -132,12 +107,7 @@ fn test_array_to_slice_suggestion() {
     let error = TypeCheckError::TypeMismatch {
         expected: VeltranoType::ref_(inner_type.clone()), // Ref<Int> (slice-like)
         actual: VeltranoType::array(inner_type, 3),       // Array<Int, 3>
-        location: SourceLocation {
-            file: "test.vl".to_string(),
-            line: 1,
-            _column: 1,
-            _source_line: "test".to_string(),
-        },
+        location: error::SourceLocation::new(1, 1),
     };
 
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
@@ -157,12 +127,7 @@ fn test_owned_array_to_slice_suggestion() {
     let error = TypeCheckError::TypeMismatch {
         expected: VeltranoType::ref_(inner_type.clone()), // Ref<Int> (slice-like)
         actual: VeltranoType::own(VeltranoType::array(inner_type, 3)), // Own<Array<Int, 3>>
-        location: SourceLocation {
-            file: "test.vl".to_string(),
-            line: 1,
-            _column: 1,
-            _source_line: "test".to_string(),
-        },
+        location: error::SourceLocation::new(1, 1),
     };
 
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
@@ -182,12 +147,7 @@ fn test_method_not_found_suggestion() {
     let error = TypeCheckError::MethodNotFound {
         receiver_type: receiver_type.clone(),
         method: "length".to_string(),
-        location: SourceLocation {
-            file: "test.vl".to_string(),
-            line: 1,
-            _column: 1,
-            _source_line: "test".to_string(),
-        },
+        location: error::SourceLocation::new(1, 1),
     };
 
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
@@ -207,12 +167,7 @@ fn test_field_not_found_suggestion() {
     let error = TypeCheckError::FieldNotFound {
         object_type: object_type.clone(),
         field: "name".to_string(),
-        location: SourceLocation {
-            file: "test.vl".to_string(),
-            line: 1,
-            _column: 1,
-            _source_line: "test".to_string(),
-        },
+        location: error::SourceLocation::new(1, 1),
     };
 
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
@@ -233,12 +188,7 @@ fn test_no_suggestion_for_unrelated_types() {
     let error = TypeCheckError::TypeMismatch {
         expected: VeltranoType::i64(), // I64
         actual: VeltranoType::bool(),  // Bool
-        location: SourceLocation {
-            file: "test.vl".to_string(),
-            line: 1,
-            _column: 1,
-            _source_line: "test".to_string(),
-        },
+        location: error::SourceLocation::new(1, 1),
     };
 
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);

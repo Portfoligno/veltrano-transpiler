@@ -3,8 +3,9 @@
 //! This module contains type validation logic and helper functions
 //! for working with VeltranoType in the type checking context.
 
+use crate::error::SourceLocation;
 use crate::rust_interop::RustInteropRegistry;
-use crate::types::{SourceLocation, TypeConstructor, VeltranoType};
+use crate::types::{TypeConstructor, VeltranoType};
 
 use super::error::TypeCheckError;
 
@@ -28,23 +29,13 @@ impl TypeValidator {
                     if let Err(err_msg) = validate_own_constructor(inner, trait_checker) {
                         return Err(TypeCheckError::InvalidTypeConstructor {
                             message: err_msg,
-                            location: SourceLocation {
-                                file: "unknown".to_string(),
-                                line: 0,
-                                _column: 0,
-                                _source_line: "".to_string(),
-                            },
+                            location: SourceLocation::new(0, 0),
                         });
                     }
                 } else {
                     return Err(TypeCheckError::InvalidTypeConstructor {
                         message: "Own<T> requires a type parameter".to_string(),
-                        location: SourceLocation {
-                            file: "unknown".to_string(),
-                            line: 0,
-                            _column: 0,
-                            _source_line: "".to_string(),
-                        },
+                        location: SourceLocation::new(0, 0),
                     });
                 }
             }

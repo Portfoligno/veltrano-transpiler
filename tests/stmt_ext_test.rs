@@ -1,7 +1,13 @@
+use veltrano::error::{SourceLocation, Span};
 use veltrano::{
-    BinaryExpr, BinaryOp, Expr, FunDeclStmt, IfStmt, LiteralExpr, Stmt, StmtExt, VarDeclStmt,
-    WhileStmt,
+    BinaryExpr, BinaryOp, Expr, FunDeclStmt, IfStmt, LiteralExpr, Located, LocatedExpr, Stmt,
+    StmtExt, VarDeclStmt, WhileStmt,
 };
+
+// Helper function to create a test located expression
+fn loc(expr: Expr) -> LocatedExpr {
+    Located::new(expr, Span::single(SourceLocation::new(1, 1)))
+}
 
 #[test]
 fn test_walk_statements() {
@@ -11,12 +17,12 @@ fn test_walk_statements() {
             VarDeclStmt {
                 name: "x".to_string(),
                 type_annotation: None,
-                initializer: Some(Expr::Literal(LiteralExpr::Int(42))),
+                initializer: Some(loc(Expr::Literal(LiteralExpr::Int(42)))),
             },
             None,
         ),
-        Stmt::Expression(Expr::Identifier("x".to_string()), None),
-        Stmt::Return(Some(Expr::Identifier("x".to_string())), None),
+        Stmt::Expression(loc(Expr::Identifier("x".to_string())), None),
+        Stmt::Return(Some(loc(Expr::Identifier("x".to_string()))), None),
     ]);
 
     let mut visited = Vec::new();
@@ -39,13 +45,13 @@ fn test_walk_statements() {
 fn test_walk_post_order_statements() {
     // Create an if statement with blocks
     let if_stmt = Stmt::If(IfStmt {
-        condition: Expr::Literal(LiteralExpr::Bool(true)),
+        condition: loc(Expr::Literal(LiteralExpr::Bool(true))),
         then_branch: Box::new(Stmt::Block(vec![Stmt::Expression(
-            Expr::Literal(LiteralExpr::Int(1)),
+            loc(Expr::Literal(LiteralExpr::Int(1))),
             None,
         )])),
         else_branch: Some(Box::new(Stmt::Block(vec![Stmt::Expression(
-            Expr::Literal(LiteralExpr::Int(2)),
+            loc(Expr::Literal(LiteralExpr::Int(2))),
             None,
         )]))),
     });
@@ -55,8 +61,10 @@ fn test_walk_post_order_statements() {
         match stmt {
             Stmt::If(_) => visited.push("if"),
             Stmt::Block(_) => visited.push("block"),
-            Stmt::Expression(Expr::Literal(LiteralExpr::Int(n)), _) => {
-                visited.push(if *n == 1 { "expr_1" } else { "expr_2" });
+            Stmt::Expression(loc_expr, _) => {
+                if let Expr::Literal(LiteralExpr::Int(n)) = &loc_expr.node {
+                    visited.push(if *n == 1 { "expr_1" } else { "expr_2" });
+                }
             }
             _ => visited.push("other"),
         }
@@ -80,7 +88,7 @@ fn test_find_statements() {
             None,
         ),
         Stmt::If(IfStmt {
-            condition: Expr::Literal(LiteralExpr::Bool(true)),
+            condition: loc(Expr::Literal(LiteralExpr::Bool(true))),
             then_branch: Box::new(Stmt::VarDecl(
                 VarDeclStmt {
                     name: "y".to_string(),
@@ -92,7 +100,7 @@ fn test_find_statements() {
             else_branch: None,
         }),
         Stmt::While(WhileStmt {
-            condition: Expr::Literal(LiteralExpr::Bool(true)),
+            condition: loc(Expr::Literal(LiteralExpr::Bool(true))),
             body: Box::new(Stmt::VarDecl(
                 VarDeclStmt {
                     name: "z".to_string(),
@@ -127,24 +135,27 @@ fn test_walk_expressions_in_statements() {
             VarDeclStmt {
                 name: "sum".to_string(),
                 type_annotation: None,
-                initializer: Some(Expr::Binary(BinaryExpr {
-                    left: Box::new(Expr::Identifier("a".to_string())),
+                initializer: Some(loc(Expr::Binary(BinaryExpr {
+                    left: Box::new(loc(Expr::Identifier("a".to_string()))),
                     operator: BinaryOp::Add,
-                    right: Box::new(Expr::Identifier("b".to_string())),
-                })),
+                    right: Box::new(loc(Expr::Identifier("b".to_string()))),
+                }))),
             },
             None,
         ),
         Stmt::If(IfStmt {
-            condition: Expr::Identifier("c".to_string()),
-            then_branch: Box::new(Stmt::Expression(Expr::Identifier("d".to_string()), None)),
+            condition: loc(Expr::Identifier("c".to_string())),
+            then_branch: Box::new(Stmt::Expression(
+                loc(Expr::Identifier("d".to_string())),
+                None,
+            )),
             else_branch: None,
         }),
     ]);
 
     let mut identifiers = Vec::new();
     let result = stmt.walk_expressions(&mut |expr| {
-        if let Expr::Identifier(name) = expr {
+        if let Expr::Identifier(name) = &expr.node {
             identifiers.push(name.clone());
         }
         Ok::<(), ()>(())
@@ -166,7 +177,7 @@ fn test_can_exit_early() {
             },
             None,
         ),
-        Stmt::Expression(Expr::Identifier("x".to_string()), None),
+        Stmt::Expression(loc(Expr::Identifier("x".to_string())), None),
     ]);
     assert!(!no_return.can_exit_early());
 
@@ -180,16 +191,19 @@ fn test_can_exit_early() {
             },
             None,
         ),
-        Stmt::Return(Some(Expr::Identifier("x".to_string())), None),
+        Stmt::Return(Some(loc(Expr::Identifier("x".to_string()))), None),
     ]);
     assert!(with_return.can_exit_early());
 
     // If statement with return in one branch
     let if_with_return = Stmt::If(IfStmt {
-        condition: Expr::Literal(LiteralExpr::Bool(true)),
-        then_branch: Box::new(Stmt::Return(Some(Expr::Literal(LiteralExpr::Int(1))), None)),
+        condition: loc(Expr::Literal(LiteralExpr::Bool(true))),
+        then_branch: Box::new(Stmt::Return(
+            Some(loc(Expr::Literal(LiteralExpr::Int(1)))),
+            None,
+        )),
         else_branch: Some(Box::new(Stmt::Expression(
-            Expr::Literal(LiteralExpr::Int(2)),
+            loc(Expr::Literal(LiteralExpr::Int(2))),
             None,
         ))),
     });
@@ -208,11 +222,11 @@ fn test_nested_function_traversal() {
                 VarDeclStmt {
                     name: "local".to_string(),
                     type_annotation: None,
-                    initializer: Some(Expr::Literal(LiteralExpr::Int(42))),
+                    initializer: Some(loc(Expr::Literal(LiteralExpr::Int(42)))),
                 },
                 None,
             ),
-            Stmt::Return(Some(Expr::Identifier("local".to_string())), None),
+            Stmt::Return(Some(loc(Expr::Identifier("local".to_string()))), None),
         ])),
         has_hidden_bump: false,
     });

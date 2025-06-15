@@ -4,8 +4,9 @@
 //! imported methods, built-in methods, and trait methods.
 
 use crate::ast::MethodCallExpr;
+use crate::error::SourceLocation;
 use crate::rust_interop::{RustType, SelfKind};
-use crate::types::{SourceLocation, TypeConstructor, VeltranoType};
+use crate::types::{TypeConstructor, VeltranoType};
 
 use super::error::{MethodResolution, TypeCheckError};
 use super::imports::ImportedMethod;
@@ -175,12 +176,10 @@ impl VeltranoTypeChecker {
                     return Err(TypeCheckError::MethodNotFound {
                         receiver_type,
                         method: method_call.method.clone(),
-                        location: SourceLocation {
-                            file: "unknown".to_string(),
-                            line: 0,
-                            _column: 0,
-                            _source_line: "".to_string(),
-                        },
+                        location: SourceLocation::new(
+                            method_call.object.span.start_line(),
+                            method_call.object.span.start_column(),
+                        ),
                     });
                 }
                 1 => {
@@ -205,12 +204,10 @@ impl VeltranoTypeChecker {
                         method: method_call.method.clone(),
                         receiver_type,
                         candidates: candidate_descriptions,
-                        location: SourceLocation {
-                            file: "unknown".to_string(),
-                            line: 0,
-                            _column: 0,
-                            _source_line: "".to_string(),
-                        },
+                        location: SourceLocation::new(
+                            method_call.object.span.start_line(),
+                            method_call.object.span.start_column(),
+                        ),
                     });
                 }
             }
@@ -239,12 +236,10 @@ impl VeltranoTypeChecker {
         Err(TypeCheckError::MethodNotFound {
             receiver_type: receiver_type.clone(),
             method: method_call.method.clone(),
-            location: SourceLocation {
-                file: "unknown".to_string(),
-                line: 0,
-                _column: 0,
-                _source_line: "".to_string(),
-            },
+            location: SourceLocation::new(
+                method_call.object.span.start_line(),
+                method_call.object.span.start_column(),
+            ),
         })
     }
 
@@ -254,7 +249,7 @@ impl VeltranoTypeChecker {
         receiver_type: &VeltranoType,
         rust_type: &RustType,
         rust_method_name: &str,
-        _method_call: &MethodCallExpr,
+        method_call: &MethodCallExpr,
     ) -> Result<VeltranoType, TypeCheckError> {
         // Query the imported method signature first to know what self_kind it expects
         let method_info = if let Ok(Some(info)) = self
@@ -266,12 +261,10 @@ impl VeltranoTypeChecker {
             return Err(TypeCheckError::MethodNotFound {
                 receiver_type: receiver_type.clone(),
                 method: rust_method_name.to_string(),
-                location: SourceLocation {
-                    file: "unknown".to_string(),
-                    line: 0,
-                    _column: 0,
-                    _source_line: "".to_string(),
-                },
+                location: SourceLocation::new(
+                    method_call.object.span.start_line(),
+                    method_call.object.span.start_column(),
+                ),
             });
         };
 
@@ -367,12 +360,10 @@ impl VeltranoTypeChecker {
             return Err(TypeCheckError::MethodNotFound {
                 receiver_type: receiver_type.clone(),
                 method: rust_method_name.to_string(),
-                location: SourceLocation {
-                    file: "unknown".to_string(),
-                    line: 0,
-                    _column: 0,
-                    _source_line: "".to_string(),
-                },
+                location: SourceLocation::new(
+                    method_call.object.span.start_line(),
+                    method_call.object.span.start_column(),
+                ),
             });
         }
 
@@ -388,12 +379,10 @@ impl VeltranoTypeChecker {
             return Err(TypeCheckError::MethodNotFound {
                 receiver_type: receiver_type.clone(),
                 method: rust_method_name.to_string(),
-                location: SourceLocation {
-                    file: "unknown".to_string(),
-                    line: 0,
-                    _column: 0,
-                    _source_line: "".to_string(),
-                },
+                location: SourceLocation::new(
+                    method_call.object.span.start_line(),
+                    method_call.object.span.start_column(),
+                ),
             });
         }
 

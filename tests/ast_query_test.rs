@@ -1,41 +1,47 @@
 use veltrano::ast::query::AstQuery;
+use veltrano::error::{SourceLocation, Span};
 use veltrano::{
-    BinaryExpr, BinaryOp, CallExpr, Expr, FunDeclStmt, IfStmt, LiteralExpr, MethodCallExpr,
-    Program, Stmt, VarDeclStmt,
+    BinaryExpr, BinaryOp, CallExpr, Expr, FunDeclStmt, IfStmt, LiteralExpr, Located, LocatedExpr,
+    MethodCallExpr, Program, Stmt, VarDeclStmt,
 };
+
+// Helper function to create a test located expression
+fn loc(expr: Expr) -> LocatedExpr {
+    Located::new(expr, Span::single(SourceLocation::new(1, 1)))
+}
 
 #[test]
 fn test_contains_calls() {
     // Simple identifier - no calls
-    let expr = Expr::Identifier("x".to_string());
+    let expr = loc(Expr::Identifier("x".to_string()));
     assert!(!AstQuery::contains_calls(&expr));
 
     // Function call
-    let call = Expr::Call(CallExpr {
-        callee: Box::new(Expr::Identifier("foo".to_string())),
+    let call = loc(Expr::Call(CallExpr {
+        callee: Box::new(loc(Expr::Identifier("foo".to_string()))),
         args: vec![],
         is_multiline: false,
         id: 0,
-    });
+    }));
     assert!(AstQuery::contains_calls(&call));
 
     // Binary with call on left
-    let binary = Expr::Binary(BinaryExpr {
+    let binary = loc(Expr::Binary(BinaryExpr {
         left: Box::new(call),
         operator: BinaryOp::Add,
-        right: Box::new(Expr::Literal(LiteralExpr::Int(42))),
-    });
+        right: Box::new(loc(Expr::Literal(LiteralExpr::Int(42)))),
+    }));
     assert!(AstQuery::contains_calls(&binary));
 }
 
 #[test]
 fn test_collect_identifiers() {
     // Binary expression with two identifiers
-    let expr = Expr::Binary(BinaryExpr {
-        left: Box::new(Expr::Identifier("x".to_string())),
+    let expr = loc(Expr::Binary(BinaryExpr {
+        left: Box::new(loc(Expr::Identifier("x".to_string()))),
         operator: BinaryOp::Add,
-        right: Box::new(Expr::Identifier("y".to_string())),
-    });
+        right: Box::new(loc(Expr::Identifier("y".to_string()))),
+    }));
 
     let ids = AstQuery::collect_identifiers(&expr);
     assert_eq!(ids.len(), 2);
@@ -43,13 +49,13 @@ fn test_collect_identifiers() {
     assert!(ids.contains("y"));
 
     // Method call with object identifier
-    let method_call = Expr::MethodCall(MethodCallExpr {
-        object: Box::new(Expr::Identifier("obj".to_string())),
+    let method_call = loc(Expr::MethodCall(MethodCallExpr {
+        object: Box::new(loc(Expr::Identifier("obj".to_string()))),
         method: "method".to_string(),
-        args: vec![Expr::Identifier("arg".to_string())],
+        args: vec![loc(Expr::Identifier("arg".to_string()))],
         inline_comment: None,
         id: 0,
-    });
+    }));
 
     let ids = AstQuery::collect_identifiers(&method_call);
     assert_eq!(ids.len(), 2);
@@ -60,60 +66,60 @@ fn test_collect_identifiers() {
 #[test]
 fn test_count_calls() {
     // No calls
-    let expr = Expr::Identifier("x".to_string());
+    let expr = loc(Expr::Identifier("x".to_string()));
     assert_eq!(AstQuery::count_calls(&expr), 0);
 
     // Single call
-    let call = Expr::Call(CallExpr {
-        callee: Box::new(Expr::Identifier("foo".to_string())),
+    let call = loc(Expr::Call(CallExpr {
+        callee: Box::new(loc(Expr::Identifier("foo".to_string()))),
         args: vec![],
         is_multiline: false,
         id: 0,
-    });
+    }));
     assert_eq!(AstQuery::count_calls(&call), 1);
 
     // Nested calls
-    let nested = Expr::Call(CallExpr {
+    let nested = loc(Expr::Call(CallExpr {
         callee: Box::new(call),
         args: vec![],
         is_multiline: false,
         id: 1,
-    });
+    }));
     assert_eq!(AstQuery::count_calls(&nested), 2);
 }
 
 #[test]
 fn test_uses_bump_allocation() {
     // Simple expression without bump
-    let expr = Expr::Identifier("x".to_string());
+    let expr = loc(Expr::Identifier("x".to_string()));
     assert!(!AstQuery::uses_bump_allocation(&expr));
 
     // bumpRef() method call
-    let bump_ref = Expr::MethodCall(MethodCallExpr {
-        object: Box::new(Expr::Identifier("value".to_string())),
+    let bump_ref = loc(Expr::MethodCall(MethodCallExpr {
+        object: Box::new(loc(Expr::Identifier("value".to_string()))),
         method: "bumpRef".to_string(),
         args: vec![],
         inline_comment: None,
         id: 0,
-    });
+    }));
     assert!(AstQuery::uses_bump_allocation(&bump_ref));
 
     // Regular method call
-    let regular_method = Expr::MethodCall(MethodCallExpr {
-        object: Box::new(Expr::Identifier("obj".to_string())),
+    let regular_method = loc(Expr::MethodCall(MethodCallExpr {
+        object: Box::new(loc(Expr::Identifier("obj".to_string()))),
         method: "toString".to_string(),
         args: vec![],
         inline_comment: None,
         id: 0,
-    });
+    }));
     assert!(!AstQuery::uses_bump_allocation(&regular_method));
 
     // Binary expression with bump on left side
-    let binary_with_bump = Expr::Binary(BinaryExpr {
+    let binary_with_bump = loc(Expr::Binary(BinaryExpr {
         left: Box::new(bump_ref),
         operator: BinaryOp::Add,
-        right: Box::new(Expr::Literal(LiteralExpr::Int(42))),
-    });
+        right: Box::new(loc(Expr::Literal(LiteralExpr::Int(42)))),
+    }));
     assert!(AstQuery::uses_bump_allocation(&binary_with_bump));
 }
 
@@ -124,13 +130,13 @@ fn test_stmt_uses_bump_allocation() {
         VarDeclStmt {
             name: "x".to_string(),
             type_annotation: None,
-            initializer: Some(Expr::MethodCall(MethodCallExpr {
-                object: Box::new(Expr::Identifier("value".to_string())),
+            initializer: Some(loc(Expr::MethodCall(MethodCallExpr {
+                object: Box::new(loc(Expr::Identifier("value".to_string()))),
                 method: "bumpRef".to_string(),
                 args: vec![],
                 inline_comment: None,
                 id: 0,
-            })),
+            }))),
         },
         None,
     );
@@ -141,7 +147,7 @@ fn test_stmt_uses_bump_allocation() {
         VarDeclStmt {
             name: "y".to_string(),
             type_annotation: None,
-            initializer: Some(Expr::Literal(LiteralExpr::Int(42))),
+            initializer: Some(loc(Expr::Literal(LiteralExpr::Int(42)))),
         },
         None,
     );
@@ -149,13 +155,13 @@ fn test_stmt_uses_bump_allocation() {
 
     // If statement with bump in condition
     let if_with_bump = Stmt::If(IfStmt {
-        condition: Expr::MethodCall(MethodCallExpr {
-            object: Box::new(Expr::Identifier("cond".to_string())),
+        condition: loc(Expr::MethodCall(MethodCallExpr {
+            object: Box::new(loc(Expr::Identifier("cond".to_string()))),
             method: "bumpRef".to_string(),
             args: vec![],
             inline_comment: None,
             id: 0,
-        }),
+        })),
         then_branch: Box::new(Stmt::Block(vec![])),
         else_branch: None,
     });
@@ -170,13 +176,13 @@ fn test_function_requires_bump() {
         params: vec![],
         return_type: None,
         body: Box::new(Stmt::Block(vec![Stmt::Expression(
-            Expr::MethodCall(MethodCallExpr {
-                object: Box::new(Expr::Identifier("x".to_string())),
+            loc(Expr::MethodCall(MethodCallExpr {
+                object: Box::new(loc(Expr::Identifier("x".to_string()))),
                 method: "bumpRef".to_string(),
                 args: vec![],
                 inline_comment: None,
                 id: 0,
-            }),
+            })),
             None,
         )])),
         has_hidden_bump: false,
@@ -189,7 +195,7 @@ fn test_function_requires_bump() {
         params: vec![],
         return_type: None,
         body: Box::new(Stmt::Block(vec![Stmt::Return(
-            Some(Expr::Literal(LiteralExpr::Int(42))),
+            Some(loc(Expr::Literal(LiteralExpr::Int(42)))),
             None,
         )])),
         has_hidden_bump: false,
@@ -205,7 +211,7 @@ fn test_find_var_decls() {
             VarDeclStmt {
                 name: "x".to_string(),
                 type_annotation: None,
-                initializer: Some(Expr::Literal(LiteralExpr::Int(42))),
+                initializer: Some(loc(Expr::Literal(LiteralExpr::Int(42)))),
             },
             None,
         ),
@@ -213,17 +219,17 @@ fn test_find_var_decls() {
             VarDeclStmt {
                 name: "y".to_string(),
                 type_annotation: None,
-                initializer: Some(Expr::Identifier("x".to_string())),
+                initializer: Some(loc(Expr::Identifier("x".to_string()))),
             },
             None,
         ),
         Stmt::If(IfStmt {
-            condition: Expr::Identifier("condition".to_string()),
+            condition: loc(Expr::Identifier("condition".to_string())),
             then_branch: Box::new(Stmt::VarDecl(
                 VarDeclStmt {
                     name: "z".to_string(),
                     type_annotation: None,
-                    initializer: Some(Expr::Literal(LiteralExpr::Bool(true))),
+                    initializer: Some(loc(Expr::Literal(LiteralExpr::Bool(true)))),
                 },
                 None,
             )),
@@ -250,7 +256,7 @@ fn test_find_function_decls() {
             has_hidden_bump: false,
         }),
         Stmt::If(IfStmt {
-            condition: Expr::Literal(LiteralExpr::Bool(true)),
+            condition: loc(Expr::Literal(LiteralExpr::Bool(true))),
             then_branch: Box::new(Stmt::FunDecl(FunDeclStmt {
                 name: "bar".to_string(),
                 params: vec![],
@@ -276,24 +282,24 @@ fn test_collect_variable_references() {
             VarDeclStmt {
                 name: "x".to_string(),
                 type_annotation: None,
-                initializer: Some(Expr::Binary(BinaryExpr {
-                    left: Box::new(Expr::Identifier("a".to_string())),
+                initializer: Some(loc(Expr::Binary(BinaryExpr {
+                    left: Box::new(loc(Expr::Identifier("a".to_string()))),
                     operator: BinaryOp::Add,
-                    right: Box::new(Expr::Identifier("b".to_string())),
-                })),
+                    right: Box::new(loc(Expr::Identifier("b".to_string()))),
+                }))),
             },
             None,
         ),
         Stmt::If(IfStmt {
-            condition: Expr::Identifier("c".to_string()),
+            condition: loc(Expr::Identifier("c".to_string())),
             then_branch: Box::new(Stmt::Expression(
-                Expr::MethodCall(MethodCallExpr {
-                    object: Box::new(Expr::Identifier("d".to_string())),
+                loc(Expr::MethodCall(MethodCallExpr {
+                    object: Box::new(loc(Expr::Identifier("d".to_string()))),
                     method: "method".to_string(),
-                    args: vec![Expr::Identifier("e".to_string())],
+                    args: vec![loc(Expr::Identifier("e".to_string()))],
                     inline_comment: None,
                     id: 0,
-                }),
+                })),
                 None,
             )),
             else_branch: None,

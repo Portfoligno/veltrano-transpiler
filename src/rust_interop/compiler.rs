@@ -70,7 +70,12 @@ impl RustdocQuerier {
                 "-",
             ])
             .output()
-            .map_err(|e| VeltranoError::from(RustInteropError::CargoError(format!("Failed to run rustdoc: {}", e))))?;
+            .map_err(|e| {
+                VeltranoError::from(RustInteropError::CargoError(format!(
+                    "Failed to run rustdoc: {}",
+                    e
+                )))
+            })?;
 
         if !output.status.success() {
             return Err(VeltranoError::from(RustInteropError::CargoError(format!(
@@ -86,21 +91,22 @@ impl RustdocQuerier {
     }
 
     fn parse_rustdoc_json(&self, json_path: &Path) -> Result<CrateInfo, VeltranoError> {
-        let json_content =
-            fs::read_to_string(json_path).map_err(|e| VeltranoError::from(RustInteropError::IoError(e.to_string())))?;
+        let json_content = fs::read_to_string(json_path)
+            .map_err(|e| VeltranoError::from(RustInteropError::IoError(e.to_string())))?;
 
         // Parse the rustdoc JSON format
-        let doc: RustdocJson = serde_json::from_str(&json_content)
-            .map_err(|e| VeltranoError::from(RustInteropError::ParseError(format!("Invalid rustdoc JSON: {}", e))))?;
+        let doc: RustdocJson = serde_json::from_str(&json_content).map_err(|e| {
+            VeltranoError::from(RustInteropError::ParseError(format!(
+                "Invalid rustdoc JSON: {}",
+                e
+            )))
+        })?;
 
         // Convert rustdoc format to our CrateInfo format
         self.convert_rustdoc_to_crate_info(doc)
     }
 
-    fn convert_rustdoc_to_crate_info(
-        &self,
-        doc: RustdocJson,
-    ) -> Result<CrateInfo, VeltranoError> {
+    fn convert_rustdoc_to_crate_info(&self, doc: RustdocJson) -> Result<CrateInfo, VeltranoError> {
         let mut crate_info = CrateInfo {
             name: doc.crate_name.unwrap_or_default(),
             version: doc.crate_version.unwrap_or_default(),
@@ -156,7 +162,9 @@ impl RustQuerier for RustdocQuerier {
         // For now, only support std library with hardcoded data
         if crate_name == "std" {
             // Return empty for now, StdLibQuerier handles std
-            return Err(VeltranoError::from(RustInteropError::CrateNotFound(crate_name.to_string())));
+            return Err(VeltranoError::from(RustInteropError::CrateNotFound(
+                crate_name.to_string(),
+            )));
         }
 
         let json_path = self.generate_rustdoc_json(crate_name)?;
@@ -222,9 +230,9 @@ impl SynQuerier {
     #[doc(hidden)]
     #[allow(dead_code)]
     pub fn extract_from_source(&self, crate_name: &str) -> Result<CrateInfo, VeltranoError> {
-        let crate_root = self
-            .find_crate_root(crate_name)
-            .ok_or_else(|| VeltranoError::from(RustInteropError::CrateNotFound(crate_name.to_string())))?;
+        let crate_root = self.find_crate_root(crate_name).ok_or_else(|| {
+            VeltranoError::from(RustInteropError::CrateNotFound(crate_name.to_string()))
+        })?;
         let file = self.parse_rust_file(&crate_root)?;
         self.extract_crate_info(crate_name, &file)
     }
@@ -316,7 +324,10 @@ impl SynQuerier {
             .current_dir(project_root)
             .output()
             .map_err(|e| {
-                VeltranoError::from(RustInteropError::CargoError(format!("Failed to run cargo metadata: {}", e)))
+                VeltranoError::from(RustInteropError::CargoError(format!(
+                    "Failed to run cargo metadata: {}",
+                    e
+                )))
             })?;
 
         if !output.status.success() {
@@ -325,20 +336,30 @@ impl SynQuerier {
         }
 
         let metadata_json = String::from_utf8(output.stdout).map_err(|e| {
-            VeltranoError::from(RustInteropError::ParseError(format!("Invalid UTF-8 in cargo metadata: {}", e)))
+            VeltranoError::from(RustInteropError::ParseError(format!(
+                "Invalid UTF-8 in cargo metadata: {}",
+                e
+            )))
         })?;
 
         let metadata: serde_json::Value = serde_json::from_str(&metadata_json).map_err(|e| {
-            VeltranoError::from(RustInteropError::ParseError(format!("Invalid cargo metadata JSON: {}", e)))
+            VeltranoError::from(RustInteropError::ParseError(format!(
+                "Invalid cargo metadata JSON: {}",
+                e
+            )))
         })?;
 
         // Extract relevant information
-        let packages = metadata["packages"]
-            .as_array()
-            .ok_or_else(|| VeltranoError::from(RustInteropError::ParseError("No packages in metadata".to_string())))?;
+        let packages = metadata["packages"].as_array().ok_or_else(|| {
+            VeltranoError::from(RustInteropError::ParseError(
+                "No packages in metadata".to_string(),
+            ))
+        })?;
 
         let workspace_root = metadata["workspace_root"].as_str().ok_or_else(|| {
-            VeltranoError::from(RustInteropError::ParseError("No workspace_root in metadata".to_string()))
+            VeltranoError::from(RustInteropError::ParseError(
+                "No workspace_root in metadata".to_string(),
+            ))
         })?;
 
         let mut package_list = Vec::new();
@@ -414,11 +435,19 @@ impl SynQuerier {
 
     fn parse_rust_file(&self, path: &Path) -> Result<syn::File, VeltranoError> {
         let content = fs::read_to_string(path).map_err(|e| {
-            VeltranoError::from(RustInteropError::IoError(format!("Failed to read {}: {}", path.display(), e)))
+            VeltranoError::from(RustInteropError::IoError(format!(
+                "Failed to read {}: {}",
+                path.display(),
+                e
+            )))
         })?;
 
         syn::parse_file(&content).map_err(|e| {
-            VeltranoError::from(RustInteropError::ParseError(format!("Failed to parse {}: {}", path.display(), e)))
+            VeltranoError::from(RustInteropError::ParseError(format!(
+                "Failed to parse {}: {}",
+                path.display(),
+                e
+            )))
         })
     }
 
@@ -764,9 +793,9 @@ impl SynQuerier {
 
 impl RustQuerier for SynQuerier {
     fn query_crate(&mut self, crate_name: &str) -> Result<CrateInfo, VeltranoError> {
-        let crate_root = self
-            .find_crate_root(crate_name)
-            .ok_or_else(|| VeltranoError::from(RustInteropError::CrateNotFound(crate_name.to_string())))?;
+        let crate_root = self.find_crate_root(crate_name).ok_or_else(|| {
+            VeltranoError::from(RustInteropError::CrateNotFound(crate_name.to_string()))
+        })?;
 
         let file = self.parse_rust_file(&crate_root)?;
         self.extract_crate_info(crate_name, &file)

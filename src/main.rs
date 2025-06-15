@@ -22,7 +22,6 @@ use lexer::Lexer;
 use parser::Parser;
 use type_checker::VeltranoTypeChecker;
 
-
 fn print_help(program_name: &str) {
     println!("Veltrano Transpiler {}", env!("CARGO_PKG_VERSION"));
     println!("A transpiler for the Veltrano programming language");

@@ -9,7 +9,7 @@ use crate::ast::*;
 use crate::ast_types::StmtExt;
 use crate::comments::{Comment, CommentStyle};
 use crate::config::Config;
-use crate::error::VeltranoError;
+use crate::error::{SourceLocation, Span, VeltranoError};
 use crate::rust_interop::camel_to_snake_case;
 use crate::rust_interop::RustInteropRegistry;
 use crate::type_checker::MethodResolution;
@@ -21,13 +21,29 @@ use std::fmt;
 #[derive(Debug)]
 pub enum CodegenError {
     /// Invalid syntax when calling a data class constructor
-    InvalidDataClassSyntax { constructor: String, reason: String },
+    InvalidDataClassSyntax {
+        constructor: String,
+        reason: String,
+        location: SourceLocation,
+    },
     /// Shorthand syntax used in wrong context
-    InvalidShorthandUsage { field_name: String, context: String },
+    InvalidShorthandUsage {
+        field_name: String,
+        context: String,
+        location: SourceLocation,
+    },
     /// Invalid arguments for built-in functions
-    InvalidBuiltinArguments { builtin: String, reason: String },
+    InvalidBuiltinArguments {
+        builtin: String,
+        reason: String,
+        location: SourceLocation,
+    },
     /// Method requires import but wasn't imported
-    MissingImport { method: String, type_name: String },
+    MissingImport {
+        method: String,
+        type_name: String,
+        location: SourceLocation,
+    },
 }
 
 impl fmt::Display for CodegenError {
@@ -36,6 +52,7 @@ impl fmt::Display for CodegenError {
             CodegenError::InvalidDataClassSyntax {
                 constructor,
                 reason,
+                location: _,
             } => {
                 write!(
                     f,
@@ -46,6 +63,7 @@ impl fmt::Display for CodegenError {
             CodegenError::InvalidShorthandUsage {
                 field_name,
                 context,
+                location: _,
             } => {
                 write!(
                     f,
@@ -53,10 +71,18 @@ impl fmt::Display for CodegenError {
                     field_name, context
                 )
             }
-            CodegenError::InvalidBuiltinArguments { builtin, reason } => {
+            CodegenError::InvalidBuiltinArguments {
+                builtin,
+                reason,
+                location: _,
+            } => {
                 write!(f, "Invalid arguments for {}: {}", builtin, reason)
             }
-            CodegenError::MissingImport { method, type_name } => {
+            CodegenError::MissingImport {
+                method,
+                type_name,
+                location: _,
+            } => {
                 write!(f, "Method '{}' requires an explicit import. Add 'import {}.{}' at the top of your file.", method, type_name, method)
             }
         }
@@ -144,7 +170,7 @@ impl CodeGenerator {
                 self.indent();
 
                 // Check if this is a method call with its own comment
-                let method_comment = if let Expr::MethodCall(method_call) = expr {
+                let method_comment = if let Expr::MethodCall(method_call) = &expr.node {
                     method_call.inline_comment.clone()
                 } else {
                     None
@@ -356,7 +382,7 @@ impl CodeGenerator {
         self.indent();
 
         // Check if this is an infinite loop (while true)
-        if let Expr::Literal(LiteralExpr::Bool(true)) = &while_stmt.condition {
+        if let Expr::Literal(LiteralExpr::Bool(true)) = &while_stmt.condition.node {
             self.output.push_str("loop ");
         } else {
             self.output.push_str("while ");
@@ -409,10 +435,10 @@ impl CodeGenerator {
         self.output.push_str("}\n\n");
     }
 
-    fn generate_expression(&mut self, expr: &Expr) -> Result<(), VeltranoError> {
-        match expr {
+    fn generate_expression(&mut self, expr: &LocatedExpr) -> Result<(), VeltranoError> {
+        match &expr.node {
             Expr::Literal(literal) => {
-                self.generate_literal(literal);
+                self.generate_literal(literal, expr.span.clone());
             }
             Expr::Identifier(name) => {
                 let snake_name = camel_to_snake_case(name);
@@ -423,7 +449,7 @@ impl CodeGenerator {
                     UnaryOp::Minus => {
                         self.output.push('-');
                         // Wrap non-simple expressions in parentheses
-                        match unary.operand.as_ref() {
+                        match &unary.operand.node {
                             Expr::Literal(_) | Expr::Identifier(_) => {
                                 self.generate_expression(&unary.operand)?;
                             }
@@ -449,11 +475,9 @@ impl CodeGenerator {
                 self.output.push(' ');
                 self.generate_expression(&binary.right)?;
             }
-            Expr::Call(call) => {
-                self.generate_call_expression(call)?;
-            }
+            Expr::Call(call) => self.generate_call_expression(call, expr.span.clone())?,
             Expr::MethodCall(method_call) => {
-                self.generate_method_call_expression(method_call)?;
+                self.generate_method_call_expression(method_call, expr.span.clone())?
             }
             Expr::FieldAccess(field_access) => {
                 self.generate_field_access(field_access)?;
@@ -462,7 +486,7 @@ impl CodeGenerator {
         Ok(())
     }
 
-    fn generate_literal(&mut self, literal: &LiteralExpr) {
+    fn generate_literal(&mut self, literal: &LiteralExpr, _span: Span) {
         match literal {
             LiteralExpr::Int(value) => {
                 self.output.push_str(&value.to_string());
@@ -652,6 +676,7 @@ impl CodeGenerator {
     fn generate_comma_separated_args_for_struct_init(
         &mut self,
         args: &[Argument],
+        call_span: Span,
     ) -> Result<(), VeltranoError> {
         let mut first = true;
         for arg in args {
@@ -666,6 +691,7 @@ impl CodeGenerator {
                     return Err(CodegenError::InvalidDataClassSyntax {
                         constructor: "data class".to_string(),
                         reason: "Data class constructors don't support positional arguments. Use named arguments or .field shorthand syntax".to_string(),
+                        location: call_span.start.clone(),
                     }.into());
                 }
                 Argument::Named(name, expr, comment) => {
@@ -692,6 +718,7 @@ impl CodeGenerator {
         &mut self,
         args: &[Argument],
         is_multiline: bool,
+        call_span: Span,
     ) -> Result<(), VeltranoError> {
         if is_multiline && !args.is_empty() {
             // Generate multiline format
@@ -720,6 +747,7 @@ impl CodeGenerator {
                         return Err(CodegenError::InvalidShorthandUsage {
                             field_name: field_name.clone(),
                             context: "function calls".to_string(),
+                            location: call_span.start.clone(),
                         }
                         .into());
                     }
@@ -772,6 +800,7 @@ impl CodeGenerator {
                         return Err(CodegenError::InvalidShorthandUsage {
                             field_name: field_name.clone(),
                             context: "function calls".to_string(),
+                            location: call_span.start.clone(),
                         }
                         .into());
                     }
@@ -787,18 +816,27 @@ impl CodeGenerator {
         Ok(())
     }
 
-    fn generate_generic_call(&mut self, call: &CallExpr) -> Result<(), VeltranoError> {
+    fn generate_generic_call(
+        &mut self,
+        call: &CallExpr,
+        call_span: Span,
+    ) -> Result<(), VeltranoError> {
         self.generate_expression(&call.callee)?;
         self.output.push('(');
         self.generate_comma_separated_args_for_function_call_with_multiline(
             &call.args,
             call.is_multiline,
+            call_span,
         )?;
         self.output.push(')');
         Ok(())
     }
 
-    fn generate_call_expression(&mut self, call: &CallExpr) -> Result<(), VeltranoError> {
+    fn generate_call_expression(
+        &mut self,
+        call: &CallExpr,
+        call_span: Span,
+    ) -> Result<(), VeltranoError> {
         // First check if we have a type-checked resolution for this call (e.g., import alias)
         if let Some(resolution) = self.method_resolutions.get(&call.id) {
             // This is a resolved import alias (e.g., newVec -> Vec::new)
@@ -814,19 +852,20 @@ impl CodeGenerator {
             self.generate_comma_separated_args_for_function_call_with_multiline(
                 &call.args,
                 call.is_multiline,
+                call_span,
             )?;
 
             self.output.push(')');
             return Ok(());
         }
 
-        if let Expr::Identifier(name) = call.callee.as_ref() {
+        if let Expr::Identifier(name) = &call.callee.node {
             // Check if this is a data class constructor
             if self.data_classes.contains(name) {
                 // This is struct initialization (works with positional, named, or mixed arguments)
                 self.output.push_str(name);
                 self.output.push_str(" { ");
-                self.generate_comma_separated_args_for_struct_init(&call.args)?;
+                self.generate_comma_separated_args_for_struct_init(&call.args, call_span)?;
                 self.output.push_str(" }");
                 return Ok(());
             }
@@ -837,6 +876,7 @@ impl CodeGenerator {
                     return Err(CodegenError::InvalidBuiltinArguments {
                         builtin: "MutRef".to_string(),
                         reason: format!("requires exactly one argument, found {}", call.args.len()),
+                        location: call_span.start.clone(),
                     }
                     .into());
                 }
@@ -854,6 +894,7 @@ impl CodeGenerator {
                         return Err(CodegenError::InvalidBuiltinArguments {
                             builtin: "MutRef".to_string(),
                             reason: "does not support named arguments".to_string(),
+                            location: call_span.start.clone(),
                         }
                         .into());
                     }
@@ -861,6 +902,7 @@ impl CodeGenerator {
                         return Err(CodegenError::InvalidBuiltinArguments {
                             builtin: "MutRef".to_string(),
                             reason: "cannot have standalone comments as arguments".to_string(),
+                            location: call_span.start.clone(),
                         }
                         .into());
                     }
@@ -883,6 +925,7 @@ impl CodeGenerator {
                 self.generate_comma_separated_args_for_function_call_with_multiline(
                     &call.args,
                     call.is_multiline,
+                    call_span,
                 )?;
                 self.output.push(')');
             } else if let Some((type_name, original_method)) = self.imports.get(name) {
@@ -895,6 +938,7 @@ impl CodeGenerator {
                 self.generate_comma_separated_args_for_function_call_with_multiline(
                     &call.args,
                     call.is_multiline,
+                    call_span,
                 )?;
                 self.output.push(')');
             } else if self.is_rust_macro(name) {
@@ -904,23 +948,24 @@ impl CodeGenerator {
                 self.generate_comma_separated_args_for_function_call_with_multiline(
                     &call.args,
                     call.is_multiline,
+                    call_span,
                 )?;
                 self.output.push(')');
             } else {
                 // Default case for identifiers that aren't special
-                self.generate_generic_call(call)?;
+                self.generate_generic_call(call, call_span)?;
             }
         } else {
-            self.generate_generic_call(call)?;
+            self.generate_generic_call(call, call_span)?;
         }
         Ok(())
     }
 
     // Helper to collect all comments from a method chain
-    fn collect_method_chain_comments(&self, expr: &Expr) -> Vec<(String, String)> {
+    fn collect_method_chain_comments(&self, expr: &LocatedExpr) -> Vec<(String, String)> {
         let mut comments = Vec::new();
 
-        if let Expr::MethodCall(method_call) = expr {
+        if let Expr::MethodCall(method_call) = &expr.node {
             // First collect comments from the inner expression
             comments.extend(self.collect_method_chain_comments(&method_call.object));
 
@@ -936,6 +981,7 @@ impl CodeGenerator {
     fn generate_method_call_expression(
         &mut self,
         method_call: &MethodCallExpr,
+        expr_span: Span,
     ) -> Result<(), VeltranoError> {
         // First check if we have a type-checked resolution for this method call
         crate::debug_println!(
@@ -1017,6 +1063,7 @@ impl CodeGenerator {
             return Err(CodegenError::MissingImport {
                 method: method_call.method.clone(),
                 type_name: "Type".to_string(), // We don't have the exact type here
+                location: expr_span.start.clone(),
             }
             .into());
         }
@@ -1096,8 +1143,8 @@ impl CodeGenerator {
         // Also check if this function calls other functions that use bump
         let mut uses_bump = false;
         let _ = fun_decl.body.walk_expressions(&mut |expr| {
-            if let Expr::Call(call) = expr {
-                if let Expr::Identifier(name) = call.callee.as_ref() {
+            if let Expr::Call(call) = &expr.node {
+                if let Expr::Identifier(name) = &call.callee.node {
                     if self.local_functions_with_bump.contains(name) {
                         uses_bump = true;
                         return Err(()); // Early exit

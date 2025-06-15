@@ -1,7 +1,7 @@
 use std::collections::HashMap;
+use veltrano::error::VeltranoError;
 use veltrano::rust_interop::*;
 use veltrano::types::VeltranoType;
-use veltrano::error::VeltranoError;
 
 /// Unit tests for the Rust interop system
 /// These tests use mocks and don't require external toolchain components
@@ -15,7 +15,9 @@ fn test_error_handling_and_fallback() {
     struct FailingQuerier;
     impl RustQuerier for FailingQuerier {
         fn query_crate(&mut self, _: &str) -> Result<CrateInfo, VeltranoError> {
-            Err(VeltranoError::from(RustInteropError::CrateNotFound("Mock failure".to_string())))
+            Err(VeltranoError::from(RustInteropError::CrateNotFound(
+                "Mock failure".to_string(),
+            )))
         }
         fn supports_crate(&self, _: &str) -> bool {
             true

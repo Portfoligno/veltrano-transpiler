@@ -4,7 +4,37 @@
 //! including expressions, statements, and the program structure. It also provides
 //! extension traits for AST traversal and analysis.
 
+use crate::error::Span;
 use crate::types::VeltranoType;
+
+/// A wrapper for AST nodes that includes source location information
+#[derive(Debug, Clone)]
+pub struct Located<T> {
+    pub node: T,
+    pub span: Span,
+}
+
+impl<T> Located<T> {
+    pub fn new(node: T, span: Span) -> Self {
+        Self { node, span }
+    }
+
+    /// Get a reference to the inner node
+    pub fn inner(&self) -> &T {
+        &self.node
+    }
+
+    /// Get a mutable reference to the inner node
+    pub fn inner_mut(&mut self) -> &mut T {
+        &mut self.node
+    }
+}
+
+/// Type alias for located expressions
+pub type LocatedExpr = Located<Expr>;
+
+/// Type alias for located statements  
+pub type LocatedStmt = Located<Stmt>;
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -29,7 +59,7 @@ pub enum LiteralExpr {
 #[derive(Debug, Clone)]
 pub struct UnaryExpr {
     pub operator: UnaryOp,
-    pub operand: Box<Expr>,
+    pub operand: Box<LocatedExpr>,
 }
 
 #[derive(Debug, Clone)]
@@ -39,9 +69,9 @@ pub enum UnaryOp {
 
 #[derive(Debug, Clone)]
 pub struct BinaryExpr {
-    pub left: Box<Expr>,
+    pub left: Box<LocatedExpr>,
     pub operator: BinaryOp,
-    pub right: Box<Expr>,
+    pub right: Box<LocatedExpr>,
 }
 
 #[derive(Debug, Clone)]
@@ -61,15 +91,15 @@ pub enum BinaryOp {
 
 #[derive(Debug, Clone)]
 pub enum Argument {
-    Bare(Expr, Option<(String, String)>), // Expression with optional inline comment
-    Named(String, Expr, Option<(String, String)>), // Named argument with optional inline comment
+    Bare(LocatedExpr, Option<(String, String)>), // Expression with optional inline comment
+    Named(String, LocatedExpr, Option<(String, String)>), // Named argument with optional inline comment
     Shorthand(String, Option<(String, String)>), // Shorthand field (.field) with optional inline comment
     StandaloneComment(String, String), // Standalone comment with content and preceding whitespace
 }
 
 #[derive(Debug, Clone)]
 pub struct CallExpr {
-    pub callee: Box<Expr>,
+    pub callee: Box<LocatedExpr>,
     pub args: Vec<Argument>,
     pub is_multiline: bool, // Whether this call was originally formatted across multiple lines
     pub id: usize,          // Unique ID for type resolution tracking
@@ -77,27 +107,27 @@ pub struct CallExpr {
 
 #[derive(Debug, Clone)]
 pub struct MethodCallExpr {
-    pub object: Box<Expr>,
+    pub object: Box<LocatedExpr>,
     pub method: String,
-    pub args: Vec<Expr>,
+    pub args: Vec<LocatedExpr>,
     pub inline_comment: Option<(String, String)>, // Optional inline comment after method call
     pub id: usize,                                // Unique ID for type resolution tracking
 }
 
 #[derive(Debug, Clone)]
 pub struct FieldAccessExpr {
-    pub object: Box<Expr>,
+    pub object: Box<LocatedExpr>,
     pub field: String,
 }
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
-    Expression(Expr, Option<(String, String)>), // Expression with optional inline comment (content, whitespace)
+    Expression(LocatedExpr, Option<(String, String)>), // Expression with optional inline comment (content, whitespace)
     VarDecl(VarDeclStmt, Option<(String, String)>), // Variable declaration with optional inline comment (content, whitespace)
     FunDecl(FunDeclStmt),
     If(IfStmt),
     While(WhileStmt),
-    Return(Option<Expr>, Option<(String, String)>), // Return statement with optional inline comment (content, whitespace)
+    Return(Option<LocatedExpr>, Option<(String, String)>), // Return statement with optional inline comment (content, whitespace)
     Block(Vec<Stmt>),
     Comment(CommentStmt),     // Standalone comments
     Import(ImportStmt),       // Import statement
@@ -115,7 +145,7 @@ pub struct CommentStmt {
 pub struct VarDeclStmt {
     pub name: String,
     pub type_annotation: Option<VeltranoType>,
-    pub initializer: Option<Expr>,
+    pub initializer: Option<LocatedExpr>,
 }
 
 #[derive(Debug, Clone)]
@@ -147,8 +177,8 @@ impl FunDeclStmt {
         // Check if we call any functions that use bump
         let mut uses_bump = false;
         let _ = self.body.walk_expressions(&mut |expr| {
-            if let Expr::Call(call) = expr {
-                if let Expr::Identifier(name) = call.callee.as_ref() {
+            if let Expr::Call(call) = &expr.node {
+                if let Expr::Identifier(name) = &call.callee.node {
                     if functions_with_bump.contains(name) {
                         uses_bump = true;
                         return Err(()); // Early exit
@@ -250,14 +280,14 @@ pub struct Parameter {
 
 #[derive(Debug, Clone)]
 pub struct IfStmt {
-    pub condition: Expr,
+    pub condition: LocatedExpr,
     pub then_branch: Box<Stmt>,
     pub else_branch: Option<Box<Stmt>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct WhileStmt {
-    pub condition: Expr,
+    pub condition: LocatedExpr,
     pub body: Box<Stmt>,
 }
 
@@ -294,22 +324,22 @@ pub trait ExprExt {
     /// Calls visitor on current node before its children. Return Err to stop early.
     fn walk<F, E>(&self, visitor: &mut F) -> Result<(), E>
     where
-        F: FnMut(&Expr) -> Result<(), E>;
+        F: FnMut(&LocatedExpr) -> Result<(), E>;
 
     /// Walk the expression tree in post-order
     ///
     /// Calls visitor on children before current node. Useful for bottom-up analysis.
     fn walk_post<F, E>(&self, visitor: &mut F) -> Result<(), E>
     where
-        F: FnMut(&Expr) -> Result<(), E>;
+        F: FnMut(&LocatedExpr) -> Result<(), E>;
 
     /// Find all sub-expressions matching a predicate
     ///
     /// Returns vector of all expressions matching the predicate.
     #[allow(dead_code)]
-    fn find_subexpressions<F>(&self, predicate: F) -> Vec<&Expr>
+    fn find_subexpressions<F>(&self, predicate: F) -> Vec<&LocatedExpr>
     where
-        F: Fn(&Expr) -> bool;
+        F: Fn(&LocatedExpr) -> bool;
 
     /// Check if any sub-expression matches a predicate
     ///
@@ -317,7 +347,7 @@ pub trait ExprExt {
     #[allow(dead_code)]
     fn any_subexpr<F>(&self, predicate: F) -> bool
     where
-        F: Fn(&Expr) -> bool;
+        F: Fn(&LocatedExpr) -> bool;
 
     /// Check if all sub-expressions match a predicate
     ///
@@ -325,19 +355,19 @@ pub trait ExprExt {
     #[allow(dead_code)]
     fn all_subexprs<F>(&self, predicate: F) -> bool
     where
-        F: Fn(&Expr) -> bool;
+        F: Fn(&LocatedExpr) -> bool;
 }
 
-impl ExprExt for Expr {
+impl ExprExt for LocatedExpr {
     fn walk<F, E>(&self, visitor: &mut F) -> Result<(), E>
     where
-        F: FnMut(&Expr) -> Result<(), E>,
+        F: FnMut(&LocatedExpr) -> Result<(), E>,
     {
         // Visit this node first (pre-order)
         visitor(self)?;
 
         // Then visit children
-        match self {
+        match &self.node {
             Expr::Binary(binary) => {
                 binary.left.walk(visitor)?;
                 binary.right.walk(visitor)?;
@@ -374,10 +404,10 @@ impl ExprExt for Expr {
 
     fn walk_post<F, E>(&self, visitor: &mut F) -> Result<(), E>
     where
-        F: FnMut(&Expr) -> Result<(), E>,
+        F: FnMut(&LocatedExpr) -> Result<(), E>,
     {
         // Visit children first (post-order)
-        match self {
+        match &self.node {
             Expr::Binary(binary) => {
                 binary.left.walk_post(visitor)?;
                 binary.right.walk_post(visitor)?;
@@ -414,19 +444,19 @@ impl ExprExt for Expr {
         visitor(self)
     }
 
-    fn find_subexpressions<F>(&self, predicate: F) -> Vec<&Expr>
+    fn find_subexpressions<F>(&self, predicate: F) -> Vec<&LocatedExpr>
     where
-        F: Fn(&Expr) -> bool,
+        F: Fn(&LocatedExpr) -> bool,
     {
-        fn collect<'a, F>(expr: &'a Expr, predicate: &F, results: &mut Vec<&'a Expr>)
+        fn collect<'a, F>(expr: &'a LocatedExpr, predicate: &F, results: &mut Vec<&'a LocatedExpr>)
         where
-            F: Fn(&Expr) -> bool,
+            F: Fn(&LocatedExpr) -> bool,
         {
             if predicate(expr) {
                 results.push(expr);
             }
 
-            match expr {
+            match &expr.node {
                 Expr::Binary(binary) => {
                     collect(&binary.left, predicate, results);
                     collect(&binary.right, predicate, results);
@@ -465,7 +495,7 @@ impl ExprExt for Expr {
 
     fn any_subexpr<F>(&self, predicate: F) -> bool
     where
-        F: Fn(&Expr) -> bool,
+        F: Fn(&LocatedExpr) -> bool,
     {
         let mut found = false;
         let _ = self.walk(&mut |expr| {
@@ -481,7 +511,7 @@ impl ExprExt for Expr {
 
     fn all_subexprs<F>(&self, predicate: F) -> bool
     where
-        F: Fn(&Expr) -> bool,
+        F: Fn(&LocatedExpr) -> bool,
     {
         let mut all_match = true;
         let _ = self.walk(&mut |expr| {
@@ -527,7 +557,7 @@ pub trait StmtExt {
     /// Visits all expressions in the statement tree for expression-level analysis.
     fn walk_expressions<F, E>(&self, visitor: &mut F) -> Result<(), E>
     where
-        F: FnMut(&Expr) -> Result<(), E>;
+        F: FnMut(&LocatedExpr) -> Result<(), E>;
 
     /// Check if the statement tree can exit early
     ///
@@ -650,7 +680,7 @@ impl StmtExt for Stmt {
 
     fn walk_expressions<F, E>(&self, visitor: &mut F) -> Result<(), E>
     where
-        F: FnMut(&Expr) -> Result<(), E>,
+        F: FnMut(&LocatedExpr) -> Result<(), E>,
     {
         match self {
             Stmt::Expression(expr, _) => expr.walk(visitor)?,

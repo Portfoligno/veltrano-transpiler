@@ -5,6 +5,7 @@
 //! expressions, statements, function declarations, and data classes.
 
 use crate::ast::*;
+use crate::ast_types::{Located, LocatedExpr};
 use crate::comments::{Comment, CommentStyle};
 use crate::error::{ErrorKind, SourceLocation, Span, VeltranoError};
 use crate::lexer::{Token, TokenType};
@@ -26,6 +27,25 @@ impl Parser {
             in_function_body: false,
             next_call_id: 0,
         }
+    }
+
+    /// Create a Located expression with span from a single token
+    fn located_expr(&self, expr: Expr, token: &Token) -> LocatedExpr {
+        Located::new(
+            expr,
+            Span::single(SourceLocation::new(token.line, token.column)),
+        )
+    }
+
+    /// Create a Located expression with span from start to end tokens
+    fn located_expr_span(&self, expr: Expr, start: &Token, end: &Token) -> LocatedExpr {
+        Located::new(
+            expr,
+            Span::new(
+                SourceLocation::new(start.line, start.column),
+                SourceLocation::new(end.line, end.column),
+            ),
+        )
     }
 
     pub fn parse(&mut self) -> Result<Program, VeltranoError> {
@@ -371,11 +391,11 @@ impl Parser {
         Ok(NonEmpty::singleton(Stmt::Expression(expr, inline_comment)))
     }
 
-    fn expression(&mut self) -> Result<Expr, VeltranoError> {
+    fn expression(&mut self) -> Result<LocatedExpr, VeltranoError> {
         self.equality()
     }
 
-    fn equality(&mut self) -> Result<Expr, VeltranoError> {
+    fn equality(&mut self) -> Result<LocatedExpr, VeltranoError> {
         self.parse_binary_expression(
             Self::comparison,
             &[TokenType::NotEqual, TokenType::EqualEqual],
@@ -387,7 +407,7 @@ impl Parser {
         )
     }
 
-    fn comparison(&mut self) -> Result<Expr, VeltranoError> {
+    fn comparison(&mut self) -> Result<LocatedExpr, VeltranoError> {
         self.parse_binary_expression(
             Self::term,
             &[
@@ -406,7 +426,7 @@ impl Parser {
         )
     }
 
-    fn term(&mut self) -> Result<Expr, VeltranoError> {
+    fn term(&mut self) -> Result<LocatedExpr, VeltranoError> {
         self.parse_binary_expression(
             Self::factor,
             &[TokenType::Minus, TokenType::Plus],
@@ -418,7 +438,7 @@ impl Parser {
         )
     }
 
-    fn factor(&mut self) -> Result<Expr, VeltranoError> {
+    fn factor(&mut self) -> Result<LocatedExpr, VeltranoError> {
         self.parse_binary_expression(
             Self::unary,
             &[TokenType::Slash, TokenType::Star, TokenType::Percent],
@@ -431,8 +451,10 @@ impl Parser {
         )
     }
 
-    fn unary(&mut self) -> Result<Expr, VeltranoError> {
+    fn unary(&mut self) -> Result<LocatedExpr, VeltranoError> {
         if self.match_token(&TokenType::Minus) {
+            let start_line = self.previous().line;
+            let start_column = self.previous().column;
             // Check for double minus without separation
             if self.peek().token_type == TokenType::Minus {
                 return Err(self.syntax_error(
@@ -442,13 +464,17 @@ impl Parser {
 
             let operator = UnaryOp::Minus;
             let operand = Box::new(self.unary()?); // Right associative
-            return Ok(Expr::Unary(UnaryExpr { operator, operand }));
+            let end_span = operand.span.end.clone();
+            return Ok(Located::new(
+                Expr::Unary(UnaryExpr { operator, operand }),
+                Span::new(SourceLocation::new(start_line, start_column), end_span),
+            ));
         }
 
         self.call()
     }
 
-    fn call(&mut self) -> Result<Expr, VeltranoError> {
+    fn call(&mut self) -> Result<LocatedExpr, VeltranoError> {
         let mut expr = self.primary()?;
 
         loop {
@@ -624,12 +650,21 @@ impl Parser {
                 let id = self.next_call_id;
                 self.next_call_id += 1;
 
-                expr = Expr::Call(CallExpr {
-                    callee: Box::new(expr),
-                    args,
-                    is_multiline,
-                    id,
-                });
+                let start_span = expr.span.start.clone();
+                let end_span = Span::single(SourceLocation::new(
+                    self.previous().line,
+                    self.previous().column,
+                ))
+                .end;
+                expr = Located::new(
+                    Expr::Call(CallExpr {
+                        callee: Box::new(expr),
+                        args,
+                        is_multiline,
+                        id,
+                    }),
+                    Span::new(start_span, end_span),
+                );
             } else if self.match_token(&TokenType::Dot) {
                 let field_or_method =
                     self.consume_identifier("Expected field or method name after '.'")?;
@@ -673,19 +708,38 @@ impl Parser {
                     let id = self.next_call_id;
                     self.next_call_id += 1;
 
-                    expr = Expr::MethodCall(MethodCallExpr {
-                        object: Box::new(expr),
-                        method: field_or_method,
-                        args,
-                        inline_comment: comment,
-                        id,
-                    });
+                    let start_span = expr.span.start.clone();
+                    let end_span = Span::single(SourceLocation::new(
+                        self.previous().line,
+                        self.previous().column,
+                    ))
+                    .end;
+                    expr = Located::new(
+                        Expr::MethodCall(MethodCallExpr {
+                            object: Box::new(expr),
+                            method: field_or_method,
+                            args,
+                            inline_comment: comment,
+                            id,
+                        }),
+                        Span::new(start_span, end_span),
+                    );
                 } else {
                     // Field access
-                    expr = Expr::FieldAccess(FieldAccessExpr {
-                        object: Box::new(expr),
-                        field: field_or_method,
-                    });
+                    let start_span = expr.span.start.clone();
+                    // Use the position after the field identifier
+                    let end_span = Span::single(SourceLocation::new(
+                        self.previous().line,
+                        self.previous().column,
+                    ))
+                    .end;
+                    expr = Located::new(
+                        Expr::FieldAccess(FieldAccessExpr {
+                            object: Box::new(expr),
+                            field: field_or_method,
+                        }),
+                        Span::new(start_span, end_span),
+                    );
                 }
             } else if let TokenType::LineComment(_, _) = &self.peek().token_type {
                 // Check if this inline comment is followed by newline + dot (method chain continuation)
@@ -697,7 +751,7 @@ impl Parser {
                     && matches!(self.tokens[nextnext_pos].token_type, TokenType::Dot)
                 {
                     // This is a method chain comment - capture it and attach to the current expression
-                    if let Expr::MethodCall(ref mut method_call) = expr {
+                    if let Expr::MethodCall(ref mut method_call) = expr.node {
                         // Capture the comment and attach it to the last method call
                         let comment = self.parse_inline_comment();
                         if method_call.inline_comment.is_none() {
@@ -718,44 +772,52 @@ impl Parser {
         Ok(expr)
     }
 
-    fn primary(&mut self) -> Result<Expr, VeltranoError> {
+    fn primary(&mut self) -> Result<LocatedExpr, VeltranoError> {
         if self.match_token(&TokenType::True) {
-            return Ok(Expr::Literal(LiteralExpr::Bool(true)));
+            let token = self.previous();
+            return Ok(self.located_expr(Expr::Literal(LiteralExpr::Bool(true)), token));
         }
 
         if self.match_token(&TokenType::False) {
-            return Ok(Expr::Literal(LiteralExpr::Bool(false)));
+            let token = self.previous();
+            return Ok(self.located_expr(Expr::Literal(LiteralExpr::Bool(false)), token));
         }
 
         if self.match_token(&TokenType::Null) {
-            return Ok(Expr::Literal(LiteralExpr::Null));
+            let token = self.previous();
+            return Ok(self.located_expr(Expr::Literal(LiteralExpr::Null), token));
         }
 
         if let TokenType::IntLiteral(value) = &self.peek().token_type {
             let value = *value;
             self.advance();
-            return Ok(Expr::Literal(LiteralExpr::Int(value)));
+            let token = self.previous();
+            return Ok(self.located_expr(Expr::Literal(LiteralExpr::Int(value)), token));
         }
 
         if let TokenType::StringLiteral(value) = &self.peek().token_type {
             let value = value.clone();
             self.advance();
-            return Ok(Expr::Literal(LiteralExpr::String(value)));
+            let token = self.previous();
+            return Ok(self.located_expr(Expr::Literal(LiteralExpr::String(value)), token));
         }
 
         if let TokenType::Identifier(name) = &self.peek().token_type {
             let name = name.clone();
             self.advance();
+            let token = self.previous();
             // Check if this is the Unit literal
             if name == "Unit" {
-                return Ok(Expr::Literal(LiteralExpr::Unit));
+                return Ok(self.located_expr(Expr::Literal(LiteralExpr::Unit), token));
             }
-            return Ok(Expr::Identifier(name));
+            return Ok(self.located_expr(Expr::Identifier(name), token));
         }
 
         if self.match_token(&TokenType::LeftParen) {
+            let _start = self.previous();
             let expr = self.expression()?;
-            self.consume(&TokenType::RightParen, "Expected ')' after expression")?;
+            let _end = self.consume(&TokenType::RightParen, "Expected ')' after expression")?;
+            // For parenthesized expressions, use the span of the inner expression
             return Ok(expr);
         }
 
@@ -1119,9 +1181,9 @@ impl Parser {
         next: F,
         operators: &[TokenType],
         map_operator: M,
-    ) -> Result<Expr, VeltranoError>
+    ) -> Result<LocatedExpr, VeltranoError>
     where
-        F: Fn(&mut Self) -> Result<Expr, VeltranoError>,
+        F: Fn(&mut Self) -> Result<LocatedExpr, VeltranoError>,
         M: Fn(&TokenType) -> BinaryOp,
     {
         let mut expr = next(self)?;
@@ -1129,11 +1191,16 @@ impl Parser {
         while self.match_tokens(operators) {
             let operator = map_operator(&self.previous().token_type);
             let right = next(self)?;
-            expr = Expr::Binary(BinaryExpr {
-                left: Box::new(expr),
-                operator,
-                right: Box::new(right),
-            });
+            let start_span = expr.span.start.clone();
+            let end_span = right.span.end.clone();
+            expr = Located::new(
+                Expr::Binary(BinaryExpr {
+                    left: Box::new(expr),
+                    operator,
+                    right: Box::new(right),
+                }),
+                Span::new(start_span, end_span),
+            );
         }
 
         Ok(expr)

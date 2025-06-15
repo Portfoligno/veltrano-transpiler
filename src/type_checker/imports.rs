@@ -4,8 +4,9 @@
 //! method imports and resolving them during type checking.
 
 use crate::ast::{CallExpr, ImportStmt};
+use crate::error::{SourceLocation, Span};
 use crate::rust_interop::{RustInteropRegistry, RustType, RustTypeParser, SelfKind};
-use crate::types::{SourceLocation, VeltranoType};
+use crate::types::VeltranoType;
 use std::collections::HashMap;
 
 use super::error::{MethodResolution, TypeCheckError};
@@ -122,17 +123,13 @@ impl ImportHandler {
         call: &CallExpr,
         trait_checker: &mut RustInteropRegistry,
         method_resolutions: &mut HashMap<usize, MethodResolution>,
+        span: &Span,
     ) -> Result<VeltranoType, TypeCheckError> {
         let imports =
             self.get_imports(func_name)
                 .ok_or_else(|| TypeCheckError::FunctionNotFound {
                     name: func_name.to_string(),
-                    location: SourceLocation {
-                        file: "unknown".to_string(),
-                        line: 0,
-                        _column: 0,
-                        _source_line: "".to_string(),
-                    },
+                    location: SourceLocation::new(span.start_line(), span.start_column()),
                 })?;
 
         // For standalone method calls like Vec.new(), we need to check if the method
@@ -211,12 +208,7 @@ impl ImportHandler {
                 // No matching static method found
                 Err(TypeCheckError::FunctionNotFound {
                     name: func_name.to_string(),
-                    location: SourceLocation {
-                        file: "unknown".to_string(),
-                        line: 0,
-                        _column: 0,
-                        _source_line: "".to_string(),
-                    },
+                    location: SourceLocation::new(span.start_line(), span.start_column()),
                 })
             }
             1 => {
@@ -240,12 +232,7 @@ impl ImportHandler {
                     method: func_name.to_string(),
                     receiver_type: VeltranoType::unit(), // No receiver for standalone calls
                     candidates: candidate_descriptions,
-                    location: SourceLocation {
-                        file: "unknown".to_string(),
-                        line: 0,
-                        _column: 0,
-                        _source_line: "".to_string(),
-                    },
+                    location: SourceLocation::new(span.start_line(), span.start_column()),
                 })
             }
         }

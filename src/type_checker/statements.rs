@@ -6,9 +6,8 @@
 
 use crate::ast::query::AstQuery;
 use crate::ast::*;
-use crate::types::{
-    DataClassDefinition, DataClassFieldSignature, FunctionSignature, SourceLocation, VeltranoType,
-};
+use crate::error::SourceLocation;
+use crate::types::{DataClassDefinition, DataClassFieldSignature, FunctionSignature, VeltranoType};
 
 use super::error::TypeCheckError;
 use super::types::TypeValidator;
@@ -127,12 +126,7 @@ impl VeltranoTypeChecker {
                     return Err(TypeCheckError::TypeMismatch {
                         expected: expected_type,
                         actual: init_type,
-                        location: SourceLocation {
-                            file: "unknown".to_string(),
-                            line: 0,
-                            _column: 0,
-                            _source_line: "".to_string(),
-                        },
+                        location: SourceLocation::new(0, 0),
                     });
                 }
             }
