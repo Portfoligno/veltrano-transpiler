@@ -1,0 +1,20 @@
+// Expected error: VariableNotFound
+// This example demonstrates error reporting with multiple errors
+
+fun main() {
+    // Error 1: Undefined variable
+    val x = unknown_var
+    
+    // Error 2: Type mismatch
+    val num: i32 = "not a number"
+    
+    // Error 3: Undefined function
+    val result = undefined_function()
+    
+    // Error 4: Method not found
+    val s = "hello"
+    s.non_existent_method()
+    
+    // Error 5: Wrong number of arguments
+    println() // println requires at least one argument
+}

@@ -123,7 +123,7 @@ impl Comment {
 pub trait HasComment {
     /// Get the comment field
     fn comment(&self) -> Option<&(String, String)>;
-    
+
     /// Get mutable reference to comment field
     fn comment_mut(&mut self) -> &mut Option<(String, String)>;
 

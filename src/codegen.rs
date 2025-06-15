@@ -9,6 +9,7 @@ use crate::ast::*;
 use crate::ast_types::StmtExt;
 use crate::comments::{Comment, CommentStyle};
 use crate::config::Config;
+use crate::error::VeltranoError;
 use crate::rust_interop::camel_to_snake_case;
 use crate::rust_interop::RustInteropRegistry;
 use crate::type_checker::MethodResolution;
@@ -100,7 +101,7 @@ impl CodeGenerator {
         self.method_resolutions = resolutions;
     }
 
-    pub fn generate(&mut self, program: &Program) -> Result<String, CodegenError> {
+    pub fn generate(&mut self, program: &Program) -> Result<String, VeltranoError> {
         // First pass: collect all locally defined function names and data classes with lifetimes
         for stmt in &program.statements {
             match stmt {
@@ -137,7 +138,7 @@ impl CodeGenerator {
         Ok(self.output.clone())
     }
 
-    fn generate_statement(&mut self, stmt: &Stmt) -> Result<(), CodegenError> {
+    fn generate_statement(&mut self, stmt: &Stmt) -> Result<(), VeltranoError> {
         match stmt {
             Stmt::Expression(expr, inline_comment) => {
                 self.indent();
@@ -220,7 +221,7 @@ impl CodeGenerator {
         &mut self,
         var_decl: &VarDeclStmt,
         inline_comment: &Option<(String, String)>,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), VeltranoError> {
         self.indent();
 
         self.output.push_str("let ");
@@ -270,7 +271,7 @@ impl CodeGenerator {
     fn generate_function_declaration(
         &mut self,
         fun_decl: &FunDeclStmt,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), VeltranoError> {
         self.indent();
         self.output.push_str("fn ");
         let snake_name = camel_to_snake_case(&fun_decl.name);
@@ -335,7 +336,7 @@ impl CodeGenerator {
         Ok(())
     }
 
-    fn generate_if_statement(&mut self, if_stmt: &IfStmt) -> Result<(), CodegenError> {
+    fn generate_if_statement(&mut self, if_stmt: &IfStmt) -> Result<(), VeltranoError> {
         self.indent();
         self.output.push_str("if ");
         self.generate_expression(&if_stmt.condition)?;
@@ -351,7 +352,7 @@ impl CodeGenerator {
         Ok(())
     }
 
-    fn generate_while_statement(&mut self, while_stmt: &WhileStmt) -> Result<(), CodegenError> {
+    fn generate_while_statement(&mut self, while_stmt: &WhileStmt) -> Result<(), VeltranoError> {
         self.indent();
 
         // Check if this is an infinite loop (while true)
@@ -408,7 +409,7 @@ impl CodeGenerator {
         self.output.push_str("}\n\n");
     }
 
-    fn generate_expression(&mut self, expr: &Expr) -> Result<(), CodegenError> {
+    fn generate_expression(&mut self, expr: &Expr) -> Result<(), VeltranoError> {
         match expr {
             Expr::Literal(literal) => {
                 self.generate_literal(literal);
@@ -651,7 +652,7 @@ impl CodeGenerator {
     fn generate_comma_separated_args_for_struct_init(
         &mut self,
         args: &[Argument],
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), VeltranoError> {
         let mut first = true;
         for arg in args {
             if !first {
@@ -665,7 +666,7 @@ impl CodeGenerator {
                     return Err(CodegenError::InvalidDataClassSyntax {
                         constructor: "data class".to_string(),
                         reason: "Data class constructors don't support positional arguments. Use named arguments or .field shorthand syntax".to_string(),
-                    });
+                    }.into());
                 }
                 Argument::Named(name, expr, comment) => {
                     self.output.push_str(&camel_to_snake_case(name));
@@ -691,7 +692,7 @@ impl CodeGenerator {
         &mut self,
         args: &[Argument],
         is_multiline: bool,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), VeltranoError> {
         if is_multiline && !args.is_empty() {
             // Generate multiline format
             self.output.push('\n');
@@ -719,7 +720,8 @@ impl CodeGenerator {
                         return Err(CodegenError::InvalidShorthandUsage {
                             field_name: field_name.clone(),
                             context: "function calls".to_string(),
-                        });
+                        }
+                        .into());
                     }
                     Argument::StandaloneComment(content, whitespace) => {
                         // Generate standalone comment as its own line
@@ -727,9 +729,10 @@ impl CodeGenerator {
                             // Following the pattern from generate_comment for regular statements:
                             // The loop already called indent() to add base indentation.
                             // Now add any extra whitespace preserved by the lexer.
-                            let comment = Comment::from_tuple((content.clone(), whitespace.clone()));
+                            let comment =
+                                Comment::from_tuple((content.clone(), whitespace.clone()));
                             self.output.push_str(&comment.whitespace);
-                            
+
                             match comment.style {
                                 CommentStyle::Block => {
                                     self.output.push_str(&comment.content);
@@ -769,7 +772,8 @@ impl CodeGenerator {
                         return Err(CodegenError::InvalidShorthandUsage {
                             field_name: field_name.clone(),
                             context: "function calls".to_string(),
-                        });
+                        }
+                        .into());
                     }
                     Argument::StandaloneComment(_, _) => {
                         // For single-line calls, standalone comments force multiline format
@@ -783,7 +787,7 @@ impl CodeGenerator {
         Ok(())
     }
 
-    fn generate_generic_call(&mut self, call: &CallExpr) -> Result<(), CodegenError> {
+    fn generate_generic_call(&mut self, call: &CallExpr) -> Result<(), VeltranoError> {
         self.generate_expression(&call.callee)?;
         self.output.push('(');
         self.generate_comma_separated_args_for_function_call_with_multiline(
@@ -794,7 +798,7 @@ impl CodeGenerator {
         Ok(())
     }
 
-    fn generate_call_expression(&mut self, call: &CallExpr) -> Result<(), CodegenError> {
+    fn generate_call_expression(&mut self, call: &CallExpr) -> Result<(), VeltranoError> {
         // First check if we have a type-checked resolution for this call (e.g., import alias)
         if let Some(resolution) = self.method_resolutions.get(&call.id) {
             // This is a resolved import alias (e.g., newVec -> Vec::new)
@@ -833,7 +837,8 @@ impl CodeGenerator {
                     return Err(CodegenError::InvalidBuiltinArguments {
                         builtin: "MutRef".to_string(),
                         reason: format!("requires exactly one argument, found {}", call.args.len()),
-                    });
+                    }
+                    .into());
                 }
                 self.output.push_str("&mut (&");
                 match &call.args[0] {
@@ -849,13 +854,15 @@ impl CodeGenerator {
                         return Err(CodegenError::InvalidBuiltinArguments {
                             builtin: "MutRef".to_string(),
                             reason: "does not support named arguments".to_string(),
-                        });
+                        }
+                        .into());
                     }
                     Argument::StandaloneComment(_, _) => {
                         return Err(CodegenError::InvalidBuiltinArguments {
                             builtin: "MutRef".to_string(),
                             reason: "cannot have standalone comments as arguments".to_string(),
-                        });
+                        }
+                        .into());
                     }
                 }
                 self.output.push_str(").clone()");
@@ -929,7 +936,7 @@ impl CodeGenerator {
     fn generate_method_call_expression(
         &mut self,
         method_call: &MethodCallExpr,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), VeltranoError> {
         // First check if we have a type-checked resolution for this method call
         crate::debug_println!(
             "DEBUG codegen: Looking for resolution for method call ID {}, method: {}",
@@ -1010,7 +1017,8 @@ impl CodeGenerator {
             return Err(CodegenError::MissingImport {
                 method: method_call.method.clone(),
                 type_name: "Type".to_string(), // We don't have the exact type here
-            });
+            }
+            .into());
         }
 
         // Note: Method call comments are now handled by the statement generator to ensure proper placement after semicolons
@@ -1071,7 +1079,7 @@ impl CodeGenerator {
     fn generate_field_access(
         &mut self,
         field_access: &FieldAccessExpr,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), VeltranoError> {
         self.generate_expression(&field_access.object)?;
         self.output.push('.');
         self.output

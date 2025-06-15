@@ -7,6 +7,7 @@ mod types;
 
 use crate::ast::*;
 use crate::builtins::BuiltinRegistry;
+use crate::error::VeltranoError;
 use crate::rust_interop::RustInteropRegistry;
 use crate::types::*;
 
@@ -74,5 +75,11 @@ impl VeltranoTypeChecker {
         } else {
             Err(errors)
         }
+    }
+
+    /// Type check with VeltranoError for unified error handling
+    pub fn check_program_unified(&mut self, program: &Program) -> Result<(), Vec<VeltranoError>> {
+        self.check_program(program)
+            .map_err(|errors| errors.into_iter().map(|e| e.into()).collect())
     }
 }

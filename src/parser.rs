@@ -6,6 +6,7 @@
 
 use crate::ast::*;
 use crate::comments::{Comment, CommentStyle};
+use crate::error::{ErrorKind, SourceLocation, Span, VeltranoError};
 use crate::lexer::{Token, TokenType};
 use crate::types::VeltranoType;
 use nonempty::NonEmpty;
@@ -27,7 +28,7 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Program, String> {
+    pub fn parse(&mut self) -> Result<Program, VeltranoError> {
         let mut statements = Vec::new();
 
         while !self.is_at_end() {
@@ -88,7 +89,7 @@ impl Parser {
         }
     }
 
-    fn declaration(&mut self) -> Result<NonEmpty<Stmt>, String> {
+    fn declaration(&mut self) -> Result<NonEmpty<Stmt>, VeltranoError> {
         if self.match_token(&TokenType::Fun) {
             Ok(NonEmpty::singleton(self.function_declaration()?))
         } else if self.match_token(&TokenType::Val) {
@@ -102,7 +103,7 @@ impl Parser {
         }
     }
 
-    fn function_declaration(&mut self) -> Result<Stmt, String> {
+    fn function_declaration(&mut self) -> Result<Stmt, VeltranoError> {
         let name = self.consume_identifier("Expected function name")?;
 
         self.consume(&TokenType::LeftParen, "Expected '(' after function name")?;
@@ -176,7 +177,7 @@ impl Parser {
         }))
     }
 
-    fn var_declaration(&mut self) -> Result<NonEmpty<Stmt>, String> {
+    fn var_declaration(&mut self) -> Result<NonEmpty<Stmt>, VeltranoError> {
         let name = self.consume_identifier("Expected variable name")?;
 
         let type_annotation = if self.match_token(&TokenType::Colon) {
@@ -203,7 +204,7 @@ impl Parser {
         )))
     }
 
-    fn import_declaration(&mut self) -> Result<Stmt, String> {
+    fn import_declaration(&mut self) -> Result<Stmt, VeltranoError> {
         // import Type.method [as alias]
         let type_name = self.consume_identifier("Expected type name after 'import'")?;
         self.consume(&TokenType::Dot, "Expected '.' after type name")?;
@@ -224,7 +225,7 @@ impl Parser {
         }))
     }
 
-    fn data_class_declaration(&mut self) -> Result<Stmt, String> {
+    fn data_class_declaration(&mut self) -> Result<Stmt, VeltranoError> {
         // data class ClassName(val field1: Type1, val field2: Type2, ...)
         self.consume(&TokenType::Class, "Expected 'class' after 'data'")?;
         let name = self.consume_identifier("Expected data class name after 'data class'")?;
@@ -272,7 +273,7 @@ impl Parser {
         Ok(Stmt::DataClass(DataClassStmt { name, fields }))
     }
 
-    fn statement(&mut self) -> Result<NonEmpty<Stmt>, String> {
+    fn statement(&mut self) -> Result<NonEmpty<Stmt>, VeltranoError> {
         if self.match_token(&TokenType::If) {
             Ok(NonEmpty::singleton(self.if_statement()?))
         } else if self.match_token(&TokenType::While) {
@@ -286,7 +287,7 @@ impl Parser {
         }
     }
 
-    fn if_statement(&mut self) -> Result<Stmt, String> {
+    fn if_statement(&mut self) -> Result<Stmt, VeltranoError> {
         self.consume(&TokenType::LeftParen, "Expected '(' after 'if'")?;
         let condition = self.expression()?;
         self.consume(&TokenType::RightParen, "Expected ')' after if condition")?;
@@ -308,7 +309,7 @@ impl Parser {
         }))
     }
 
-    fn while_statement(&mut self) -> Result<Stmt, String> {
+    fn while_statement(&mut self) -> Result<Stmt, VeltranoError> {
         self.consume(&TokenType::LeftParen, "Expected '(' after 'while'")?;
         let condition = self.expression()?;
         self.consume(&TokenType::RightParen, "Expected ')' after while condition")?;
@@ -319,7 +320,7 @@ impl Parser {
         Ok(Stmt::While(WhileStmt { condition, body }))
     }
 
-    fn return_statement(&mut self) -> Result<Stmt, String> {
+    fn return_statement(&mut self) -> Result<Stmt, VeltranoError> {
         let value = if self.check(&TokenType::Newline) {
             None
         } else {
@@ -341,7 +342,7 @@ impl Parser {
         }
     }
 
-    fn block_statement(&mut self) -> Result<Stmt, String> {
+    fn block_statement(&mut self) -> Result<Stmt, VeltranoError> {
         let mut statements = Vec::new();
 
         while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
@@ -363,18 +364,18 @@ impl Parser {
         Ok(Stmt::Block(statements))
     }
 
-    fn expression_statement(&mut self) -> Result<NonEmpty<Stmt>, String> {
+    fn expression_statement(&mut self) -> Result<NonEmpty<Stmt>, VeltranoError> {
         let expr = self.expression()?;
         let inline_comment = self.consume_newline()?;
 
         Ok(NonEmpty::singleton(Stmt::Expression(expr, inline_comment)))
     }
 
-    fn expression(&mut self) -> Result<Expr, String> {
+    fn expression(&mut self) -> Result<Expr, VeltranoError> {
         self.equality()
     }
 
-    fn equality(&mut self) -> Result<Expr, String> {
+    fn equality(&mut self) -> Result<Expr, VeltranoError> {
         self.parse_binary_expression(
             Self::comparison,
             &[TokenType::NotEqual, TokenType::EqualEqual],
@@ -386,7 +387,7 @@ impl Parser {
         )
     }
 
-    fn comparison(&mut self) -> Result<Expr, String> {
+    fn comparison(&mut self) -> Result<Expr, VeltranoError> {
         self.parse_binary_expression(
             Self::term,
             &[
@@ -405,7 +406,7 @@ impl Parser {
         )
     }
 
-    fn term(&mut self) -> Result<Expr, String> {
+    fn term(&mut self) -> Result<Expr, VeltranoError> {
         self.parse_binary_expression(
             Self::factor,
             &[TokenType::Minus, TokenType::Plus],
@@ -417,7 +418,7 @@ impl Parser {
         )
     }
 
-    fn factor(&mut self) -> Result<Expr, String> {
+    fn factor(&mut self) -> Result<Expr, VeltranoError> {
         self.parse_binary_expression(
             Self::unary,
             &[TokenType::Slash, TokenType::Star, TokenType::Percent],
@@ -430,11 +431,13 @@ impl Parser {
         )
     }
 
-    fn unary(&mut self) -> Result<Expr, String> {
+    fn unary(&mut self) -> Result<Expr, VeltranoError> {
         if self.match_token(&TokenType::Minus) {
             // Check for double minus without separation
             if self.peek().token_type == TokenType::Minus {
-                return Err("Double minus (--) is not allowed. Use -(-x) instead.".to_string());
+                return Err(self.syntax_error(
+                    "Double minus (--) is not allowed. Use -(-x) instead.".to_string(),
+                ));
             }
 
             let operator = UnaryOp::Minus;
@@ -445,7 +448,7 @@ impl Parser {
         self.call()
     }
 
-    fn call(&mut self) -> Result<Expr, String> {
+    fn call(&mut self) -> Result<Expr, VeltranoError> {
         let mut expr = self.primary()?;
 
         loop {
@@ -525,8 +528,8 @@ impl Parser {
                                 let comment = self.skip_newlines_and_capture_comment();
                                 args.push(Argument::Shorthand(field_name, comment));
                             } else {
-                                return Err(format!(
-                                    "Expected field name after '.' in shorthand syntax"
+                                return Err(self.syntax_error(
+                                    "Expected field name after '.' in shorthand syntax".to_string(),
                                 ));
                             }
                         } else if let TokenType::Identifier(name) = &self.peek().token_type {
@@ -715,7 +718,7 @@ impl Parser {
         Ok(expr)
     }
 
-    fn primary(&mut self) -> Result<Expr, String> {
+    fn primary(&mut self) -> Result<Expr, VeltranoError> {
         if self.match_token(&TokenType::True) {
             return Ok(Expr::Literal(LiteralExpr::Bool(true)));
         }
@@ -756,10 +759,10 @@ impl Parser {
             return Ok(expr);
         }
 
-        Err(format!("Unexpected token: {:?}", self.peek()))
+        Err(self.unexpected_token("expression"))
     }
 
-    fn parse_type(&mut self) -> Result<VeltranoType, String> {
+    fn parse_type(&mut self) -> Result<VeltranoType, VeltranoError> {
         if let TokenType::Identifier(type_name) = &self.peek().token_type {
             let type_name = type_name.clone();
             self.advance();
@@ -792,18 +795,18 @@ impl Parser {
                 _ => Ok(VeltranoType::custom(type_name)), // naturally referenced
             }
         } else {
-            Err("Expected type name".to_string())
+            Err(self.syntax_error("Expected type name".to_string()))
         }
     }
 
-    fn parse_ref_type(&mut self) -> Result<VeltranoType, String> {
+    fn parse_ref_type(&mut self) -> Result<VeltranoType, VeltranoError> {
         self.consume(&TokenType::Less, "Expected '<' after Ref")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
         Ok(VeltranoType::ref_(inner_type))
     }
 
-    fn parse_own_type(&mut self) -> Result<VeltranoType, String> {
+    fn parse_own_type(&mut self) -> Result<VeltranoType, VeltranoError> {
         self.consume(&TokenType::Less, "Expected '<' after Own")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
@@ -812,28 +815,28 @@ impl Parser {
         Ok(VeltranoType::own(inner_type))
     }
 
-    fn parse_mutref_type(&mut self) -> Result<VeltranoType, String> {
+    fn parse_mutref_type(&mut self) -> Result<VeltranoType, VeltranoError> {
         self.consume(&TokenType::Less, "Expected '<' after MutRef")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
         Ok(VeltranoType::mut_ref(inner_type))
     }
 
-    fn parse_box_type(&mut self) -> Result<VeltranoType, String> {
+    fn parse_box_type(&mut self) -> Result<VeltranoType, VeltranoError> {
         self.consume(&TokenType::Less, "Expected '<' after Box")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
         Ok(VeltranoType::boxed(inner_type))
     }
 
-    fn parse_vec_type(&mut self) -> Result<VeltranoType, String> {
+    fn parse_vec_type(&mut self) -> Result<VeltranoType, VeltranoError> {
         self.consume(&TokenType::Less, "Expected '<' after Vec")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
         Ok(VeltranoType::vec(inner_type))
     }
 
-    fn parse_array_type(&mut self) -> Result<VeltranoType, String> {
+    fn parse_array_type(&mut self) -> Result<VeltranoType, VeltranoError> {
         self.consume(&TokenType::Less, "Expected '<' after Array")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Comma, "Expected ',' after array element type")?;
@@ -845,18 +848,18 @@ impl Parser {
             self.consume(&TokenType::Greater, "Expected '>' after array size")?;
             Ok(VeltranoType::array(inner_type, size))
         } else {
-            Err("Expected integer literal for array size".to_string())
+            Err(self.syntax_error("Expected integer literal for array size".to_string()))
         }
     }
 
-    fn parse_option_type(&mut self) -> Result<VeltranoType, String> {
+    fn parse_option_type(&mut self) -> Result<VeltranoType, VeltranoError> {
         self.consume(&TokenType::Less, "Expected '<' after Option")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
         Ok(VeltranoType::option(inner_type))
     }
 
-    fn parse_result_type(&mut self) -> Result<VeltranoType, String> {
+    fn parse_result_type(&mut self) -> Result<VeltranoType, VeltranoError> {
         self.consume(&TokenType::Less, "Expected '<' after Result")?;
         let ok_type = self.parse_type()?;
         self.consume(&TokenType::Comma, "Expected ',' after Result ok type")?;
@@ -865,13 +868,13 @@ impl Parser {
         Ok(VeltranoType::result(ok_type, err_type))
     }
 
-    fn consume_identifier(&mut self, message: &str) -> Result<String, String> {
+    fn consume_identifier(&mut self, message: &str) -> Result<String, VeltranoError> {
         if let TokenType::Identifier(name) = &self.peek().token_type {
             let name = name.clone();
             self.advance();
             Ok(name)
         } else {
-            Err(message.to_string())
+            Err(self.syntax_error(message.to_string()))
         }
     }
 
@@ -897,7 +900,7 @@ impl Parser {
         }
     }
 
-    fn consume_newline(&mut self) -> Result<Option<(String, String)>, String> {
+    fn consume_newline(&mut self) -> Result<Option<(String, String)>, VeltranoError> {
         if self.check(&TokenType::Newline) {
             // Check for inline comment before newline
             let inline_comment = self.parse_inline_comment();
@@ -917,9 +920,13 @@ impl Parser {
                 }
                 _ => {
                     let unexpected = self.peek();
-                    Err(format!(
-                        "Expected newline after statement at line {}, column {}, but found {:?}",
-                        unexpected.line, unexpected.column, unexpected.token_type
+                    Err(self.error_at_token(
+                        ErrorKind::SyntaxError,
+                        format!(
+                            "Expected newline after statement at line {}, column {}, but found {:?}",
+                            unexpected.line, unexpected.column, unexpected.token_type
+                        ),
+                        unexpected
                     ))
                 }
             }
@@ -972,11 +979,11 @@ impl Parser {
         &self.tokens[self.current - 1]
     }
 
-    fn consume(&mut self, token_type: &TokenType, message: &str) -> Result<&Token, String> {
+    fn consume(&mut self, token_type: &TokenType, message: &str) -> Result<&Token, VeltranoError> {
         if self.check(token_type) {
             Ok(self.advance())
         } else {
-            Err(message.to_string())
+            Err(self.unexpected_token(message))
         }
     }
 
@@ -1112,9 +1119,9 @@ impl Parser {
         next: F,
         operators: &[TokenType],
         map_operator: M,
-    ) -> Result<Expr, String>
+    ) -> Result<Expr, VeltranoError>
     where
-        F: Fn(&mut Self) -> Result<Expr, String>,
+        F: Fn(&mut Self) -> Result<Expr, VeltranoError>,
         M: Fn(&TokenType) -> BinaryOp,
     {
         let mut expr = next(self)?;
@@ -1130,5 +1137,36 @@ impl Parser {
         }
 
         Ok(expr)
+    }
+
+    // Error creation helpers
+    fn error(&self, kind: ErrorKind, message: String) -> VeltranoError {
+        let token = self.peek();
+        VeltranoError::new(kind, message)
+            .with_span(Span::single(SourceLocation::new(token.line, token.column)))
+    }
+
+    fn error_at_token(&self, kind: ErrorKind, message: String, token: &Token) -> VeltranoError {
+        VeltranoError::new(kind, message)
+            .with_span(Span::single(SourceLocation::new(token.line, token.column)))
+    }
+
+    fn syntax_error(&self, message: String) -> VeltranoError {
+        self.error(ErrorKind::SyntaxError, message)
+    }
+
+    fn unexpected_token(&self, expected: &str) -> VeltranoError {
+        let token = self.peek();
+        if token.token_type == TokenType::Eof {
+            self.error(
+                ErrorKind::UnexpectedEof,
+                format!("Expected {}, found EOF", expected),
+            )
+        } else {
+            self.error(
+                ErrorKind::UnexpectedToken,
+                format!("Expected {}, found {:?}", expected, token.token_type),
+            )
+        }
     }
 }

@@ -27,6 +27,7 @@ pub use registry::RustInteropRegistry;
 pub use types::{RustType, SelfKind};
 pub use utils::camel_to_snake_case;
 
+use crate::error::VeltranoError;
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 
@@ -205,7 +206,7 @@ impl std::error::Error for RustInteropError {}
 
 /// Trait for querying Rust type information
 pub trait RustQuerier: std::fmt::Debug {
-    fn query_crate(&mut self, crate_name: &str) -> Result<CrateInfo, RustInteropError>;
+    fn query_crate(&mut self, crate_name: &str) -> Result<CrateInfo, VeltranoError>;
     fn supports_crate(&self, crate_name: &str) -> bool;
     fn priority(&self) -> u32; // Higher priority queriers tried first
 }
@@ -500,13 +501,13 @@ impl StdLibQuerier {
 }
 
 impl RustQuerier for StdLibQuerier {
-    fn query_crate(&mut self, crate_name: &str) -> Result<CrateInfo, RustInteropError> {
+    fn query_crate(&mut self, crate_name: &str) -> Result<CrateInfo, VeltranoError> {
         if crate_name == "std" {
             // OnceCell ensures initialization happens only once
             let crate_info = self.cache.get_or_init(Self::create_std_crate_info);
             Ok(crate_info.clone())
         } else {
-            Err(RustInteropError::CrateNotFound(crate_name.to_string()))
+            Err(VeltranoError::from(RustInteropError::CrateNotFound(crate_name.to_string())))
         }
     }
 

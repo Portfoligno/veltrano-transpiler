@@ -84,7 +84,7 @@ fn parse_veltrano_code(code: &str, config: Config) -> Result<Program, String> {
     let tokens = lexer.tokenize();
 
     let mut parser = Parser::new(tokens);
-    parser.parse()
+    parser.parse().map_err(|e| e.to_string())
 }
 
 /// Generate Rust code from an AST program with optional method resolutions

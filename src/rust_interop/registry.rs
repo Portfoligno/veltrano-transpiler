@@ -8,6 +8,7 @@ use super::cache::*;
 use super::compiler::*;
 use super::types::*;
 use super::{ExternItem, RustInteropError, RustQuerier, StdLibQuerier};
+use crate::error::VeltranoError;
 use std::collections::HashMap;
 
 /// Registry for external Rust items
@@ -224,7 +225,7 @@ impl RustInteropRegistry {
         &mut self,
         rust_type: &RustType,
         trait_name: &str,
-    ) -> Result<bool, super::RustInteropError> {
+    ) -> Result<bool, VeltranoError> {
         // Convert to string only at the lowest level
         let type_path = rust_type.to_rust_syntax();
 
@@ -265,7 +266,7 @@ impl RustInteropRegistry {
         &mut self,
         rust_type: &RustType,
         method_name: &str,
-    ) -> Result<Option<ImportedMethodInfo>, super::RustInteropError> {
+    ) -> Result<Option<ImportedMethodInfo>, VeltranoError> {
         // Try method resolution following Rust's rules
         // First try the exact type, then try dereferenced types
         let type_sequence = self.build_method_resolution_sequence(rust_type);
@@ -330,7 +331,7 @@ impl RustInteropRegistry {
         &mut self,
         type_path: &str,
         method_name: &str,
-    ) -> Result<Option<ImportedMethodInfo>, super::RustInteropError> {
+    ) -> Result<Option<ImportedMethodInfo>, VeltranoError> {
         // Convert Veltrano method name (camelCase) to Rust method name (snake_case)
         let rust_method_name = super::utils::camel_to_snake_case(method_name);
         crate::debug_println!("DEBUG: query_dynamic_method_signature - type_path: {}, method_name: {} -> rust_method_name: {}", type_path, method_name, rust_method_name);
@@ -419,7 +420,7 @@ impl RustInteropRegistry {
         &mut self,
         type_path: &str,
         method_name: &str,
-    ) -> Result<Option<ImportedMethodInfo>, super::RustInteropError> {
+    ) -> Result<Option<ImportedMethodInfo>, VeltranoError> {
         // Convert Veltrano method name (camelCase) to Rust method name (snake_case)
         let rust_method_name = super::camel_to_snake_case(method_name);
         crate::debug_println!("DEBUG: query_trait_method_signature - type_path: {}, method_name: {} -> rust_method_name: {}", type_path, method_name, rust_method_name);
@@ -618,7 +619,7 @@ impl DynamicRustRegistry {
         self.queriers.insert(insert_pos, querier);
     }
 
-    pub fn _get_function(&mut self, path: &str) -> Result<Option<FunctionInfo>, RustInteropError> {
+    pub fn _get_function(&mut self, path: &str) -> Result<Option<FunctionInfo>, VeltranoError> {
         let (crate_name, function_path) = self.parse_path(path)?;
         let crate_name = crate_name.to_string();
         let function_path = function_path.to_string();
@@ -646,7 +647,7 @@ impl DynamicRustRegistry {
         Ok(None)
     }
 
-    pub fn get_type(&mut self, path: &str) -> Result<Option<TypeInfo>, RustInteropError> {
+    pub fn get_type(&mut self, path: &str) -> Result<Option<TypeInfo>, VeltranoError> {
         let (crate_name, type_path) = self.parse_path(path)?;
         let crate_name = crate_name.to_string();
         let type_path = type_path.to_string();
@@ -675,7 +676,7 @@ impl DynamicRustRegistry {
     }
 
     /// Get trait information by path
-    pub fn get_trait(&mut self, path: &str) -> Result<Option<TraitInfo>, RustInteropError> {
+    pub fn get_trait(&mut self, path: &str) -> Result<Option<TraitInfo>, VeltranoError> {
         let (crate_name, trait_path) = self.parse_path(path)?;
         let crate_name = crate_name.to_string();
         let trait_path = trait_path.to_string();
@@ -707,7 +708,7 @@ impl DynamicRustRegistry {
     pub fn get_implemented_traits(
         &mut self,
         type_path: &str,
-    ) -> Result<Vec<String>, RustInteropError> {
+    ) -> Result<Vec<String>, VeltranoError> {
         // For built-in types, return hardcoded list
         let traits = match type_path {
             // Primitive types
@@ -814,12 +815,12 @@ impl DynamicRustRegistry {
     }
 
     /// Parse a path like "std::vec::Vec::new" into (crate, item_path)
-    pub fn parse_path<'a>(&self, path: &'a str) -> Result<(&'a str, &'a str), RustInteropError> {
+    pub fn parse_path<'a>(&self, path: &'a str) -> Result<(&'a str, &'a str), VeltranoError> {
         let parts: Vec<&str> = path.split("::").collect();
         if parts.len() < 2 {
-            return Err(RustInteropError::ParseError(
+            return Err(VeltranoError::from(RustInteropError::ParseError(
                 "Path must have at least two segments".to_string(),
-            ));
+            )));
         }
 
         // First part is the crate name
@@ -833,7 +834,7 @@ impl DynamicRustRegistry {
         &mut self,
         type_name: &str,
         trait_name: &str,
-    ) -> Result<bool, RustInteropError> {
+    ) -> Result<bool, VeltranoError> {
         // Get the list of implemented traits
         let traits = self.get_implemented_traits(type_name)?;
         Ok(traits.contains(&trait_name.to_string()))

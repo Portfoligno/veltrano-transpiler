@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use veltrano::rust_interop::*;
 use veltrano::types::VeltranoType;
+use veltrano::error::VeltranoError;
 
 /// Unit tests for the Rust interop system
 /// These tests use mocks and don't require external toolchain components
@@ -13,8 +14,8 @@ fn test_error_handling_and_fallback() {
     #[derive(Debug)]
     struct FailingQuerier;
     impl RustQuerier for FailingQuerier {
-        fn query_crate(&mut self, _: &str) -> Result<CrateInfo, RustInteropError> {
-            Err(RustInteropError::CrateNotFound("Mock failure".to_string()))
+        fn query_crate(&mut self, _: &str) -> Result<CrateInfo, VeltranoError> {
+            Err(VeltranoError::from(RustInteropError::CrateNotFound("Mock failure".to_string())))
         }
         fn supports_crate(&self, _: &str) -> bool {
             true
@@ -27,7 +28,7 @@ fn test_error_handling_and_fallback() {
     #[derive(Debug)]
     struct SuccessQuerier;
     impl RustQuerier for SuccessQuerier {
-        fn query_crate(&mut self, _: &str) -> Result<CrateInfo, RustInteropError> {
+        fn query_crate(&mut self, _: &str) -> Result<CrateInfo, VeltranoError> {
             let mut types = HashMap::new();
             types.insert(
                 "TestType".to_string(),
@@ -121,7 +122,7 @@ fn test_querier_priority_ordering() {
     #[derive(Debug)]
     struct MockQuerier(u32);
     impl RustQuerier for MockQuerier {
-        fn query_crate(&mut self, _: &str) -> Result<CrateInfo, RustInteropError> {
+        fn query_crate(&mut self, _: &str) -> Result<CrateInfo, VeltranoError> {
             Ok(CrateInfo {
                 name: "mock".to_string(),
                 version: "1.0".to_string(),
@@ -164,7 +165,7 @@ fn test_registry_caching() {
     }
 
     impl RustQuerier for CountingQuerier {
-        fn query_crate(&mut self, _: &str) -> Result<CrateInfo, RustInteropError> {
+        fn query_crate(&mut self, _: &str) -> Result<CrateInfo, VeltranoError> {
             *self.call_count.borrow_mut() += 1;
 
             let mut types = HashMap::new();
