@@ -16,6 +16,7 @@ pub use ast::*;
 pub use builtins::*;
 pub use codegen::*;
 pub use config::*;
+pub use error::{ErrorCollection, ErrorFormatter};
 pub use lexer::*;
 pub use parser::*;
 pub use type_checker::*;

@@ -14,10 +14,13 @@ mod types;
 
 use std::env;
 use std::fs;
+use std::io::IsTerminal;
 use std::process;
 
 use codegen::CodeGenerator;
+use colored::*;
 use config::Config;
+use error::ErrorFormatter;
 use lexer::Lexer;
 use parser::Parser;
 use type_checker::VeltranoTypeChecker;
@@ -34,6 +37,7 @@ fn print_help(program_name: &str) {
     println!("    -v, --version            Print version information");
     println!("    --preserve-comments      Preserve comments in generated Rust code");
     println!("    --debug                  Enable debug output for troubleshooting");
+    println!("    --fail-fast              Stop at first error instead of collecting all errors");
     println!();
     println!("ARGS:");
     println!("    <input.vl>               The Veltrano source file to transpile");
@@ -60,7 +64,11 @@ fn main() {
 
     let mut preserve_comments = false;
     let mut debug_mode = false;
+    let mut fail_fast = false;
     let mut input_file = None;
+
+    // Check if we should use color (default: auto-detect)
+    let use_color = std::io::stderr().is_terminal();
 
     let mut i = 1;
     while i < args.len() {
@@ -79,6 +87,10 @@ fn main() {
             }
             "--debug" => {
                 debug_mode = true;
+                i += 1;
+            }
+            "--fail-fast" => {
+                fail_fast = true;
                 i += 1;
             }
             _ => {
@@ -116,18 +128,37 @@ fn main() {
         }
     };
 
+    // Store a reference to source code for error formatting
+    let source_ref = source_code.clone();
+
     let config = Config { preserve_comments };
 
     let mut lexer = Lexer::with_config(source_code, config.clone());
     let all_tokens = lexer.tokenize();
 
     let mut parser = Parser::new(all_tokens);
-    let program = match parser.parse() {
-        Ok(program) => program,
-        Err(err) => {
-            eprintln!("Parse error: {}", err);
+    let program = if fail_fast {
+        match parser.parse() {
+            Ok(program) => program,
+            Err(err) => {
+                let formatter = ErrorFormatter::new(&err, &source_ref)
+                    .with_filename(input_file)
+                    .with_color(use_color);
+                eprintln!("{}", formatter.format());
+                process::exit(1);
+            }
+        }
+    } else {
+        let (program, errors) = parser.parse_with_recovery();
+        if errors.has_errors() {
+            eprintln!("Found {} parse error(s):\n", errors.error_count());
+            for error in errors.errors() {
+                let formatter = ErrorFormatter::new(error, &source_ref).with_filename(input_file);
+                eprintln!("{}\n", formatter.format());
+            }
             process::exit(1);
         }
+        program
     };
 
     // Type checking phase

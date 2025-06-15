@@ -7,7 +7,7 @@
 use crate::ast::*;
 use crate::ast_types::{Located, LocatedExpr};
 use crate::comments::{Comment, CommentStyle};
-use crate::error::{ErrorKind, SourceLocation, Span, VeltranoError};
+use crate::error::{ErrorCollection, ErrorKind, SourceLocation, Span, VeltranoError};
 use crate::lexer::{Token, TokenType};
 use crate::types::VeltranoType;
 use nonempty::NonEmpty;
@@ -15,8 +15,10 @@ use nonempty::NonEmpty;
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
-    in_function_body: bool, // Track if we're parsing inside a function body
-    next_call_id: usize,    // Counter for unique call IDs (both method and function calls)
+    in_function_body: bool,  // Track if we're parsing inside a function body
+    next_call_id: usize,     // Counter for unique call IDs (both method and function calls)
+    errors: ErrorCollection, // Collection of errors encountered during parsing
+    panic_mode: bool,        // Flag to avoid cascading errors after a syntax error
 }
 
 impl Parser {
@@ -26,6 +28,8 @@ impl Parser {
             current: 0,
             in_function_body: false,
             next_call_id: 0,
+            errors: ErrorCollection::new(),
+            panic_mode: false,
         }
     }
 
@@ -49,6 +53,17 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> Result<Program, VeltranoError> {
+        let (program, errors) = self.parse_with_recovery();
+        if errors.has_errors() {
+            // Return the first error for backward compatibility
+            Err(errors.errors().first().unwrap().clone())
+        } else {
+            Ok(program)
+        }
+    }
+
+    /// Parse with error recovery, returning both the program and any errors found
+    pub fn parse_with_recovery(&mut self) -> (Program, ErrorCollection) {
         let mut statements = Vec::new();
 
         while !self.is_at_end() {
@@ -63,16 +78,56 @@ impl Parser {
                 continue;
             }
 
+            // Exit panic mode on successful parse
+            self.panic_mode = false;
+
             match self.declaration() {
                 Ok(stmts) => statements.extend(stmts.into_iter()),
-                Err(err) => return Err(err),
+                Err(err) => {
+                    // Record the error
+                    self.errors.add_error(err);
+
+                    // Enter panic mode to avoid cascading errors
+                    self.panic_mode = true;
+
+                    // Try to recover by synchronizing to a safe point
+                    self.synchronize();
+                }
             }
         }
 
         // Second pass: analyze bump usage and update has_hidden_bump flags
         Self::analyze_bump_usage(&mut statements);
 
-        Ok(Program { statements })
+        let errors = std::mem::replace(&mut self.errors, ErrorCollection::new());
+        (Program { statements }, errors)
+    }
+
+    /// Synchronize parser after an error to a known good state
+    fn synchronize(&mut self) {
+        self.advance();
+
+        while !self.is_at_end() {
+            // Stop at statement boundaries
+            if self.previous().token_type == TokenType::Newline {
+                return;
+            }
+
+            // Stop at keywords that begin statements
+            match self.peek().token_type {
+                TokenType::Fun
+                | TokenType::Val
+                | TokenType::If
+                | TokenType::For
+                | TokenType::While
+                | TokenType::Return
+                | TokenType::Data
+                | TokenType::Import => return,
+                _ => {}
+            }
+
+            self.advance();
+        }
     }
 
     /// Analyzes bump usage across all functions and updates has_hidden_bump flags
@@ -135,7 +190,26 @@ impl Parser {
                 self.skip_newlines_and_comments();
 
                 let param_name = self.consume_identifier("Expected parameter name")?;
-                self.consume(&TokenType::Colon, "Expected ':' after parameter name")?;
+
+                // Enhanced error message for missing colon
+                if !self.check(&TokenType::Colon) {
+                    let token = self.peek();
+                    let mut err = self.error(
+                        ErrorKind::SyntaxError,
+                        format!(
+                            "Expected ':' after parameter name '{}', found {:?}",
+                            param_name, token.token_type
+                        ),
+                    );
+
+                    // Add helpful note
+                    err = err.with_note("Function parameters must have explicit types in Veltrano");
+                    err = err.with_help(format!("Try: {}:{} <type>", param_name, ""));
+
+                    return Err(err);
+                }
+                self.advance(); // consume the colon
+
                 let param_type = self.parse_type()?;
 
                 // Capture comment immediately after the parameter type

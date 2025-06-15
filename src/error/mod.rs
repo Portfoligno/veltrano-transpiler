@@ -7,6 +7,7 @@ mod conversions;
 
 pub use conversions::IntoVeltranoError;
 
+use colored::*;
 use std::fmt;
 
 /// Source location information for error reporting
@@ -131,7 +132,7 @@ impl Default for ErrorContext {
 }
 
 /// Main error type for the Veltrano transpiler
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VeltranoError {
     pub kind: ErrorKind,
     pub message: String,
@@ -258,6 +259,163 @@ impl fmt::Display for VeltranoError {
         }
 
         Ok(())
+    }
+}
+
+/// Format error with source code snippet
+pub struct ErrorFormatter<'a> {
+    error: &'a VeltranoError,
+    source: &'a str,
+    filename: Option<&'a str>,
+    use_color: bool,
+}
+
+impl<'a> ErrorFormatter<'a> {
+    pub fn new(error: &'a VeltranoError, source: &'a str) -> Self {
+        Self {
+            error,
+            source,
+            filename: None,
+            use_color: true,
+        }
+    }
+
+    pub fn with_filename(mut self, filename: &'a str) -> Self {
+        self.filename = Some(filename);
+        self
+    }
+
+    pub fn with_color(mut self, use_color: bool) -> Self {
+        self.use_color = use_color;
+        self
+    }
+
+    pub fn format(&self) -> String {
+        let mut output = String::new();
+
+        // Error header
+        if let Some(span) = &self.error.context.span {
+            if let Some(filename) = self.filename {
+                let location = format!("{}:{}:{}", filename, span.start.line, span.start.column);
+                output.push_str(&if self.use_color {
+                    location.bold().to_string()
+                } else {
+                    location
+                });
+                output.push_str(": ");
+            } else {
+                let location = format!("{}:{}", span.start.line, span.start.column);
+                output.push_str(&if self.use_color {
+                    location.bold().to_string()
+                } else {
+                    location
+                });
+                output.push_str(": ");
+            }
+        }
+
+        let error_kind = self.error.kind.to_string();
+        let error_label = if self.use_color {
+            error_kind.red().bold().to_string()
+        } else {
+            error_kind
+        };
+
+        output.push_str(&format!("{}: {}\n", error_label, self.error.message));
+
+        // Source code snippet
+        if let Some(span) = &self.error.context.span {
+            if let Some(snippet) = self.extract_snippet(span) {
+                output.push_str(&snippet);
+            }
+        }
+
+        // Additional context
+        if let Some(note) = &self.error.context.note {
+            let note_label = if self.use_color {
+                "note".blue().bold()
+            } else {
+                "note".into()
+            };
+            output.push_str(&format!("\n{}: {}", note_label, note));
+        }
+
+        if let Some(help) = &self.error.context.help {
+            let help_label = if self.use_color {
+                "help".green().bold()
+            } else {
+                "help".into()
+            };
+            output.push_str(&format!("\n{}: {}", help_label, help));
+        }
+
+        output
+    }
+
+    fn extract_snippet(&self, span: &Span) -> Option<String> {
+        let lines: Vec<&str> = self.source.lines().collect();
+
+        // Ensure line numbers are valid (1-based)
+        if span.start.line == 0 || span.start.line > lines.len() {
+            return None;
+        }
+
+        let mut snippet = String::new();
+
+        // Show the error line
+        let line_idx = span.start.line - 1;
+        let line = lines[line_idx];
+
+        // Line number gutter width
+        let gutter_width = span.start.line.to_string().len() + 2;
+
+        // Add the source line with colored line number
+        let line_num = span.start.line.to_string();
+        let line_num_str = if self.use_color {
+            line_num.blue().bold().to_string()
+        } else {
+            line_num
+        };
+        let separator = if self.use_color {
+            "|".blue().to_string()
+        } else {
+            "|".to_string()
+        };
+
+        snippet.push_str(&format!(
+            "{:>width$} {} {}\n",
+            line_num_str,
+            separator,
+            line,
+            width = gutter_width - 2
+        ));
+
+        // Add the error pointer
+        let padding = " ".repeat(gutter_width);
+        let separator_padding = if self.use_color {
+            "|".blue().to_string()
+        } else {
+            "|".to_string()
+        };
+        let pointer_padding = " ".repeat(span.start.column.saturating_sub(1));
+        let pointer_length = if span.start.line == span.end.line {
+            span.end.column.saturating_sub(span.start.column).max(1)
+        } else {
+            1
+        };
+        let pointer = "^".repeat(pointer_length);
+        let pointer_str = if self.use_color {
+            pointer.red().bold().to_string()
+        } else {
+            pointer
+        };
+
+        snippet.push_str(&format!(
+            "{} {} {}{}",
+            padding, separator_padding, pointer_padding, pointer_str
+        ));
+
+        Some(snippet)
     }
 }
 
