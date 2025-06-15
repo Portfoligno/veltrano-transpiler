@@ -5,6 +5,7 @@ pub mod codegen;
 pub mod comments;
 pub mod config;
 pub mod debug;
+pub mod error;
 pub mod lexer;
 pub mod parser;
 pub mod rust_interop;
