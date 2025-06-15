@@ -29,13 +29,16 @@ impl TypeValidator {
                     if let Err(err_msg) = validate_own_constructor(inner, trait_checker) {
                         return Err(TypeCheckError::InvalidTypeConstructor {
                             message: err_msg,
-                            location: SourceLocation::new(0, 0),
+                            // TODO: VeltranoType doesn't carry location information.
+                            // This would require adding Located<VeltranoType> or similar.
+                            location: SourceLocation::new(1, 1),
                         });
                     }
                 } else {
                     return Err(TypeCheckError::InvalidTypeConstructor {
                         message: "Own<T> requires a type parameter".to_string(),
-                        location: SourceLocation::new(0, 0),
+                        // TODO: VeltranoType doesn't carry location information.
+                        location: SourceLocation::new(1, 1),
                     });
                 }
             }
