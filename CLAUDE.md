@@ -117,6 +117,19 @@ When over token limit, remove in order:
 - **Better approaches:**
   - Design plugin-based architectures for extensibility
   - Query authoritative sources for dynamic information
+
+#### Handling Systematic Issues - NO REFUSAL POLICY
+- **When the user identifies hardcoded values or systematic issues:**
+  - **DO NOT refuse to fix them properly** - Even if it requires significant changes
+  - **DO NOT suggest band-aid solutions** - Like keeping `SourceLocation::new(1, 1)` with TODOs
+  - **DO investigate the root cause** - Trace through the code to understand the issue
+  - **DO implement the complete fix** - Even if it requires refactoring multiple files
+- **If a proper fix seems complex:**
+  - Analyze the full scope of the problem
+  - Document findings if investigation is needed
+  - Propose and implement the correct solution
+  - Never settle for workarounds when the user wants a proper fix
+- **Example:** If user says "fix SourceLocation::new(1, 1)" - trace where location info should come from and implement proper propagation, don't just change the values
   - Build proper abstraction layers between components
   - Create clear interfaces that can evolve over time
   - Document assumptions and future improvement paths
