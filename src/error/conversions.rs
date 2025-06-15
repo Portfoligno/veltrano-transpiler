@@ -87,7 +87,7 @@ impl From<TypeCheckError> for VeltranoError {
                 format!("Type mismatch: expected {:?}, found {:?}", expected, actual),
             )
             .with_span(Span::single(location)),
-            TypeCheckError::TypeMismatchWithSuggestion {
+            TypeCheckError::_TypeMismatchWithSuggestion {
                 expected,
                 actual,
                 location,
@@ -107,7 +107,7 @@ impl From<TypeCheckError> for VeltranoError {
                 format!("Method '{}' not found for type {:?}", method, receiver_type),
             )
             .with_span(Span::single(location)),
-            TypeCheckError::MethodNotFoundWithSuggestion {
+            TypeCheckError::_MethodNotFoundWithSuggestion {
                 receiver_type,
                 method,
                 location,
@@ -127,7 +127,7 @@ impl From<TypeCheckError> for VeltranoError {
                 format!("Field '{}' not found for type {:?}", field, object_type),
             )
             .with_span(Span::single(location)),
-            TypeCheckError::FieldNotFoundWithSuggestion {
+            TypeCheckError::_FieldNotFoundWithSuggestion {
                 object_type,
                 field,
                 location,
@@ -187,21 +187,5 @@ impl From<TypeCheckError> for VeltranoError {
                 VeltranoError::new(ErrorKind::TypeError, format!("{:?}", err))
             }
         }
-    }
-}
-
-/// Helper trait for converting String errors to VeltranoError
-pub trait IntoVeltranoError {
-    fn into_syntax_error(self) -> VeltranoError;
-    fn into_parse_error(self) -> VeltranoError;
-}
-
-impl IntoVeltranoError for String {
-    fn into_syntax_error(self) -> VeltranoError {
-        VeltranoError::new(ErrorKind::SyntaxError, self)
-    }
-
-    fn into_parse_error(self) -> VeltranoError {
-        VeltranoError::new(ErrorKind::ParseError, self)
     }
 }

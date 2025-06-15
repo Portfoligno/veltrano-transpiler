@@ -52,7 +52,7 @@ fn test_type_mismatch_detection() {
             matches!(
                 err,
                 TypeCheckError::TypeMismatch { .. }
-                    | TypeCheckError::TypeMismatchWithSuggestion { .. }
+                    | TypeCheckError::_TypeMismatchWithSuggestion { .. }
             )
         });
         assert!(has_type_mismatch, "Should have a type mismatch error");
@@ -151,7 +151,7 @@ fn test_error_analyzer_suggestions() {
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
-        TypeCheckError::TypeMismatchWithSuggestion { suggestion, .. } => {
+        TypeCheckError::_TypeMismatchWithSuggestion { suggestion, .. } => {
             assert!(
                 suggestion.contains(".ref()"),
                 "Should suggest .ref() conversion"
@@ -188,7 +188,7 @@ fn test_shorthand_argument_type_checking() {
             matches!(
                 err,
                 TypeCheckError::TypeMismatch { .. }
-                    | TypeCheckError::TypeMismatchWithSuggestion { .. }
+                    | TypeCheckError::_TypeMismatchWithSuggestion { .. }
             )
         });
         assert!(

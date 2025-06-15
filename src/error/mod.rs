@@ -5,8 +5,6 @@
 
 mod conversions;
 
-pub use conversions::IntoVeltranoError;
-
 use colored::*;
 use std::fmt;
 
@@ -25,11 +23,6 @@ impl SourceLocation {
             line,
             column,
         }
-    }
-
-    pub fn with_file(mut self, file: String) -> Self {
-        self.file = Some(file);
-        self
     }
 }
 
@@ -70,16 +63,6 @@ impl Span {
     pub fn start_column(&self) -> usize {
         self.start.column
     }
-
-    /// Get the end line number
-    pub fn end_line(&self) -> usize {
-        self.end.line
-    }
-
-    /// Get the end column number
-    pub fn end_column(&self) -> usize {
-        self.end.column
-    }
 }
 
 impl fmt::Display for Span {
@@ -107,21 +90,6 @@ impl ErrorContext {
             note: None,
             help: None,
         }
-    }
-
-    pub fn with_span(mut self, span: Span) -> Self {
-        self.span = Some(span);
-        self
-    }
-
-    pub fn with_note(mut self, note: impl Into<String>) -> Self {
-        self.note = Some(note.into());
-        self
-    }
-
-    pub fn with_help(mut self, help: impl Into<String>) -> Self {
-        self.help = Some(help.into());
-        self
     }
 }
 
@@ -168,23 +136,23 @@ impl VeltranoError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrorKind {
     // Lexer errors
-    InvalidToken,
-    UnterminatedString,
-    InvalidNumber,
-    InvalidCharacter,
+    _InvalidToken,
+    _UnterminatedString,
+    _InvalidNumber,
+    _InvalidCharacter,
 
     // Parser errors
     SyntaxError,
     UnexpectedToken,
     UnexpectedEof,
-    InvalidExpression,
-    InvalidStatement,
+    _InvalidExpression,
+    _InvalidStatement,
 
     // Type checker errors
     TypeError,
     UndefinedVariable,
     UndefinedFunction,
-    UndefinedType,
+    _UndefinedType,
     TypeMismatch,
     InvalidMethodCall,
     AmbiguousType,
@@ -192,7 +160,7 @@ pub enum ErrorKind {
     // Code generation errors
     CodegenError,
     UnsupportedFeature,
-    InternalError,
+    _InternalError,
 
     // Rust interop errors
     InteropError,
@@ -201,36 +169,36 @@ pub enum ErrorKind {
 
     // IO errors
     IoError,
-    FileNotFound,
+    _FileNotFound,
 }
 
 impl ErrorKind {
     pub fn as_str(&self) -> &'static str {
         match self {
-            ErrorKind::InvalidToken => "invalid token",
-            ErrorKind::UnterminatedString => "unterminated string",
-            ErrorKind::InvalidNumber => "invalid number",
-            ErrorKind::InvalidCharacter => "invalid character",
+            ErrorKind::_InvalidToken => "invalid token",
+            ErrorKind::_UnterminatedString => "unterminated string",
+            ErrorKind::_InvalidNumber => "invalid number",
+            ErrorKind::_InvalidCharacter => "invalid character",
             ErrorKind::SyntaxError => "syntax error",
             ErrorKind::UnexpectedToken => "unexpected token",
             ErrorKind::UnexpectedEof => "unexpected end of file",
-            ErrorKind::InvalidExpression => "invalid expression",
-            ErrorKind::InvalidStatement => "invalid statement",
+            ErrorKind::_InvalidExpression => "invalid expression",
+            ErrorKind::_InvalidStatement => "invalid statement",
             ErrorKind::TypeError => "type error",
             ErrorKind::UndefinedVariable => "undefined variable",
             ErrorKind::UndefinedFunction => "undefined function",
-            ErrorKind::UndefinedType => "undefined type",
+            ErrorKind::_UndefinedType => "undefined type",
             ErrorKind::TypeMismatch => "type mismatch",
             ErrorKind::InvalidMethodCall => "invalid method call",
             ErrorKind::AmbiguousType => "ambiguous type",
             ErrorKind::CodegenError => "code generation error",
             ErrorKind::UnsupportedFeature => "unsupported feature",
-            ErrorKind::InternalError => "internal error",
+            ErrorKind::_InternalError => "internal error",
             ErrorKind::InteropError => "interop error",
             ErrorKind::CrateNotFound => "crate not found",
             ErrorKind::ParseError => "parse error",
             ErrorKind::IoError => "I/O error",
-            ErrorKind::FileNotFound => "file not found",
+            ErrorKind::_FileNotFound => "file not found",
         }
     }
 }
@@ -421,9 +389,6 @@ impl<'a> ErrorFormatter<'a> {
 
 impl std::error::Error for VeltranoError {}
 
-/// Result type for Veltrano operations
-pub type Result<T> = std::result::Result<T, VeltranoError>;
-
 /// Collection of errors for reporting multiple issues
 #[derive(Debug)]
 pub struct ErrorCollection {
@@ -443,7 +408,7 @@ impl ErrorCollection {
         self.errors.push(error);
     }
 
-    pub fn add_warning(&mut self, warning: VeltranoError) {
+    pub fn _add_warning(&mut self, warning: VeltranoError) {
         self.warnings.push(warning);
     }
 
@@ -451,7 +416,7 @@ impl ErrorCollection {
         !self.errors.is_empty()
     }
 
-    pub fn has_warnings(&self) -> bool {
+    pub fn _has_warnings(&self) -> bool {
         !self.warnings.is_empty()
     }
 
@@ -471,7 +436,7 @@ impl ErrorCollection {
         &self.errors
     }
 
-    pub fn warnings(&self) -> &[VeltranoError] {
+    pub fn _warnings(&self) -> &[VeltranoError] {
         &self.warnings
     }
 }

@@ -18,23 +18,10 @@ impl<T> Located<T> {
     pub fn new(node: T, span: Span) -> Self {
         Self { node, span }
     }
-
-    /// Get a reference to the inner node
-    pub fn inner(&self) -> &T {
-        &self.node
-    }
-
-    /// Get a mutable reference to the inner node
-    pub fn inner_mut(&mut self) -> &mut T {
-        &mut self.node
-    }
 }
 
 /// Type alias for located expressions
 pub type LocatedExpr = Located<Expr>;
-
-/// Type alias for located statements  
-pub type LocatedStmt = Located<Stmt>;
 
 #[derive(Debug, Clone)]
 pub enum Expr {

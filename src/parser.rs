@@ -42,7 +42,7 @@ impl Parser {
     }
 
     /// Create a Located expression with span from start to end tokens
-    fn located_expr_span(&self, expr: Expr, start: &Token, end: &Token) -> LocatedExpr {
+    fn _located_expr_span(&self, expr: Expr, start: &Token, end: &Token) -> LocatedExpr {
         Located::new(
             expr,
             Span::new(

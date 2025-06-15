@@ -118,7 +118,7 @@ fn test_clone_fails_on_owned_types() {
             matches!(
                 err,
                 veltrano::TypeCheckError::MethodNotFound { .. }
-                    | veltrano::TypeCheckError::MethodNotFoundWithSuggestion { .. }
+                    | veltrano::TypeCheckError::_MethodNotFoundWithSuggestion { .. }
             )
         });
         assert!(has_method_not_found, "Should have method not found error");

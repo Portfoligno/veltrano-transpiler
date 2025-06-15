@@ -15,7 +15,7 @@ pub enum TypeCheckError {
         actual: VeltranoType,
         location: SourceLocation,
     },
-    TypeMismatchWithSuggestion {
+    _TypeMismatchWithSuggestion {
         expected: VeltranoType,
         actual: VeltranoType,
         location: SourceLocation,
@@ -26,7 +26,7 @@ pub enum TypeCheckError {
         method: String,
         location: SourceLocation,
     },
-    MethodNotFoundWithSuggestion {
+    _MethodNotFoundWithSuggestion {
         receiver_type: VeltranoType,
         method: String,
         location: SourceLocation,
@@ -37,7 +37,7 @@ pub enum TypeCheckError {
         field: String,
         location: SourceLocation,
     },
-    FieldNotFoundWithSuggestion {
+    _FieldNotFoundWithSuggestion {
         object_type: VeltranoType,
         field: String,
         location: SourceLocation,
@@ -114,7 +114,7 @@ impl ErrorAnalyzer {
                 location,
             } => {
                 if let Some(suggestion) = Self::suggest_type_conversion(&expected, &actual) {
-                    TypeCheckError::TypeMismatchWithSuggestion {
+                    TypeCheckError::_TypeMismatchWithSuggestion {
                         expected,
                         actual,
                         location,
@@ -134,7 +134,7 @@ impl ErrorAnalyzer {
                 location,
             } => {
                 if let Some(suggestion) = Self::suggest_method_conversion(&receiver_type, &method) {
-                    TypeCheckError::MethodNotFoundWithSuggestion {
+                    TypeCheckError::_MethodNotFoundWithSuggestion {
                         receiver_type,
                         method,
                         location,
@@ -154,7 +154,7 @@ impl ErrorAnalyzer {
                 location,
             } => {
                 if let Some(suggestion) = Self::suggest_field_conversion(&object_type, &field) {
-                    TypeCheckError::FieldNotFoundWithSuggestion {
+                    TypeCheckError::_FieldNotFoundWithSuggestion {
                         object_type,
                         field,
                         location,

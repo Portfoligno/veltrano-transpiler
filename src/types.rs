@@ -498,15 +498,6 @@ pub struct _MethodSignature {
     pub return_type: VeltranoType,
 }
 
-/// Source location for error reporting
-#[derive(Debug, Clone)]
-pub struct SourceLocation {
-    pub file: String,
-    pub line: usize,
-    pub _column: usize,
-    pub _source_line: String,
-}
-
 /// Data class definition with field information
 #[derive(Debug, Clone)]
 pub struct DataClassDefinition {

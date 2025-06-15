@@ -15,7 +15,7 @@ fn test_owned_to_borrowed_suggestion() {
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
-        TypeCheckError::TypeMismatchWithSuggestion { suggestion, .. } => {
+        TypeCheckError::_TypeMismatchWithSuggestion { suggestion, .. } => {
             assert_eq!(suggestion, ".ref()");
         }
         _ => panic!("Should have been enhanced with .ref() suggestion"),
@@ -73,7 +73,7 @@ fn test_mutref_to_borrowed_suggestion() {
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
-        TypeCheckError::TypeMismatchWithSuggestion { suggestion, .. } => {
+        TypeCheckError::_TypeMismatchWithSuggestion { suggestion, .. } => {
             assert_eq!(suggestion, ".ref()");
         }
         _ => panic!("Should have been enhanced with .ref() suggestion"),
@@ -93,7 +93,7 @@ fn test_vec_to_slice_suggestion() {
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
-        TypeCheckError::TypeMismatchWithSuggestion { suggestion, .. } => {
+        TypeCheckError::_TypeMismatchWithSuggestion { suggestion, .. } => {
             assert_eq!(suggestion, ".toSlice()");
         }
         _ => panic!("Should have been enhanced with .toSlice() suggestion"),
@@ -113,7 +113,7 @@ fn test_array_to_slice_suggestion() {
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
-        TypeCheckError::TypeMismatchWithSuggestion { suggestion, .. } => {
+        TypeCheckError::_TypeMismatchWithSuggestion { suggestion, .. } => {
             assert_eq!(suggestion, ".toSlice()");
         }
         _ => panic!("Should have been enhanced with .toSlice() suggestion"),
@@ -133,7 +133,7 @@ fn test_owned_array_to_slice_suggestion() {
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
-        TypeCheckError::TypeMismatchWithSuggestion { suggestion, .. } => {
+        TypeCheckError::_TypeMismatchWithSuggestion { suggestion, .. } => {
             assert_eq!(suggestion, ".ref().toSlice()");
         }
         _ => panic!("Should have been enhanced with .ref().toSlice() suggestion"),
@@ -153,7 +153,7 @@ fn test_method_not_found_suggestion() {
     let enhanced = type_checker::error::ErrorAnalyzer::enhance_error(error);
 
     match enhanced {
-        TypeCheckError::MethodNotFoundWithSuggestion { suggestion, .. } => {
+        TypeCheckError::_MethodNotFoundWithSuggestion { suggestion, .. } => {
             assert_eq!(suggestion, ".ref().length()");
         }
         _ => panic!("Should have been enhanced with method suggestion"),

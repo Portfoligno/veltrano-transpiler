@@ -18,7 +18,6 @@ use std::io::IsTerminal;
 use std::process;
 
 use codegen::CodeGenerator;
-use colored::*;
 use config::Config;
 use error::ErrorFormatter;
 use lexer::Lexer;
