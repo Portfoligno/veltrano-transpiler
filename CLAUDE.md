@@ -58,6 +58,19 @@ When WORKSPACE.md doesn't exist, create it immediately with:
 3. **Token Check:** Run `wc -w WORKSPACE.md` regularly
 4. **Over 300 words:** Prune immediately
 
+### Anti-Violation Practices
+**BEFORE adding anything new:**
+1. **Remove something old first** - Practice "one in, one out"
+2. **Resist completion tracking** - Your work is in git history, not WORKSPACE.md
+3. **Challenge every line** - Ask "Will I need this tomorrow?" If unsure, delete it
+4. **Convert to action** - Transform "We discovered X" into "TODO: Handle X"
+
+**Pruning mindset:**
+- **WORKSPACE.md is a sticky note, not a journal**
+- **Information has negative value after 48 hours**
+- **If you can't remember it, it wasn't important**
+- **Verbose description = cognitive overload for future you**
+
 ### What to Track
 **KEEP (High Value):**
 - Active TODOs with context
@@ -79,6 +92,13 @@ When WORKSPACE.md doesn't exist, create it immediately with:
 - Group by category with context
 - Add "CRITICAL:" for blockers
 - Keep actionable and specific
+
+### Psychological Traps to Avoid
+1. **"But I might need this later"** → You won't. Delete it.
+2. **"This shows important progress"** → Git shows progress. Delete it.
+3. **"Future me will appreciate the context"** → Future you will appreciate brevity. Delete it.
+4. **"This was hard to figure out"** → Document it in code comments, not here. Delete it.
+5. **"Just this once, I'll keep it"** → This is how hoarding starts. Delete it.
 
 ### Formatting Rules
 - Bullet points, not paragraphs
