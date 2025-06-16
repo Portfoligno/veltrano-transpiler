@@ -166,7 +166,7 @@ impl CodeGenerator {
 
     fn generate_statement(&mut self, stmt: &Stmt) -> Result<(), VeltranoError> {
         match stmt {
-            Stmt::Expression(expr, inline_comment) => {
+            Stmt::Expression(expr) => {
                 self.indent();
 
                 // Check if this is a method call with its own comment
@@ -179,17 +179,15 @@ impl CodeGenerator {
                 self.generate_expression(expr)?;
                 self.output.push(';');
 
-                // Generate method comment after semicolon, or statement comment if no method comment
+                // Generate method comment after semicolon if present
                 if let Some(comment) = method_comment {
                     self.generate_inline_comment(&Some(comment));
-                } else {
-                    self.generate_inline_comment(inline_comment);
                 }
 
                 self.output.push('\n');
             }
-            Stmt::VarDecl(var_decl, inline_comment) => {
-                self.generate_var_declaration(var_decl, inline_comment)?;
+            Stmt::VarDecl(var_decl) => {
+                self.generate_var_declaration(var_decl)?;
             }
             Stmt::FunDecl(fun_decl) => {
                 self.generate_function_declaration(fun_decl)?;
@@ -200,7 +198,7 @@ impl CodeGenerator {
             Stmt::While(while_stmt) => {
                 self.generate_while_statement(while_stmt)?;
             }
-            Stmt::Return(expr, inline_comment) => {
+            Stmt::Return(expr) => {
                 self.indent();
                 self.output.push_str("return");
                 if let Some(expr) = expr {
@@ -208,7 +206,6 @@ impl CodeGenerator {
                     self.generate_expression(expr)?;
                 }
                 self.output.push(';');
-                self.generate_inline_comment(inline_comment);
                 self.output.push('\n');
             }
             Stmt::Block(statements) => {
@@ -243,11 +240,7 @@ impl CodeGenerator {
         Ok(())
     }
 
-    fn generate_var_declaration(
-        &mut self,
-        var_decl: &VarDeclStmt,
-        inline_comment: &Option<(String, String)>,
-    ) -> Result<(), VeltranoError> {
+    fn generate_var_declaration(&mut self, var_decl: &VarDeclStmt) -> Result<(), VeltranoError> {
         self.indent();
 
         self.output.push_str("let ");
@@ -282,12 +275,9 @@ impl CodeGenerator {
                         self.generate_inline_comment(&Some((content.clone(), " ".to_string())));
                     }
                 }
-            } else {
-                self.generate_inline_comment(inline_comment);
             }
         } else {
             self.output.push(';');
-            self.generate_inline_comment(inline_comment);
         }
 
         self.output.push('\n');

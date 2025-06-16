@@ -111,14 +111,14 @@ pub struct FieldAccessExpr {
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
-    Expression(LocatedExpr, Option<(String, String)>), // Expression with optional inline comment (content, whitespace)
-    VarDecl(VarDeclStmt, Option<(String, String)>), // Variable declaration with optional inline comment (content, whitespace)
+    Expression(LocatedExpr),
+    VarDecl(VarDeclStmt),
     FunDecl(FunDeclStmt),
     If(IfStmt),
     While(WhileStmt),
-    Return(Option<LocatedExpr>, Option<(String, String)>), // Return statement with optional inline comment (content, whitespace)
+    Return(Option<LocatedExpr>),
     Block(Vec<Stmt>),
-    Comment(CommentStmt),     // Standalone comments
+    Comment(CommentStmt),     // All comments (standalone and inline)
     Import(ImportStmt),       // Import statement
     DataClass(DataClassStmt), // Data class declaration
 }
@@ -590,9 +590,9 @@ impl StmtExt for Stmt {
                 fun_decl.body.walk(visitor)?;
             }
             // Leaf nodes
-            Stmt::Expression(_, _)
-            | Stmt::VarDecl(_, _)
-            | Stmt::Return(_, _)
+            Stmt::Expression(_)
+            | Stmt::VarDecl(_)
+            | Stmt::Return(_)
             | Stmt::Comment(_)
             | Stmt::Import(_)
             | Stmt::DataClass(_) => {}
@@ -624,9 +624,9 @@ impl StmtExt for Stmt {
                 fun_decl.body.walk_post(visitor)?;
             }
             // Leaf nodes
-            Stmt::Expression(_, _)
-            | Stmt::VarDecl(_, _)
-            | Stmt::Return(_, _)
+            Stmt::Expression(_)
+            | Stmt::VarDecl(_)
+            | Stmt::Return(_)
             | Stmt::Comment(_)
             | Stmt::Import(_)
             | Stmt::DataClass(_) => {}
@@ -680,13 +680,13 @@ impl StmtExt for Stmt {
         F: FnMut(&LocatedExpr) -> Result<(), E>,
     {
         match self {
-            Stmt::Expression(expr, _) => expr.walk(visitor)?,
-            Stmt::VarDecl(var_decl, _) => {
+            Stmt::Expression(expr) => expr.walk(visitor)?,
+            Stmt::VarDecl(var_decl) => {
                 if let Some(init) = &var_decl.initializer {
                     init.walk(visitor)?;
                 }
             }
-            Stmt::Return(Some(expr), _) => expr.walk(visitor)?,
+            Stmt::Return(Some(expr)) => expr.walk(visitor)?,
             Stmt::If(if_stmt) => {
                 if_stmt.condition.walk(visitor)?;
                 if_stmt.then_branch.walk_expressions(visitor)?;
@@ -713,7 +713,7 @@ impl StmtExt for Stmt {
 
     fn can_exit_early(&self) -> bool {
         match self {
-            Stmt::Return(_, _) => true,
+            Stmt::Return(_) => true,
             Stmt::Block(statements) => statements.iter().any(|s| s.can_exit_early()),
             Stmt::If(if_stmt) => {
                 if_stmt.then_branch.can_exit_early()

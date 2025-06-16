@@ -137,8 +137,8 @@ impl AstQuery {
     /// Recursively checks all expressions within the statement tree.
     pub fn stmt_uses_bump_allocation(stmt: &Stmt) -> bool {
         match stmt {
-            Stmt::Expression(expr, _) => Self::uses_bump_allocation(expr),
-            Stmt::VarDecl(var_decl, _) => var_decl
+            Stmt::Expression(expr) => Self::uses_bump_allocation(expr),
+            Stmt::VarDecl(var_decl) => var_decl
                 .initializer
                 .as_ref()
                 .map_or(false, Self::uses_bump_allocation),
@@ -154,7 +154,7 @@ impl AstQuery {
                 Self::uses_bump_allocation(&while_stmt.condition)
                     || Self::stmt_uses_bump_allocation(&while_stmt.body)
             }
-            Stmt::Return(expr, _) => expr.as_ref().map_or(false, Self::uses_bump_allocation),
+            Stmt::Return(expr) => expr.as_ref().map_or(false, Self::uses_bump_allocation),
             Stmt::Block(statements) => statements.iter().any(Self::stmt_uses_bump_allocation),
             Stmt::FunDecl(_) | Stmt::Comment(_) | Stmt::Import(_) | Stmt::DataClass(_) => false,
         }
@@ -180,7 +180,7 @@ impl AstQuery {
     #[allow(dead_code)]
     fn collect_var_decls<'a>(stmt: &'a Stmt, acc: &mut Vec<&'a VarDeclStmt>) {
         match stmt {
-            Stmt::VarDecl(var_decl, _) => acc.push(var_decl),
+            Stmt::VarDecl(var_decl) => acc.push(var_decl),
             Stmt::Block(statements) => {
                 for s in statements {
                     Self::collect_var_decls(s, acc);
@@ -238,15 +238,15 @@ impl AstQuery {
     #[allow(dead_code)]
     fn collect_stmt_variable_refs(stmt: &Stmt, acc: &mut HashSet<String>) {
         match stmt {
-            Stmt::Expression(expr, _) => {
+            Stmt::Expression(expr) => {
                 acc.extend(Self::collect_identifiers(expr));
             }
-            Stmt::VarDecl(var_decl, _) => {
+            Stmt::VarDecl(var_decl) => {
                 if let Some(init) = &var_decl.initializer {
                     acc.extend(Self::collect_identifiers(init));
                 }
             }
-            Stmt::Return(Some(expr), _) => {
+            Stmt::Return(Some(expr)) => {
                 acc.extend(Self::collect_identifiers(expr));
             }
             Stmt::If(if_stmt) => {

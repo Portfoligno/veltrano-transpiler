@@ -126,31 +126,25 @@ fn test_uses_bump_allocation() {
 #[test]
 fn test_stmt_uses_bump_allocation() {
     // Variable declaration with bump allocation
-    let var_with_bump = Stmt::VarDecl(
-        VarDeclStmt {
-            name: "x".to_string(),
-            type_annotation: None,
-            initializer: Some(loc(Expr::MethodCall(MethodCallExpr {
-                object: Box::new(loc(Expr::Identifier("value".to_string()))),
-                method: "bumpRef".to_string(),
-                args: vec![],
-                inline_comment: None,
-                id: 0,
-            }))),
-        },
-        None,
-    );
+    let var_with_bump = Stmt::VarDecl(VarDeclStmt {
+        name: "x".to_string(),
+        type_annotation: None,
+        initializer: Some(loc(Expr::MethodCall(MethodCallExpr {
+            object: Box::new(loc(Expr::Identifier("value".to_string()))),
+            method: "bumpRef".to_string(),
+            args: vec![],
+            inline_comment: None,
+            id: 0,
+        }))),
+    });
     assert!(AstQuery::stmt_uses_bump_allocation(&var_with_bump));
 
     // Variable declaration without bump
-    let var_without_bump = Stmt::VarDecl(
-        VarDeclStmt {
-            name: "y".to_string(),
-            type_annotation: None,
-            initializer: Some(loc(Expr::Literal(LiteralExpr::Int(42)))),
-        },
-        None,
-    );
+    let var_without_bump = Stmt::VarDecl(VarDeclStmt {
+        name: "y".to_string(),
+        type_annotation: None,
+        initializer: Some(loc(Expr::Literal(LiteralExpr::Int(42)))),
+    });
     assert!(!AstQuery::stmt_uses_bump_allocation(&var_without_bump));
 
     // If statement with bump in condition
@@ -175,16 +169,15 @@ fn test_function_requires_bump() {
         name: "useBump".to_string(),
         params: vec![],
         return_type: None,
-        body: Box::new(Stmt::Block(vec![Stmt::Expression(
-            loc(Expr::MethodCall(MethodCallExpr {
+        body: Box::new(Stmt::Block(vec![Stmt::Expression(loc(Expr::MethodCall(
+            MethodCallExpr {
                 object: Box::new(loc(Expr::Identifier("x".to_string()))),
                 method: "bumpRef".to_string(),
                 args: vec![],
                 inline_comment: None,
                 id: 0,
-            })),
-            None,
-        )])),
+            },
+        )))])),
         has_hidden_bump: false,
     };
     assert!(AstQuery::function_requires_bump(&fun_with_bump));
@@ -194,10 +187,9 @@ fn test_function_requires_bump() {
         name: "noBump".to_string(),
         params: vec![],
         return_type: None,
-        body: Box::new(Stmt::Block(vec![Stmt::Return(
-            Some(loc(Expr::Literal(LiteralExpr::Int(42)))),
-            None,
-        )])),
+        body: Box::new(Stmt::Block(vec![Stmt::Return(Some(loc(Expr::Literal(
+            LiteralExpr::Int(42),
+        ))))])),
         has_hidden_bump: false,
     };
     assert!(!AstQuery::function_requires_bump(&fun_without_bump));
@@ -207,32 +199,23 @@ fn test_function_requires_bump() {
 fn test_find_var_decls() {
     // Create a block with multiple variable declarations
     let block = Stmt::Block(vec![
-        Stmt::VarDecl(
-            VarDeclStmt {
-                name: "x".to_string(),
-                type_annotation: None,
-                initializer: Some(loc(Expr::Literal(LiteralExpr::Int(42)))),
-            },
-            None,
-        ),
-        Stmt::VarDecl(
-            VarDeclStmt {
-                name: "y".to_string(),
-                type_annotation: None,
-                initializer: Some(loc(Expr::Identifier("x".to_string()))),
-            },
-            None,
-        ),
+        Stmt::VarDecl(VarDeclStmt {
+            name: "x".to_string(),
+            type_annotation: None,
+            initializer: Some(loc(Expr::Literal(LiteralExpr::Int(42)))),
+        }),
+        Stmt::VarDecl(VarDeclStmt {
+            name: "y".to_string(),
+            type_annotation: None,
+            initializer: Some(loc(Expr::Identifier("x".to_string()))),
+        }),
         Stmt::If(IfStmt {
             condition: loc(Expr::Identifier("condition".to_string())),
-            then_branch: Box::new(Stmt::VarDecl(
-                VarDeclStmt {
-                    name: "z".to_string(),
-                    type_annotation: None,
-                    initializer: Some(loc(Expr::Literal(LiteralExpr::Bool(true)))),
-                },
-                None,
-            )),
+            then_branch: Box::new(Stmt::VarDecl(VarDeclStmt {
+                name: "z".to_string(),
+                type_annotation: None,
+                initializer: Some(loc(Expr::Literal(LiteralExpr::Bool(true)))),
+            })),
             else_branch: None,
         }),
     ]);
@@ -278,30 +261,24 @@ fn test_find_function_decls() {
 fn test_collect_variable_references() {
     // Create a statement with various variable references
     let stmt = Stmt::Block(vec![
-        Stmt::VarDecl(
-            VarDeclStmt {
-                name: "x".to_string(),
-                type_annotation: None,
-                initializer: Some(loc(Expr::Binary(BinaryExpr {
-                    left: Box::new(loc(Expr::Identifier("a".to_string()))),
-                    operator: BinaryOp::Add,
-                    right: Box::new(loc(Expr::Identifier("b".to_string()))),
-                }))),
-            },
-            None,
-        ),
+        Stmt::VarDecl(VarDeclStmt {
+            name: "x".to_string(),
+            type_annotation: None,
+            initializer: Some(loc(Expr::Binary(BinaryExpr {
+                left: Box::new(loc(Expr::Identifier("a".to_string()))),
+                operator: BinaryOp::Add,
+                right: Box::new(loc(Expr::Identifier("b".to_string()))),
+            }))),
+        }),
         Stmt::If(IfStmt {
             condition: loc(Expr::Identifier("c".to_string())),
-            then_branch: Box::new(Stmt::Expression(
-                loc(Expr::MethodCall(MethodCallExpr {
-                    object: Box::new(loc(Expr::Identifier("d".to_string()))),
-                    method: "method".to_string(),
-                    args: vec![loc(Expr::Identifier("e".to_string()))],
-                    inline_comment: None,
-                    id: 0,
-                })),
-                None,
-            )),
+            then_branch: Box::new(Stmt::Expression(loc(Expr::MethodCall(MethodCallExpr {
+                object: Box::new(loc(Expr::Identifier("d".to_string()))),
+                method: "method".to_string(),
+                args: vec![loc(Expr::Identifier("e".to_string()))],
+                inline_comment: None,
+                id: 0,
+            })))),
             else_branch: None,
         }),
     ]);
@@ -319,14 +296,11 @@ fn test_collect_variable_references() {
 fn test_find_program_functions() {
     let program = Program {
         statements: vec![
-            Stmt::VarDecl(
-                VarDeclStmt {
-                    name: "global".to_string(),
-                    type_annotation: None,
-                    initializer: None,
-                },
-                None,
-            ),
+            Stmt::VarDecl(VarDeclStmt {
+                name: "global".to_string(),
+                type_annotation: None,
+                initializer: None,
+            }),
             Stmt::FunDecl(FunDeclStmt {
                 name: "main".to_string(),
                 params: vec![],

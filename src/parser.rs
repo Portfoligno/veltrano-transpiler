@@ -5,7 +5,7 @@
 //! expressions, statements, function declarations, and data classes.
 
 use crate::ast::*;
-use crate::ast_types::{Located, LocatedExpr};
+use crate::ast_types::{CommentContext, CommentStmt, Located, LocatedExpr};
 use crate::comments::{Comment, CommentStyle};
 use crate::error::{ErrorCollection, ErrorKind, SourceLocation, Span, VeltranoError};
 use crate::lexer::{Token, TokenType};
@@ -288,14 +288,24 @@ impl Parser {
 
         let inline_comment = self.consume_newline()?;
 
-        Ok(NonEmpty::singleton(Stmt::VarDecl(
-            VarDeclStmt {
-                name,
-                type_annotation,
-                initializer,
-            },
-            inline_comment,
-        )))
+        let var_decl = Stmt::VarDecl(VarDeclStmt {
+            name,
+            type_annotation,
+            initializer,
+        });
+
+        // Add inline comment as a separate statement if present
+        if let Some((content, whitespace)) = inline_comment {
+            let comment = Stmt::Comment(CommentStmt {
+                content,
+                is_block_comment: false, // inline comments are line comments
+                preceding_whitespace: whitespace,
+                context: CommentContext::EndOfLine,
+            });
+            Ok(NonEmpty::from((var_decl, vec![comment])))
+        } else {
+            Ok(NonEmpty::singleton(var_decl))
+        }
     }
 
     fn import_declaration(&mut self) -> Result<Stmt, VeltranoError> {
@@ -431,8 +441,8 @@ impl Parser {
             Some(self.expression()?)
         };
 
-        let inline_comment = self.consume_newline()?;
-        Ok(Stmt::Return(value, inline_comment))
+        self.consume_newline()?;
+        Ok(Stmt::Return(value))
     }
 
     /// Convert a non-empty vector of statements to a single statement.
@@ -472,7 +482,20 @@ impl Parser {
         let expr = self.expression()?;
         let inline_comment = self.consume_newline()?;
 
-        Ok(NonEmpty::singleton(Stmt::Expression(expr, inline_comment)))
+        let expr_stmt = Stmt::Expression(expr);
+
+        // Add inline comment as a separate statement if present
+        if let Some((content, whitespace)) = inline_comment {
+            let comment = Stmt::Comment(CommentStmt {
+                content,
+                is_block_comment: false,
+                preceding_whitespace: whitespace,
+                context: CommentContext::EndOfLine,
+            });
+            Ok(NonEmpty::from((expr_stmt, vec![comment])))
+        } else {
+            Ok(NonEmpty::singleton(expr_stmt))
+        }
     }
 
     fn expression(&mut self) -> Result<LocatedExpr, VeltranoError> {

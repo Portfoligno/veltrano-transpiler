@@ -17,13 +17,13 @@ impl VeltranoTypeChecker {
     /// Check a statement for type correctness
     pub(super) fn check_statement(&mut self, stmt: &Stmt) -> Result<(), TypeCheckError> {
         match stmt {
-            Stmt::VarDecl(var_decl, _) => self.check_var_declaration(var_decl),
+            Stmt::VarDecl(var_decl) => self.check_var_declaration(var_decl),
             Stmt::FunDecl(fun_decl) => self.check_function_declaration(fun_decl),
-            Stmt::Expression(expr, _) => {
+            Stmt::Expression(expr) => {
                 self.check_expression(expr)?;
                 Ok(())
             }
-            Stmt::Return(expr_opt, _) => {
+            Stmt::Return(expr_opt) => {
                 if let Some(expr) = expr_opt {
                     self.check_expression(expr)?;
                 }
