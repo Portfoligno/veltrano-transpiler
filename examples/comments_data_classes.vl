@@ -1,0 +1,40 @@
+// Test comment handling in data classes and type annotations
+
+// Data class with field comments
+data class Person(
+    val name: Str,  // Person's full name
+    val age: I64,   // Age in years
+    val email: Str  // Contact email
+)
+
+// Function with parameter comments
+fun greet(
+    person: Person,  // The person to greet
+    formal: Bool     // Whether to use formal greeting
+) {
+    if (formal) {
+        println("Good day, {}", person.name)
+    } else {
+        println("Hi, {}", person.name)
+    }
+}
+
+// Test various comment positions
+fun main() {
+    // Create a person instance
+    val alice = Person(
+        name = "Alice Smith",  // Full name
+        age = 30,              // Age
+        email = "alice@example.com"  // Email address
+    )
+    
+    // Test function calls with comments
+    greet(
+        alice.ref(),  // Pass person by reference
+        true          // Use formal greeting
+    )
+    
+    // Test field access
+    val aliceName = alice.name  // Extract name field
+    println("Name: {}", aliceName)
+}

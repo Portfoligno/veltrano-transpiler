@@ -1,0 +1,99 @@
+// Test comment handling in control flow structures
+
+fun test_if_else_comments() {
+    val x = 10
+    
+    // Comment before if statement
+    if (x > 5) {  // Comment after condition
+        // Comment inside then block
+        println("x is large")  // Inline comment in then
+    } else {  // Comment on else line
+        // Comment inside else block
+        println("x is small")  // Inline comment in else
+    }
+    
+    // Nested if with comments
+    if (x > 0) {  // Outer condition
+        // Check for even number
+        if (x % 2 == 0) {  // Inner condition
+            /* Block comment
+               in nested if */
+            println("positive even")
+        }
+    }
+}
+
+fun test_while_comments() {
+    val limit = 5
+    
+    // Comment before while loop
+    // Note: This is a hypothetical example since Veltrano doesn't support mutation
+    // while (counter > 0) {  // Loop condition comment
+    //     // Comment at start of loop body
+    //     println("Countdown: {}", counter)
+    //     
+    //     /* Multi-line comment
+    //        in the middle of loop */
+    //     counter = counter - 1  // Decrement counter
+    //     
+    //     // Comment at end of loop body
+    // }  // Comment after closing brace
+    
+    // Alternative: demonstrate comments in a different control structure
+    if (limit > 0) {  // Check if positive
+        /* Block comment
+           before print */
+        println("Limit is positive: {}", limit)  // Inline comment
+    }  // Comment after if block
+}
+
+fun test_complex_conditions_with_comments() {
+    val a = 10
+    val b = 20
+    val c = 30
+    
+    // Simple condition with inline comment
+    if (a > 5) {  // First condition check
+        // Check second condition
+        if (b < 25) {  // Second condition check
+            // Check third condition
+            if (c == 30) {  // Third condition check
+                // All conditions met
+                println("Complex condition passed")
+            }
+        }
+    }
+    
+    // Condition with block comments
+    if (/* check a */ a > 0) {  // positive a
+        if (/* check b */ b > 0) {  // positive b  
+            if (/* check c */ c > 0) {  // positive c
+                println("All positive")
+            }
+        }
+    }
+}
+
+fun test_logical_operators_with_comments() {
+    val x = 5
+    val y = 10
+    
+    // Test && operator with comments (not supported - will show parse error)
+    if (x > 0 &&  // Check x is positive
+        y < 20) {  // Check y is less than 20
+        println("Both conditions met")
+    }
+    
+    // Test with block comments in && expression
+    if (/* first */ x > 0 && /* second */ y < 20) {
+        println("Conditions with block comments")
+    }
+}
+
+fun main() {
+    // Test all comment scenarios
+    test_if_else_comments()
+    test_while_comments()
+    test_complex_conditions_with_comments()
+    test_logical_operators_with_comments()
+}
