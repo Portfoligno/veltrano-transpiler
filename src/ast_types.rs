@@ -123,11 +123,18 @@ pub enum Stmt {
     DataClass(DataClassStmt), // Data class declaration
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum CommentContext {
+    OwnLine,   // Comment on its own line
+    EndOfLine, // Comment at the end of a line with code
+}
+
 #[derive(Debug, Clone)]
 pub struct CommentStmt {
     pub content: String,
     pub is_block_comment: bool,
     pub preceding_whitespace: String,
+    pub context: CommentContext,
 }
 
 #[derive(Debug, Clone)]

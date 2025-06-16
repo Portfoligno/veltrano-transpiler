@@ -46,16 +46,14 @@ fn create_employee_record<'a>(bump: &'a bumpalo::Bump, name: &'a str, age: i64) 
 }
 // Function that mixes value types and references
 fn process_employee<'a>(bump: &'a bumpalo::Bump, person: &'a Person<'a>) -> i64 {
-    let bonus = calculate_bonus(person.age);
-      // No bump needed for calculateBonus
+    let bonus = calculate_bonus(person.age);  // No bump needed for calculateBonus
     return bonus;
 }
 // Complex transitive chain: main -> setupOffice -> createTeam -> createBumpAllocatedPerson
 fn create_team<'a>(bump: &'a bumpalo::Bump, lead__name: &'a str, member__name: &'a str) -> &'a Person<'a> {
     let leader = create_bump_allocated_person(bump, lead__name, 35);
     let member = create_bump_allocated_person(bump, member__name, 28);
-    return leader;
-      // Return the leader for this example
+    return leader;  // Return the leader for this example
 }
 fn setup_office<'a>(bump: &'a bumpalo::Bump, company__name: &'a str) -> &'a Person<'a> {
     let team__lead = create_team(bump, "Alice", "Bob");
@@ -71,18 +69,12 @@ fn main() {
     let person__ref = bump.alloc(Person { name: "Charlie", age: 35 });
     let value__ref = bump.alloc(42);
     // Function calls demonstrate automatic bump parameter behavior:
-    let result1 = process_value(42);
-           // No bump needed (value types only)
-    let result2 = process_value(person1.age);
-      // No bump needed (extracts value type)
-    let bonus = calculate_bonus(person1.age);
-      // No bump needed (value types only)
-    let formatted = format_person_info(bump, &person1);
-     // Automatic bump (handles reference types)
-    let processed = process_person_data(bump, &person2);
-     // Automatic bump (transitively calls formatPersonInfo)
-    let bump__person = create_bump_person(bump, "David", 40);
-     // Automatic bump (explicit .bumpRef())
+    let result1 = process_value(42);       // No bump needed (value types only)
+    let result2 = process_value(person1.age);  // No bump needed (extracts value type)
+    let bonus = calculate_bonus(person1.age);  // No bump needed (value types only)
+    let formatted = format_person_info(bump, &person1); // Automatic bump (handles reference types)
+    let processed = process_person_data(bump, &person2); // Automatic bump (transitively calls formatPersonInfo)
+    let bump__person = create_bump_person(bump, "David", 40); // Automatic bump (explicit .bumpRef())
     // Transitive analysis - this triggers the entire chain
     let office__lead = setup_office(bump, company.name);
     let lead__name = get_person_name(bump, office__lead);

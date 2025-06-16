@@ -4,6 +4,7 @@
 //! code into a stream of tokens for the parser. It handles all token types including
 //! keywords, identifiers, literals, operators, and comments.
 
+use crate::ast_types::CommentContext;
 use crate::config::Config;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -42,8 +43,8 @@ pub enum TokenType {
     LessEqual,
     Greater,
     GreaterEqual,
-    And,  // && operator
-    Or,   // || operator
+    And, // && operator
+    Or,  // || operator
 
     // Delimiters
     LeftParen,
@@ -55,9 +56,9 @@ pub enum TokenType {
     Dot,
     Arrow,
 
-    // Comments (with content and preceding whitespace)
-    LineComment(String, String),  // (content, preceding_whitespace)
-    BlockComment(String, String), // (content, preceding_whitespace)
+    // Comments (with content, preceding whitespace, and context)
+    LineComment(String, String, CommentContext), // (content, preceding_whitespace, context)
+    BlockComment(String, String, CommentContext), // (content, preceding_whitespace, context)
 
     // Special
     Newline,
@@ -76,9 +77,10 @@ pub struct Lexer {
     position: usize,
     line: usize,
     column: usize,
-    brace_depth: usize,  // Track nesting level of braces
-    paren_depth: usize,  // Track nesting level of parentheses
-    at_line_start: bool, // Whether we're at the start of a line (after newline)
+    brace_depth: usize,     // Track nesting level of braces
+    paren_depth: usize,     // Track nesting level of parentheses
+    at_line_start: bool,    // Whether we're at the start of a line (after newline)
+    last_token_line: usize, // Track the line of the last non-whitespace token
     config: Config,
 }
 
@@ -92,6 +94,7 @@ impl Lexer {
             brace_depth: 0,
             paren_depth: 0,
             at_line_start: true, // Start at beginning of first line
+            last_token_line: 0,
             config,
         }
     }
@@ -108,23 +111,40 @@ impl Lexer {
             if let Some(mut token) = self.next_token() {
                 // Clear at_line_start flag when we encounter any token
                 self.at_line_start = false;
+
+                // Determine comment context based on line position
+                let comment_context =
+                    if token.line == self.last_token_line && self.last_token_line > 0 {
+                        CommentContext::EndOfLine
+                    } else {
+                        CommentContext::OwnLine
+                    };
+
                 // Add whitespace to comment tokens, stripping base indentation
                 match &mut token.token_type {
-                    TokenType::LineComment(_, ws) => {
+                    TokenType::LineComment(_, ws, ctx) => {
                         // For comments, strip the expected base indentation based on brace depth
                         *ws = self.strip_base_indentation(&whitespace);
+                        *ctx = comment_context;
                         if self.config.preserve_comments {
                             tokens.push(token);
                         }
                     }
-                    TokenType::BlockComment(_, ws) => {
+                    TokenType::BlockComment(_, ws, ctx) => {
                         // For comments, strip the expected base indentation based on brace depth
                         *ws = self.strip_base_indentation(&whitespace);
+                        *ctx = comment_context;
                         if self.config.preserve_comments {
                             tokens.push(token);
                         }
+                    }
+                    TokenType::Newline => {
+                        // Don't update last_token_line for newlines
+                        tokens.push(token);
                     }
                     _ => {
+                        // Update last_token_line for all other non-whitespace tokens
+                        self.last_token_line = token.line;
                         tokens.push(token);
                     }
                 }
@@ -188,12 +208,12 @@ impl Lexer {
                     // Line comment
                     self.advance(); // consume second '/'
                     let comment = self.read_line_comment();
-                    TokenType::LineComment(comment, String::new())
+                    TokenType::LineComment(comment, String::new(), CommentContext::OwnLine)
                 } else if self.peek() == Some('*') {
                     // Block comment
                     self.advance(); // consume '*'
                     let comment = self.read_block_comment();
-                    TokenType::BlockComment(comment, String::new())
+                    TokenType::BlockComment(comment, String::new(), CommentContext::OwnLine)
                 } else {
                     TokenType::Slash
                 }

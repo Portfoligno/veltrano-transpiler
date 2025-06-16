@@ -337,7 +337,7 @@ impl Parser {
                 let field_name = self.consume_identifier("Expected field name after 'val'")?;
                 self.consume(&TokenType::Colon, "Expected ':' after field name")?;
                 let field_type = self.parse_type()?;
-                
+
                 // Capture comment immediately after the field type
                 let inline_comment = self.skip_newlines_and_capture_comment();
 
@@ -353,7 +353,7 @@ impl Parser {
 
                 // Capture any comment after the comma for the PREVIOUS field
                 let comment_after_comma = self.skip_newlines_and_capture_comment();
-                
+
                 // If we found a comment after the comma, update the last field
                 if let Some(comment) = comment_after_comma {
                     if let Some(last_field) = fields.last_mut() {
@@ -478,27 +478,23 @@ impl Parser {
     fn expression(&mut self) -> Result<LocatedExpr, VeltranoError> {
         self.logical_or()
     }
-    
+
     fn logical_or(&mut self) -> Result<LocatedExpr, VeltranoError> {
-        self.parse_binary_expression(
-            Self::logical_and,
-            &[TokenType::Or],
-            |token_type| match token_type {
+        self.parse_binary_expression(Self::logical_and, &[TokenType::Or], |token_type| {
+            match token_type {
                 TokenType::Or => BinaryOp::Or,
                 _ => unreachable!(),
-            },
-        )
+            }
+        })
     }
-    
+
     fn logical_and(&mut self) -> Result<LocatedExpr, VeltranoError> {
-        self.parse_binary_expression(
-            Self::equality,
-            &[TokenType::And],
-            |token_type| match token_type {
+        self.parse_binary_expression(Self::equality, &[TokenType::And], |token_type| {
+            match token_type {
                 TokenType::And => BinaryOp::And,
                 _ => unreachable!(),
-            },
-        )
+            }
+        })
     }
 
     fn equality(&mut self) -> Result<LocatedExpr, VeltranoError> {
@@ -593,7 +589,7 @@ impl Parser {
                 self.advance();
 
                 // Skip any standalone comments after the newline
-                while let TokenType::LineComment(_, _) | TokenType::BlockComment(_, _) =
+                while let TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _) =
                     &self.peek().token_type
                 {
                     self.advance();
@@ -847,7 +843,7 @@ impl Parser {
                         Span::new(start_span, end_span),
                     );
                 }
-            } else if let TokenType::LineComment(_, _) = &self.peek().token_type {
+            } else if let TokenType::LineComment(_, _, _) = &self.peek().token_type {
                 // Check if this inline comment is followed by newline + dot (method chain continuation)
                 let next_pos = self.current + 1;
                 let nextnext_pos = self.current + 2;
@@ -883,11 +879,11 @@ impl Parser {
         // When preserve_comments is enabled, comments become tokens in the stream
         while matches!(
             self.peek().token_type,
-            TokenType::LineComment(_, _) | TokenType::BlockComment(_, _)
+            TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _)
         ) {
             self.advance();
         }
-        
+
         if self.match_token(&TokenType::True) {
             let token = self.previous();
             return Ok(self.located_expr(Expr::Literal(LiteralExpr::Bool(true)), token));
@@ -945,10 +941,7 @@ impl Parser {
         let vtype = self.parse_type_inner()?;
         let end_token = self.previous();
         let end_location = SourceLocation::new(end_token.line, end_token.column);
-        Ok(Located::new(
-            vtype,
-            Span::new(start_location, end_location),
-        ))
+        Ok(Located::new(vtype, Span::new(start_location, end_location)))
     }
 
     fn parse_type_inner(&mut self) -> Result<VeltranoType, VeltranoError> {
@@ -1069,13 +1062,13 @@ impl Parser {
 
     fn parse_inline_comment(&mut self) -> Option<(String, String)> {
         match &self.peek().token_type {
-            TokenType::LineComment(content, whitespace) => {
+            TokenType::LineComment(content, whitespace, _context) => {
                 // Lexer returns line comment content without // prefix
                 let comment = Comment::new(content.clone(), whitespace.clone(), CommentStyle::Line);
                 self.advance();
                 Some(comment.to_tuple())
             }
-            TokenType::BlockComment(content, whitespace) => {
+            TokenType::BlockComment(content, whitespace, _context) => {
                 // For block comments, content is just the inner text, so wrap it with /* */
                 let comment = Comment::new(
                     format!("/*{}*/", content),
@@ -1103,7 +1096,7 @@ impl Parser {
             // If we encounter a standalone comment token (when preserve_comments is enabled),
             // we should not treat it as an error since it will be handled by the higher-level parser
             match &self.peek().token_type {
-                TokenType::LineComment(_, _) | TokenType::BlockComment(_, _) => {
+                TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _) => {
                     // Don't advance or consume - let the higher-level parser handle this comment
                     Ok(None)
                 }
@@ -1178,24 +1171,28 @@ impl Parser {
 
     fn try_parse_comment(&mut self) -> Option<Stmt> {
         match &self.peek().token_type {
-            TokenType::LineComment(content, whitespace) => {
+            TokenType::LineComment(content, whitespace, lexer_context) => {
                 let content = content.clone();
                 let whitespace = whitespace.clone();
+                let context = lexer_context.clone();
                 self.advance();
                 Some(Stmt::Comment(CommentStmt {
                     content,
                     is_block_comment: false,
                     preceding_whitespace: whitespace,
+                    context,
                 }))
             }
-            TokenType::BlockComment(content, whitespace) => {
+            TokenType::BlockComment(content, whitespace, lexer_context) => {
                 let content = content.clone();
                 let whitespace = whitespace.clone();
+                let context = lexer_context.clone();
                 self.advance();
                 Some(Stmt::Comment(CommentStmt {
                     content,
                     is_block_comment: true,
                     preceding_whitespace: whitespace,
+                    context,
                 }))
             }
             _ => None,
@@ -1212,7 +1209,7 @@ impl Parser {
 
             // Check if there's a comment token to skip
             match &self.peek().token_type {
-                TokenType::LineComment(_, _) | TokenType::BlockComment(_, _) => {
+                TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _) => {
                     self.advance(); // Skip the comment token
                 }
                 _ => break, // No more newlines or comments to skip
@@ -1232,7 +1229,7 @@ impl Parser {
 
             // Check if there's a comment token to skip
             match &self.peek().token_type {
-                TokenType::LineComment(_, _) | TokenType::BlockComment(_, _) => {
+                TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _) => {
                     self.advance(); // Skip the comment token
                 }
                 _ => break, // No more newlines or comments to skip
@@ -1255,7 +1252,7 @@ impl Parser {
 
             // Check if there's a comment token
             match &self.peek().token_type {
-                TokenType::LineComment(_, _) | TokenType::BlockComment(_, _) => {
+                TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _) => {
                     // Capture the first comment we encounter
                     if captured_comment.is_none() {
                         captured_comment = self.parse_inline_comment();
@@ -1276,7 +1273,7 @@ impl Parser {
     fn capture_comment_preserve_newlines(&mut self) -> Option<(String, String)> {
         // Only capture comment if it's immediately present (no newlines before it)
         match &self.peek().token_type {
-            TokenType::LineComment(_, _) | TokenType::BlockComment(_, _) => {
+            TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _) => {
                 self.parse_inline_comment()
             }
             _ => None,
@@ -1286,7 +1283,7 @@ impl Parser {
     fn try_parse_standalone_comment(&mut self) -> Option<(String, String)> {
         // Check if there's a comment token immediately at current position
         match &self.peek().token_type {
-            TokenType::LineComment(_, _) | TokenType::BlockComment(_, _) => {
+            TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _) => {
                 self.parse_inline_comment()
             }
             _ => None,
@@ -1317,10 +1314,10 @@ impl Parser {
 
         while self.match_tokens(operators) {
             let operator = map_operator(&self.previous().token_type);
-            
+
             // Skip newlines and comments after operator to allow multi-line expressions
             self.skip_newlines_and_comments();
-            
+
             let right = next(self)?;
             let start_span = expr.span.start.clone();
             let end_span = right.span.end.clone();

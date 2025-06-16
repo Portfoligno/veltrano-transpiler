@@ -427,10 +427,10 @@ impl CodeGenerator {
             } else {
                 self.generate_type(&field.field_type.node);
             }
-            
+
             // Always add comma for Rust struct fields
             self.output.push(',');
-            
+
             // Generate inline comment if present
             self.generate_inline_comment(&field.inline_comment);
             self.output.push('\n');
@@ -872,19 +872,23 @@ impl CodeGenerator {
             if self.data_classes.contains(name) {
                 // This is struct initialization (works with positional, named, or mixed arguments)
                 self.output.push_str(name);
-                
+
                 if call.is_multiline {
                     // Multiline struct initialization
                     self.output.push_str(" {\n");
                     self.indent_level += 1;
-                    
+
                     for arg in call.args.iter() {
                         match arg {
                             Argument::StandaloneComment(content, whitespace) => {
                                 // Generate standalone comment
                                 self.indent();
                                 if self.config.preserve_comments {
-                                    let comment = Comment::new(content.clone(), whitespace.clone(), CommentStyle::Line);
+                                    let comment = Comment::new(
+                                        content.clone(),
+                                        whitespace.clone(),
+                                        CommentStyle::Line,
+                                    );
                                     self.output.push_str(&comment.whitespace);
                                     self.output.push_str("//");
                                     self.output.push_str(&comment.content);
@@ -896,20 +900,20 @@ impl CodeGenerator {
                                 self.output.push_str(&camel_to_snake_case(name));
                                 self.output.push_str(": ");
                                 self.generate_expression(expr)?;
-                                
+
                                 // Always add comma for multiline struct fields
                                 self.output.push(',');
-                                
+
                                 self.generate_inline_comment(comment);
                                 self.output.push('\n');
                             }
                             Argument::Shorthand(field_name, comment) => {
                                 self.indent();
                                 self.output.push_str(&camel_to_snake_case(field_name));
-                                
+
                                 // Always add comma for multiline struct fields
                                 self.output.push(',');
-                                
+
                                 self.generate_inline_comment(comment);
                                 self.output.push('\n');
                             }
@@ -922,7 +926,7 @@ impl CodeGenerator {
                             }
                         }
                     }
-                    
+
                     self.indent_level -= 1;
                     self.indent();
                     self.output.push('}');
@@ -932,7 +936,7 @@ impl CodeGenerator {
                     self.generate_comma_separated_args_for_struct_init(&call.args, call_span)?;
                     self.output.push_str(" }");
                 }
-                
+
                 return Ok(());
             }
 
@@ -1139,19 +1143,33 @@ impl CodeGenerator {
     }
 
     fn generate_comment(&mut self, comment: &CommentStmt) {
+        match comment.context {
+            CommentContext::OwnLine => {
+                // Own-line comments get indentation
+                self.indent();
+            }
+            CommentContext::EndOfLine => {
+                // EndOfLine comments: remove the trailing newline from previous statement
+                if self.output.ends_with('\n') {
+                    self.output.pop();
+                }
+            }
+        }
+
+        // Always apply the preserved whitespace
+        self.output.push_str(&comment.preceding_whitespace);
+
         if comment.is_block_comment {
-            self.indent();
-            self.output.push_str(&comment.preceding_whitespace);
             self.output.push_str("/*");
             self.output.push_str(&comment.content);
-            self.output.push_str("*/\n");
+            self.output.push_str("*/");
         } else {
-            self.indent();
-            self.output.push_str(&comment.preceding_whitespace);
             self.output.push_str("//");
             self.output.push_str(&comment.content);
-            self.output.push('\n');
         }
+
+        // Always add newline at the end
+        self.output.push('\n');
     }
 
     fn generate_inline_comment(&mut self, inline_comment: &Option<(String, String)>) {

@@ -7,7 +7,6 @@ fn main() {
        that spans several lines */
     println!("{}", message);
     // Another line comment
-    let number: i64 = 42;
-     // Inline comment
+    let number: i64 = 42; // Inline comment
     println!("{}", number);
 }

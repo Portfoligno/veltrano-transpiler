@@ -35,7 +35,6 @@ fn main() {
         true  // Use formal greeting
     );
     // Test field access
-    let alice_name = alice.name;
-      // Extract name field
+    let alice_name = alice.name;  // Extract name field
     println!("Name: {}", alice_name);
 }
