@@ -17,35 +17,33 @@ impl TypeValidator {
     pub fn validate_type(
         veltrano_type: &VeltranoType,
         trait_checker: &mut RustInteropRegistry,
+        location: SourceLocation,
     ) -> Result<(), TypeCheckError> {
         match &veltrano_type.constructor {
             TypeConstructor::Own => {
                 // Validate Own<T> type constructor
                 if let Some(inner) = veltrano_type.inner() {
                     // First validate the inner type recursively
-                    Self::validate_type(inner, trait_checker)?;
+                    Self::validate_type(inner, trait_checker, location.clone())?;
 
                     // Then validate the Own<T> constraint
                     if let Err(err_msg) = validate_own_constructor(inner, trait_checker) {
                         return Err(TypeCheckError::InvalidTypeConstructor {
                             message: err_msg,
-                            // TODO: VeltranoType doesn't carry location information.
-                            // This would require adding Located<VeltranoType> or similar.
-                            location: SourceLocation::new(1, 1),
+                            location: location.clone(),
                         });
                     }
                 } else {
                     return Err(TypeCheckError::InvalidTypeConstructor {
                         message: "Own<T> requires a type parameter".to_string(),
-                        // TODO: VeltranoType doesn't carry location information.
-                        location: SourceLocation::new(1, 1),
+                        location: location.clone(),
                     });
                 }
             }
             _ => {
                 // For other type constructors, recursively validate type arguments
                 for arg in &veltrano_type.args {
-                    Self::validate_type(arg, trait_checker)?;
+                    Self::validate_type(arg, trait_checker, location.clone())?;
                 }
             }
         }

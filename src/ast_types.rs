@@ -131,7 +131,7 @@ pub struct CommentStmt {
 #[derive(Debug, Clone)]
 pub struct VarDeclStmt {
     pub name: String,
-    pub type_annotation: Option<VeltranoType>,
+    pub type_annotation: Option<Located<VeltranoType>>,
     pub initializer: Option<LocatedExpr>,
 }
 
@@ -139,7 +139,7 @@ pub struct VarDeclStmt {
 pub struct FunDeclStmt {
     pub name: String,
     pub params: Vec<Parameter>,
-    pub return_type: Option<VeltranoType>,
+    pub return_type: Option<Located<VeltranoType>>,
     pub body: Box<Stmt>,
     pub has_hidden_bump: bool, // Whether this function should receive a hidden bump parameter
 }
@@ -204,14 +204,14 @@ impl FunDeclStmt {
     fn has_reference_types(&self) -> bool {
         // Check parameters for reference types
         for param in &self.params {
-            if self.type_needs_lifetime(&param.param_type) {
+            if self.type_needs_lifetime(&param.param_type.node) {
                 return true;
             }
         }
 
         // Check return type for reference types
         if let Some(return_type) = &self.return_type {
-            if self.type_needs_lifetime(return_type) {
+            if self.type_needs_lifetime(&return_type.node) {
                 return true;
             }
         }
@@ -261,7 +261,7 @@ impl FunDeclStmt {
 #[derive(Debug, Clone)]
 pub struct Parameter {
     pub name: String,
-    pub param_type: VeltranoType,
+    pub param_type: Located<VeltranoType>,
     pub inline_comment: Option<(String, String)>, // Optional inline comment after parameter
 }
 
@@ -294,7 +294,7 @@ pub struct DataClassStmt {
 #[derive(Debug, Clone)]
 pub struct DataClassField {
     pub name: String,
-    pub field_type: VeltranoType,
+    pub field_type: Located<VeltranoType>,
 }
 
 #[derive(Debug, Clone)]

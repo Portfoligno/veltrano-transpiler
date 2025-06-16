@@ -145,7 +145,7 @@ impl CodeGenerator {
                     let needs_lifetime = data_class
                         .fields
                         .iter()
-                        .any(|field| self.type_needs_lifetime(&field.field_type));
+                        .any(|field| self.type_needs_lifetime(&field.field_type.node));
                     if needs_lifetime {
                         self.data_classes_with_lifetime
                             .insert(data_class.name.clone());
@@ -257,7 +257,7 @@ impl CodeGenerator {
 
         if let Some(type_annotation) = &var_decl.type_annotation {
             self.output.push_str(": ");
-            self.generate_type(type_annotation);
+            self.generate_type(&type_annotation.node);
         }
 
         if let Some(initializer) = &var_decl.initializer {
@@ -324,7 +324,7 @@ impl CodeGenerator {
 
         if let Some(return_type) = &fun_decl.return_type {
             self.output.push_str(" -> ");
-            self.generate_type(return_type);
+            self.generate_type(&return_type.node);
         }
 
         self.output.push(' ');
@@ -399,7 +399,7 @@ impl CodeGenerator {
         let needs_lifetime = data_class
             .fields
             .iter()
-            .any(|field| self.type_needs_lifetime(&field.field_type));
+            .any(|field| self.type_needs_lifetime(&field.field_type.node));
 
         self.indent();
         self.output.push_str("#[derive(Debug, Clone)]\n");
@@ -423,9 +423,9 @@ impl CodeGenerator {
 
             // Generate the field type with lifetime if needed
             if needs_lifetime {
-                self.generate_data_class_field_type(&field.field_type);
+                self.generate_data_class_field_type(&field.field_type.node);
             } else {
-                self.generate_type(&field.field_type);
+                self.generate_type(&field.field_type.node);
             }
             self.output.push_str(",\n");
         }
@@ -634,7 +634,7 @@ impl CodeGenerator {
             let snake_name = camel_to_snake_case(&param.name);
             self.output.push_str(&snake_name);
             self.output.push_str(": ");
-            self.generate_type(&param.param_type);
+            self.generate_type(&param.param_type.node);
             self.generate_inline_comment_as_block(&param.inline_comment);
         }
     }
@@ -657,7 +657,7 @@ impl CodeGenerator {
             let snake_name = camel_to_snake_case(&param.name);
             self.output.push_str(&snake_name);
             self.output.push_str(": ");
-            self.generate_type(&param.param_type);
+            self.generate_type(&param.param_type.node);
 
             // Add comma if not the last parameter
             if i < params.len() - 1 {

@@ -898,7 +898,19 @@ impl Parser {
         Err(self.unexpected_token("expression"))
     }
 
-    fn parse_type(&mut self) -> Result<VeltranoType, VeltranoError> {
+    fn parse_type(&mut self) -> Result<Located<VeltranoType>, VeltranoError> {
+        let start_token = self.peek();
+        let start_location = SourceLocation::new(start_token.line, start_token.column);
+        let vtype = self.parse_type_inner()?;
+        let end_token = self.previous();
+        let end_location = SourceLocation::new(end_token.line, end_token.column);
+        Ok(Located::new(
+            vtype,
+            Span::new(start_location, end_location),
+        ))
+    }
+
+    fn parse_type_inner(&mut self) -> Result<VeltranoType, VeltranoError> {
         if let TokenType::Identifier(type_name) = &self.peek().token_type {
             let type_name = type_name.clone();
             self.advance();
@@ -939,7 +951,7 @@ impl Parser {
         self.consume(&TokenType::Less, "Expected '<' after Ref")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
-        Ok(VeltranoType::ref_(inner_type))
+        Ok(VeltranoType::ref_(inner_type.node))
     }
 
     fn parse_own_type(&mut self) -> Result<VeltranoType, VeltranoError> {
@@ -948,28 +960,28 @@ impl Parser {
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
 
         // Validation is now handled by the type checker
-        Ok(VeltranoType::own(inner_type))
+        Ok(VeltranoType::own(inner_type.node))
     }
 
     fn parse_mutref_type(&mut self) -> Result<VeltranoType, VeltranoError> {
         self.consume(&TokenType::Less, "Expected '<' after MutRef")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
-        Ok(VeltranoType::mut_ref(inner_type))
+        Ok(VeltranoType::mut_ref(inner_type.node))
     }
 
     fn parse_box_type(&mut self) -> Result<VeltranoType, VeltranoError> {
         self.consume(&TokenType::Less, "Expected '<' after Box")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
-        Ok(VeltranoType::boxed(inner_type))
+        Ok(VeltranoType::boxed(inner_type.node))
     }
 
     fn parse_vec_type(&mut self) -> Result<VeltranoType, VeltranoError> {
         self.consume(&TokenType::Less, "Expected '<' after Vec")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
-        Ok(VeltranoType::vec(inner_type))
+        Ok(VeltranoType::vec(inner_type.node))
     }
 
     fn parse_array_type(&mut self) -> Result<VeltranoType, VeltranoError> {
@@ -982,7 +994,7 @@ impl Parser {
             let size = *size as usize;
             self.advance();
             self.consume(&TokenType::Greater, "Expected '>' after array size")?;
-            Ok(VeltranoType::array(inner_type, size))
+            Ok(VeltranoType::array(inner_type.node, size))
         } else {
             Err(self.syntax_error("Expected integer literal for array size".to_string()))
         }
@@ -992,7 +1004,7 @@ impl Parser {
         self.consume(&TokenType::Less, "Expected '<' after Option")?;
         let inner_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after type parameter")?;
-        Ok(VeltranoType::option(inner_type))
+        Ok(VeltranoType::option(inner_type.node))
     }
 
     fn parse_result_type(&mut self) -> Result<VeltranoType, VeltranoError> {
@@ -1001,7 +1013,7 @@ impl Parser {
         self.consume(&TokenType::Comma, "Expected ',' after Result ok type")?;
         let err_type = self.parse_type()?;
         self.consume(&TokenType::Greater, "Expected '>' after Result error type")?;
-        Ok(VeltranoType::result(ok_type, err_type))
+        Ok(VeltranoType::result(ok_type.node, err_type.node))
     }
 
     fn consume_identifier(&mut self, message: &str) -> Result<String, VeltranoError> {

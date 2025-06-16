@@ -6,6 +6,7 @@
 
 use crate::ast::query::AstQuery;
 use crate::ast::*;
+use crate::error::SourceLocation;
 use crate::types::{DataClassDefinition, DataClassFieldSignature, FunctionSignature, VeltranoType};
 
 use super::error::TypeCheckError;
@@ -74,7 +75,7 @@ impl VeltranoTypeChecker {
     ) -> Result<(), TypeCheckError> {
         // Validate all field types
         for field in &data_class.fields {
-            self.validate_type(&field.field_type)?;
+            self.validate_type(&field.field_type.node, field.field_type.span.start.clone())?;
         }
 
         // Create data class definition
@@ -83,7 +84,7 @@ impl VeltranoTypeChecker {
             .iter()
             .map(|f| DataClassFieldSignature {
                 name: f.name.clone(),
-                field_type: f.field_type.clone(),
+                field_type: f.field_type.node.clone(),
             })
             .collect();
 
@@ -106,19 +107,19 @@ impl VeltranoTypeChecker {
     ) -> Result<(), TypeCheckError> {
         // Validate type annotation if present
         if let Some(declared_type) = &var_decl.type_annotation {
-            self.validate_type(declared_type)?;
+            self.validate_type(&declared_type.node, declared_type.span.start.clone())?;
         }
 
         if let Some(initializer) = &var_decl.initializer {
             // Pass expected type for inference if available
             let init_type = if let Some(declared_type) = &var_decl.type_annotation {
-                self.check_expression_with_expected_type(initializer, Some(declared_type))?
+                self.check_expression_with_expected_type(initializer, Some(&declared_type.node))?
             } else {
                 self.check_expression(initializer)?
             };
 
             if let Some(declared_type) = &var_decl.type_annotation {
-                let expected_type = declared_type.clone();
+                let expected_type = declared_type.node.clone();
 
                 // Strict type checking: types must match exactly
                 if !self.types_equal(&expected_type, &init_type) {
@@ -160,25 +161,25 @@ impl VeltranoTypeChecker {
     ) -> Result<(), TypeCheckError> {
         // Validate parameter types
         for param in &fun_decl.params {
-            self.validate_type(&param.param_type)?;
+            self.validate_type(&param.param_type.node, param.param_type.span.start.clone())?;
         }
 
         // Validate return type if present
         if let Some(return_type) = &fun_decl.return_type {
-            self.validate_type(return_type)?;
+            self.validate_type(&return_type.node, return_type.span.start.clone())?;
         }
 
         // Create function signature and add to environment
         let param_types: Vec<VeltranoType> = fun_decl
             .params
             .iter()
-            .map(|p| p.param_type.clone())
+            .map(|p| p.param_type.node.clone())
             .collect();
 
         let return_type = fun_decl
             .return_type
             .as_ref()
-            .cloned()
+            .map(|t| t.node.clone())
             .unwrap_or_else(|| VeltranoType::unit());
 
         let signature = FunctionSignature {
@@ -205,7 +206,7 @@ impl VeltranoTypeChecker {
         // Add parameters to scope
         for param in &fun_decl.params {
             self.env
-                .declare_variable(param.name.clone(), param.param_type.clone());
+                .declare_variable(param.name.clone(), param.param_type.node.clone());
         }
 
         // First collect any nested function signatures within the body
@@ -223,8 +224,9 @@ impl VeltranoTypeChecker {
     pub(super) fn validate_type(
         &mut self,
         veltrano_type: &VeltranoType,
+        location: SourceLocation,
     ) -> Result<(), TypeCheckError> {
-        TypeValidator::validate_type(veltrano_type, &mut self.trait_checker)
+        TypeValidator::validate_type(veltrano_type, &mut self.trait_checker, location)
     }
 
     /// Core type equality check - no implicit conversion logic
