@@ -337,21 +337,31 @@ impl Parser {
                 let field_name = self.consume_identifier("Expected field name after 'val'")?;
                 self.consume(&TokenType::Colon, "Expected ':' after field name")?;
                 let field_type = self.parse_type()?;
+                
+                // Capture comment immediately after the field type
+                let inline_comment = self.skip_newlines_and_capture_comment();
 
                 fields.push(DataClassField {
                     name: field_name,
                     field_type,
+                    inline_comment,
                 });
-
-                // Skip any newlines and comments after the field
-                self.skip_newlines_and_comments();
 
                 if !self.match_token(&TokenType::Comma) {
                     break;
                 }
 
-                // Skip any newlines and comments after the comma
-                self.skip_newlines_and_comments();
+                // Capture any comment after the comma for the PREVIOUS field
+                let comment_after_comma = self.skip_newlines_and_capture_comment();
+                
+                // If we found a comment after the comma, update the last field
+                if let Some(comment) = comment_after_comma {
+                    if let Some(last_field) = fields.last_mut() {
+                        if last_field.inline_comment.is_none() {
+                            last_field.inline_comment = Some(comment);
+                        }
+                    }
+                }
             }
         }
 
@@ -869,6 +879,15 @@ impl Parser {
     }
 
     fn primary(&mut self) -> Result<LocatedExpr, VeltranoError> {
+        // Skip any comment tokens that appear before primary expressions
+        // When preserve_comments is enabled, comments become tokens in the stream
+        while matches!(
+            self.peek().token_type,
+            TokenType::LineComment(_, _) | TokenType::BlockComment(_, _)
+        ) {
+            self.advance();
+        }
+        
         if self.match_token(&TokenType::True) {
             let token = self.previous();
             return Ok(self.located_expr(Expr::Literal(LiteralExpr::Bool(true)), token));

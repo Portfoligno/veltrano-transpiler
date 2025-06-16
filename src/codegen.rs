@@ -427,7 +427,13 @@ impl CodeGenerator {
             } else {
                 self.generate_type(&field.field_type.node);
             }
-            self.output.push_str(",\n");
+            
+            // Always add comma for Rust struct fields
+            self.output.push(',');
+            
+            // Generate inline comment if present
+            self.generate_inline_comment(&field.inline_comment);
+            self.output.push('\n');
         }
 
         self.indent_level -= 1;
@@ -866,9 +872,67 @@ impl CodeGenerator {
             if self.data_classes.contains(name) {
                 // This is struct initialization (works with positional, named, or mixed arguments)
                 self.output.push_str(name);
-                self.output.push_str(" { ");
-                self.generate_comma_separated_args_for_struct_init(&call.args, call_span)?;
-                self.output.push_str(" }");
+                
+                if call.is_multiline {
+                    // Multiline struct initialization
+                    self.output.push_str(" {\n");
+                    self.indent_level += 1;
+                    
+                    for arg in call.args.iter() {
+                        match arg {
+                            Argument::StandaloneComment(content, whitespace) => {
+                                // Generate standalone comment
+                                self.indent();
+                                if self.config.preserve_comments {
+                                    let comment = Comment::new(content.clone(), whitespace.clone(), CommentStyle::Line);
+                                    self.output.push_str(&comment.whitespace);
+                                    self.output.push_str("//");
+                                    self.output.push_str(&comment.content);
+                                }
+                                self.output.push('\n');
+                            }
+                            Argument::Named(name, expr, comment) => {
+                                self.indent();
+                                self.output.push_str(&camel_to_snake_case(name));
+                                self.output.push_str(": ");
+                                self.generate_expression(expr)?;
+                                
+                                // Always add comma for multiline struct fields
+                                self.output.push(',');
+                                
+                                self.generate_inline_comment(comment);
+                                self.output.push('\n');
+                            }
+                            Argument::Shorthand(field_name, comment) => {
+                                self.indent();
+                                self.output.push_str(&camel_to_snake_case(field_name));
+                                
+                                // Always add comma for multiline struct fields
+                                self.output.push(',');
+                                
+                                self.generate_inline_comment(comment);
+                                self.output.push('\n');
+                            }
+                            Argument::Bare(_, _) => {
+                                return Err(CodegenError::InvalidDataClassSyntax {
+                                    constructor: name.clone(),
+                                    reason: "Data class constructors don't support positional arguments. Use named arguments or .field shorthand syntax".to_string(),
+                                    location: call_span.start.clone(),
+                                }.into());
+                            }
+                        }
+                    }
+                    
+                    self.indent_level -= 1;
+                    self.indent();
+                    self.output.push('}');
+                } else {
+                    // Single-line struct initialization
+                    self.output.push_str(" { ");
+                    self.generate_comma_separated_args_for_struct_init(&call.args, call_span)?;
+                    self.output.push_str(" }");
+                }
+                
                 return Ok(());
             }
 

@@ -297,6 +297,7 @@ pub struct DataClassStmt {
 pub struct DataClassField {
     pub name: String,
     pub field_type: Located<VeltranoType>,
+    pub inline_comment: Option<(String, String)>, // Inline comment after field
 }
 
 #[derive(Debug, Clone)]
