@@ -134,6 +134,34 @@ impl VeltranoTypeChecker {
 
                 Ok(VeltranoType::bool())
             }
+            BinaryOp::And | BinaryOp::Or => {
+                // Both operands must be Bool
+                let expected_bool = VeltranoType::bool();
+
+                if !TypeValidator::types_equal(&left_type, &expected_bool) {
+                    return Err(TypeCheckError::TypeMismatch {
+                        expected: expected_bool,
+                        actual: left_type,
+                        location: SourceLocation::new(
+                            binary.left.span.start_line(),
+                            binary.left.span.start_column(),
+                        ),
+                    });
+                }
+
+                if !TypeValidator::types_equal(&right_type, &expected_bool) {
+                    return Err(TypeCheckError::TypeMismatch {
+                        expected: expected_bool,
+                        actual: right_type,
+                        location: SourceLocation::new(
+                            binary.right.span.start_line(),
+                            binary.right.span.start_column(),
+                        ),
+                    });
+                }
+
+                Ok(VeltranoType::bool())
+            }
         }
     }
 

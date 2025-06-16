@@ -42,6 +42,8 @@ pub enum TokenType {
     LessEqual,
     Greater,
     GreaterEqual,
+    And,  // && operator
+    Or,   // || operator
 
     // Delimiters
     LeftParen,
@@ -227,6 +229,22 @@ impl Lexer {
                     TokenType::GreaterEqual
                 } else {
                     TokenType::Greater
+                }
+            }
+            '&' => {
+                if self.peek() == Some('&') {
+                    self.advance();
+                    TokenType::And
+                } else {
+                    return None; // Single & is not valid
+                }
+            }
+            '|' => {
+                if self.peek() == Some('|') {
+                    self.advance();
+                    TokenType::Or
+                } else {
+                    return None; // Single | is not valid
                 }
             }
             '\n' => {

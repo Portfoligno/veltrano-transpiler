@@ -521,6 +521,8 @@ impl CodeGenerator {
             BinaryOp::LessEqual => "<=",
             BinaryOp::Greater => ">",
             BinaryOp::GreaterEqual => ">=",
+            BinaryOp::And => "&&",
+            BinaryOp::Or => "||",
         };
         self.output.push_str(op_str);
     }

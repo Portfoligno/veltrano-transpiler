@@ -466,7 +466,29 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<LocatedExpr, VeltranoError> {
-        self.equality()
+        self.logical_or()
+    }
+    
+    fn logical_or(&mut self) -> Result<LocatedExpr, VeltranoError> {
+        self.parse_binary_expression(
+            Self::logical_and,
+            &[TokenType::Or],
+            |token_type| match token_type {
+                TokenType::Or => BinaryOp::Or,
+                _ => unreachable!(),
+            },
+        )
+    }
+    
+    fn logical_and(&mut self) -> Result<LocatedExpr, VeltranoError> {
+        self.parse_binary_expression(
+            Self::equality,
+            &[TokenType::And],
+            |token_type| match token_type {
+                TokenType::And => BinaryOp::And,
+                _ => unreachable!(),
+            },
+        )
     }
 
     fn equality(&mut self) -> Result<LocatedExpr, VeltranoError> {
@@ -1276,6 +1298,10 @@ impl Parser {
 
         while self.match_tokens(operators) {
             let operator = map_operator(&self.previous().token_type);
+            
+            // Skip newlines and comments after operator to allow multi-line expressions
+            self.skip_newlines_and_comments();
+            
             let right = next(self)?;
             let start_span = expr.span.start.clone();
             let end_span = right.span.end.clone();
