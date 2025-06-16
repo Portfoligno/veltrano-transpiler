@@ -587,6 +587,15 @@ When the user requests a release:
 
 **Remember:** Expected output files are test data showing current behavior. If the behavior looks wrong, fix the transpiler - don't just update the test file to hide the problem.
 
+### 8. Taking Responsibility When Breaking Things
+**Problem:** Blaming "fundamental issues" or "pre-existing problems" when your changes cause test failures  
+**Solution:** Take responsibility for breaking changes. If tests passed before and fail after your changes, you broke them.  
+**Self-Check:** "Were these tests passing before my changes? Then I broke them."
+**Correct Response:**
+- Acknowledge the mistake immediately
+- Understand what went wrong before trying again
+- Don't blame the architecture or claim the tests were already broken
+
 ---
 
 ## 📚 Additional Information
