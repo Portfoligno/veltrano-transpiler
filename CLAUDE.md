@@ -101,6 +101,21 @@ When over token limit, remove in order:
 
 ### Code Quality Principles
 
+#### Use Precise Language When Identifying Issues
+- **Avoid vague terms** like "incorrect", "wrong", or "broken" without explanation
+- **Be specific about what you observe** vs what you expect
+- **Don't overstate problems** - e.g., "excessive indentation" when the real issue is that inline comments are moved to separate lines
+- **Focus on root causes** rather than symptoms:
+  - ❌ "The indentation is wrong"
+  - ✅ "Inline comments are being parsed as separate statements, causing them to appear on their own lines"
+- **Verify your understanding** before proposing solutions:
+  - Check if the output is actually correct before assuming it's wrong
+  - Understand the existing behavior before calling it a "problem"
+- **When debugging:**
+  - State observations: "The comment appears on line X instead of line Y"
+  - Identify the mechanism: "Comments are parsed as statements, not attached to expressions"
+  - Propose targeted fixes: "Remove the newline before EndOfLine comments during generation"
+
 #### Prioritize Proper System Design Over Quick Fixes
 - **Always implement the correct architecture first** - Avoid hardcoding data that should be dynamically queried
 - **Resist shortcuts that create technical debt** - Quick fixes often become permanent problems
