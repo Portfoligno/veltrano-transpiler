@@ -121,6 +121,22 @@ When over token limit, remove in order:
 
 ### Code Quality Principles
 
+#### Embrace Complexity as Value
+- **Complexity in well-organized code is not a burden - it's accumulated value**
+- **Each layer of complexity represents features that users need:**
+  - AST complexity enables accurate source-to-source translation
+  - Comment preservation complexity maintains developer intent
+  - Parser complexity handles real-world code patterns
+- **Building on existing complexity creates compounded value:**
+  - We're not "adding complexity" negatively - we're building features
+  - The complexity IS the product - it's what makes the transpiler useful
+  - A "simple" transpiler that drops features would be easy but not valuable
+- **Mindset: "I get to extend this system to deliver more value"**
+  - Not: "Oh no, I have to update multiple files"
+  - But: "Great, I can leverage this architecture to solve real problems"
+  - The alternative (avoiding complexity) means avoiding usefulness
+- **This transpiler's value comes from handling the complex cases correctly**
+
 #### Use Precise Language When Identifying Issues
 - **Avoid vague terms** like "incorrect", "wrong", or "broken" without explanation
 - **Be specific about what you observe** vs what you expect
