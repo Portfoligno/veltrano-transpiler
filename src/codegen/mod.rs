@@ -3,6 +3,19 @@
 //! This module is responsible for converting the Veltrano AST into Rust source code.
 //! It handles all aspects of code generation including expression evaluation,
 //! statement generation, type conversions, and proper formatting.
+//!
+//! The code generator is organized into sub-modules:
+//! - `expressions` - Expression generation
+//! - `statements` - Statement generation
+//! - `types` - Type generation with ownership
+//! - `formatting` - Code formatting utilities
+//! - `comments` - Comment generation
+
+mod comments;
+mod expressions;
+mod formatting;
+mod statements;
+mod types;
 
 use crate::ast::query::AstQuery;
 use crate::ast::*;
