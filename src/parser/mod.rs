@@ -3,6 +3,13 @@
 //! This module implements a recursive descent parser that converts a stream of tokens
 //! into an Abstract Syntax Tree (AST). It handles all language constructs including
 //! expressions, statements, function declarations, and data classes.
+//!
+//! The parser is organized into sub-modules:
+//! - `error` - Error handling and recovery
+//! - `expressions` - Expression parsing
+//! - `statements` - Statement parsing
+//! - `types` - Type parsing
+//! - `utils` - Utility functions
 
 mod error;
 mod expressions;
