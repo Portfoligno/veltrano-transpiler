@@ -54,11 +54,10 @@ impl Parser {
 
     pub fn parse(&mut self) -> Result<Program, VeltranoError> {
         let (program, errors) = self.parse_with_recovery();
-        if errors.has_errors() {
-            // Return the first error for backward compatibility
-            Err(errors.errors().first().unwrap().clone())
-        } else {
-            Ok(program)
+        // Return the first error for backward compatibility
+        match errors.errors().first() {
+            Some(error) => Err(error.clone()),
+            None => Ok(program),
         }
     }
 
