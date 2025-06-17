@@ -8,8 +8,6 @@
 //! - Imports
 
 use crate::ast::*;
-use crate::ast_types::CommentContext;
-use crate::comments::{Comment, CommentStyle};
 use crate::error::VeltranoError;
 use crate::rust_interop::camel_to_snake_case;
 use super::CodeGenerator;
