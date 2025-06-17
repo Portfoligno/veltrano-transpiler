@@ -119,337 +119,280 @@ impl Parser {
         let mut expr = self.primary()?;
 
         loop {
-            // Check if there's a dot after potential newlines and comments
-            let mut newline_count = 0;
-            let start_pos = self.current;
-
-            while self.check(&TokenType::Newline) {
-                newline_count += 1;
-                self.advance();
-
-                // Look ahead for a dot without consuming comments
-                let mut lookahead_pos = self.current;
-                while lookahead_pos < self.tokens.len() {
-                    match &self.tokens[lookahead_pos].token_type {
-                        TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _) => {
-                            lookahead_pos += 1;
-                        }
-                        TokenType::Dot => {
-                            // Found a dot, so this is a method chain. Now consume the comments.
-                            while self.current < lookahead_pos {
-                                self.advance();
-                            }
-                            break;
-                        }
-                        _ => {
-                            // Not a comment or dot, stop looking
-                            break;
-                        }
-                    }
-                }
-
-                // If we find a dot after newline(s) and comments, continue the chain
-                if self.check(&TokenType::Dot) {
-                    break;
-                }
-            }
-
-            // If we consumed newlines but didn't find a dot, we need to backtrack
-            if newline_count > 0
-                && !self.check(&TokenType::Dot)
-                && !self.check(&TokenType::LeftParen)
-            {
-                // Backtrack to the position after the last consumed token before newlines
-                self.current = start_pos;
+            // Handle method chaining across newlines
+            if !self.handle_method_chain_newlines() {
                 break;
             }
 
             if self.match_token(&TokenType::LeftParen) {
-                let mut args = Vec::new();
-                let mut is_multiline = false;
+                expr = self.parse_function_call(expr)?;
 
-                // Check if there's a newline immediately after the opening parenthesis
-                if self.check(&TokenType::Newline) {
-                    is_multiline = true;
-                }
-
-                if !self.check(&TokenType::RightParen) {
-                    loop {
-                        // First check if we have a standalone comment (on its own line)
-                        // A standalone comment must be preceded by a newline or be at the start
-                        let is_after_newline = self.current == 0 || 
-                            (self.current > 0 && self.tokens[self.current - 1].token_type == TokenType::Newline);
-                        
-                        if is_after_newline && matches!(
-                            self.peek().token_type,
-                            TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _)
-                        ) {
-                            // This is a standalone comment
-                            if let Some(comment) = self.parse_inline_comment() {
-                                args.push(Argument::StandaloneComment(
-                                    comment.0,
-                                    comment.1,
-                                ));
-                                is_multiline = true; // Standalone comments force multiline
-
-                                // Check for comma after standalone comment
-                                if self.match_token(&TokenType::Comma) {
-                                    continue; // Continue to next argument/comment
-                                } else {
-                                    break; // No comma, end of arguments
-                                }
-                            }
-                        }
-
-                        // Skip only newlines (not comments) and track multiline
-                        let had_newlines = self.skip_newlines_only();
-                        if had_newlines {
-                            is_multiline = true;
-                        }
-
-                        // Check for inline comment before the argument
-                        let comment_before = if matches!(
-                            self.peek().token_type,
-                            TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _)
-                        ) {
-                            // This is an inline comment (not standalone since we didn't see it above)
-                            self.parse_inline_comment()
-                        } else {
-                            None
-                        };
-
-                        // Try to parse regular argument (named, shorthand, or bare)
-                        if self.check(&TokenType::Dot) {
-                            // This is shorthand syntax (.field)
-                            self.advance(); // consume dot
-                            if let TokenType::Identifier(field_name) = &self.peek().token_type {
-                                let field_name = field_name.clone();
-                                self.advance(); // consume identifier
-
-                                // Capture comment immediately after the field name
-                                let comment_after = self.skip_newlines_and_capture_comment();
-                                let comment = comment_before.or(comment_after);
-                                args.push(Argument::Shorthand(field_name, comment));
-                            } else {
-                                return Err(self.syntax_error(
-                                    "Expected field name after '.' in shorthand syntax".to_string(),
-                                ));
-                            }
-                        } else if let TokenType::Identifier(name) = &self.peek().token_type {
-                            let name = name.clone();
-                            let next_pos = self.current + 1;
-                            if next_pos < self.tokens.len()
-                                && self.tokens[next_pos].token_type == TokenType::Equal
-                            {
-                                // This is a named argument
-                                self.advance(); // consume identifier
-                                self.advance(); // consume =
-                                let value = self.expression()?;
-
-                                // Capture comment immediately after the expression
-                                let comment_after = self.skip_newlines_and_capture_comment();
-                                let comment = comment_before.or(comment_after);
-                                args.push(Argument::Named(name, value, comment));
-                            } else {
-                                // This is a bare argument starting with an identifier
-                                let expr = self.expression()?;
-
-                                // Capture comment immediately after the expression
-                                let comment_after = self.skip_newlines_and_capture_comment();
-                                let comment = comment_before.or(comment_after);
-                                args.push(Argument::Bare(expr, comment));
-                            }
-                        } else {
-                            // This is a bare argument
-                            let expr = self.expression()?;
-
-                            // Capture comment immediately after the expression
-                            let comment_after = self.skip_newlines_and_capture_comment();
-                            let comment = comment_before.or(comment_after);
-                            args.push(Argument::Bare(expr, comment));
-                        }
-
-                        if !self.match_token(&TokenType::Comma) {
-                            break;
-                        }
-
-                        // After comma, check for either inline comment or standalone comment
-                        // First check for immediate inline comment (no newlines)
-                        if let Some(inline_comment) = self.capture_comment_preserve_newlines() {
-                            // This is an inline comment - assign to previous argument
-                            if let Some(last_arg) = args.last_mut() {
-                                match last_arg {
-                                    Argument::Bare(_, ref mut existing_comment) => {
-                                        if existing_comment.is_none() {
-                                            *existing_comment = Some(inline_comment);
-                                        }
-                                    }
-                                    Argument::Named(_, _, ref mut existing_comment) => {
-                                        if existing_comment.is_none() {
-                                            *existing_comment = Some(inline_comment);
-                                        }
-                                    }
-                                    Argument::Shorthand(_, ref mut existing_comment) => {
-                                        if existing_comment.is_none() {
-                                            *existing_comment = Some(inline_comment);
-                                        }
-                                    }
-                                    Argument::StandaloneComment(_, _) => {
-                                        // Standalone comments can't have inline comments attached
-                                    }
-                                }
-                            }
-                        } else {
-                            // No inline comment found, check for standalone comment after newlines
-                            // Skip newlines only (preserve comments)
-                            let had_newlines = self.skip_newlines_only();
-                            if had_newlines {
-                                is_multiline = true;
-
-                                // Now check if there's a standalone comment
-                                if let Some(standalone_comment) =
-                                    self.try_parse_standalone_comment()
-                                {
-                                    args.push(Argument::StandaloneComment(
-                                        standalone_comment.0,
-                                        standalone_comment.1,
-                                    ));
-                                    // Don't consume comma here - let the next iteration handle it
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Skip any newlines and comments before the closing parenthesis
-                self.skip_newlines_and_comments();
-
-                self.consume(&TokenType::RightParen, "Expected ')' after arguments")?;
-
-                let id = self.next_call_id;
-                self.next_call_id += 1;
-
-                let start_span = expr.span.start.clone();
-                let end_span = Span::single(SourceLocation::new(
-                    self.previous().line,
-                    self.previous().column,
-                ))
-                .end;
-                expr = Located::new(
-                    Expr::Call(CallExpr {
-                        callee: Box::new(expr),
-                        args,
-                        is_multiline,
-                        id,
-                    }),
-                    Span::new(start_span, end_span),
-                );
             } else if self.match_token(&TokenType::Dot) {
-                let field_or_method =
-                    self.consume_identifier("Expected field or method name after '.'")?;
-
-                // Check if this is a method call (has parentheses) or field access
-                if self.check(&TokenType::LeftParen) {
-                    // Method call
-                    self.advance(); // consume '('
-
-                    let mut args = Vec::new();
-                    if !self.check(&TokenType::RightParen) {
-                        loop {
-                            // Skip any newlines and comments before parsing the argument
-                            self.skip_newlines_and_comments();
-
-                            args.push(self.expression()?);
-
-                            // Skip any newlines and comments after the argument
-                            self.skip_newlines_and_comments();
-
-                            if !self.match_token(&TokenType::Comma) {
-                                break;
-                            }
-
-                            // Skip any newlines and comments after the comma
-                            self.skip_newlines_and_comments();
-                        }
-                    }
-
-                    // Skip any newlines and comments before the closing parenthesis
-                    self.skip_newlines_and_comments();
-
-                    self.consume(
-                        &TokenType::RightParen,
-                        "Expected ')' after method arguments",
-                    )?;
-
-                    // Capture comment after method call without consuming statement-terminating newlines
-                    let comment = self.capture_comment_preserve_newlines();
-
-                    let id = self.next_call_id;
-                    self.next_call_id += 1;
-
-                    let start_span = expr.span.start.clone();
-                    let end_span = Span::single(SourceLocation::new(
-                        self.previous().line,
-                        self.previous().column,
-                    ))
-                    .end;
-                    expr = Located::new(
-                        Expr::MethodCall(MethodCallExpr {
-                            object: Box::new(expr),
-                            method: field_or_method,
-                            args,
-                            inline_comment: comment,
-                            id,
-                        }),
-                        Span::new(start_span, end_span),
-                    );
-                } else {
-                    // Field access
-                    let start_span = expr.span.start.clone();
-                    // Use the position after the field identifier
-                    let end_span = Span::single(SourceLocation::new(
-                        self.previous().line,
-                        self.previous().column,
-                    ))
-                    .end;
-                    expr = Located::new(
-                        Expr::FieldAccess(FieldAccessExpr {
-                            object: Box::new(expr),
-                            field: field_or_method,
-                        }),
-                        Span::new(start_span, end_span),
-                    );
-                }
+                expr = self.parse_member_access(expr)?;
             } else if let TokenType::LineComment(_, _, _) = &self.peek().token_type {
-                // Check if this inline comment is followed by newline + dot (method chain continuation)
-                let next_pos = self.current + 1;
-                let nextnext_pos = self.current + 2;
-                if next_pos < self.tokens.len()
-                    && nextnext_pos < self.tokens.len()
-                    && matches!(self.tokens[next_pos].token_type, TokenType::Newline)
-                    && matches!(self.tokens[nextnext_pos].token_type, TokenType::Dot)
-                {
-                    // This is a method chain comment - capture it and attach to the current expression
-                    if let Expr::MethodCall(ref mut method_call) = expr.node {
-                        // Capture the comment and attach it to the last method call
-                        let comment = self.parse_inline_comment();
-                        if method_call.inline_comment.is_none() {
-                            method_call.inline_comment = comment;
-                        }
-                    } else {
-                        // Skip comment if it's not attached to a method call
-                        self.advance();
-                    }
-                    continue;
+                if !self.handle_method_chain_comment(&mut expr) {
+                    break;
                 }
-                break;
             } else {
                 break;
             }
         }
 
         Ok(expr)
+    }
+
+    /// Handles newlines in method chains, returns false if we should stop parsing
+    fn handle_method_chain_newlines(&mut self) -> bool {
+        let mut newline_count = 0;
+        let start_pos = self.current;
+
+        while self.check(&TokenType::Newline) {
+            newline_count += 1;
+            self.advance();
+
+            // Look ahead for a dot without consuming comments
+            let mut lookahead_pos = self.current;
+            while lookahead_pos < self.tokens.len() {
+                match &self.tokens[lookahead_pos].token_type {
+                    TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _) => {
+                        lookahead_pos += 1;
+                    }
+                    TokenType::Dot => {
+                        // Found a dot, so this is a method chain. Now consume the comments.
+                        while self.current < lookahead_pos {
+                            self.advance();
+                        }
+                        break;
+                    }
+                    _ => {
+                        // Not a comment or dot, stop looking
+                        break;
+                    }
+                }
+            }
+
+            // If we find a dot after newline(s) and comments, continue the chain
+            if self.check(&TokenType::Dot) {
+                break;
+            }
+        }
+
+        // If we consumed newlines but didn't find a dot, we need to backtrack
+        if newline_count > 0
+            && !self.check(&TokenType::Dot)
+            && !self.check(&TokenType::LeftParen)
+        {
+            // Backtrack to the position after the last consumed token before newlines
+            self.current = start_pos;
+            return false;
+        }
+
+        true
+    }
+
+    /// Parses a function call expression
+    fn parse_function_call(&mut self, callee: LocatedExpr) -> Result<LocatedExpr, VeltranoError> {
+        let mut args = Vec::new();
+        let mut is_multiline = false;
+
+        // Check if there's a newline immediately after the opening parenthesis
+        if self.check(&TokenType::Newline) {
+            is_multiline = true;
+        }
+
+        if !self.check(&TokenType::RightParen) {
+            args = self.parse_function_arguments(&mut is_multiline)?;
+        }
+
+        // Skip any newlines and comments before the closing parenthesis
+        self.skip_newlines_and_comments();
+
+        self.consume(&TokenType::RightParen, "Expected ')' after arguments")?;
+
+        let id = self.next_call_id;
+        self.next_call_id += 1;
+
+        let start_span = callee.span.start.clone();
+        let end_span = Span::single(SourceLocation::new(
+            self.previous().line,
+            self.previous().column,
+        ))
+        .end;
+        Ok(Located::new(
+            Expr::Call(CallExpr {
+                callee: Box::new(callee),
+                args,
+                is_multiline,
+                id,
+            }),
+            Span::new(start_span, end_span),
+        ))
+    }
+
+    /// Parses function arguments including named, shorthand, and bare arguments
+    fn parse_function_arguments(&mut self, is_multiline: &mut bool) -> Result<Vec<Argument>, VeltranoError> {
+        let mut args = Vec::new();
+
+        loop {
+            // First check if we have a standalone comment (on its own line)
+            // A standalone comment must be preceded by a newline or be at the start
+            let is_after_newline = self.current == 0 || 
+                (self.current > 0 && self.tokens[self.current - 1].token_type == TokenType::Newline);
+            
+            if is_after_newline && matches!(
+                self.peek().token_type,
+                TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _)
+            ) {
+                // This is a standalone comment
+                if let Some(comment) = self.parse_inline_comment() {
+                    args.push(Argument::StandaloneComment(
+                        comment.0,
+                        comment.1,
+                    ));
+                    *is_multiline = true; // Standalone comments force multiline
+
+                    // Check for comma after standalone comment
+                    if self.match_token(&TokenType::Comma) {
+                        continue; // Continue to next argument/comment
+                    } else {
+                        break; // No comma, end of arguments
+                    }
+                }
+            }
+
+            // Skip only newlines (not comments) and track multiline
+            let had_newlines = self.skip_newlines_only();
+            if had_newlines {
+                *is_multiline = true;
+            }
+
+            // Check for inline comment before the argument
+            let comment_before = if matches!(
+                self.peek().token_type,
+                TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _)
+            ) {
+                // This is an inline comment (not standalone since we didn't see it above)
+                self.parse_inline_comment()
+            } else {
+                None
+            };
+
+            // Parse the argument
+            let arg = self.parse_single_argument(comment_before)?;
+            args.push(arg);
+
+            if !self.match_token(&TokenType::Comma) {
+                break;
+            }
+
+            // After comma, handle post-comma comments
+            self.handle_post_comma_comments(&mut args, is_multiline)?;
+        }
+
+        Ok(args)
+    }
+
+    /// Parses a single argument (named, shorthand, or bare)
+    fn parse_single_argument(&mut self, comment_before: Option<(String, String)>) -> Result<Argument, VeltranoError> {
+        // Try to parse regular argument (named, shorthand, or bare)
+        if self.check(&TokenType::Dot) {
+            // This is shorthand syntax (.field)
+            self.advance(); // consume dot
+            if let TokenType::Identifier(field_name) = &self.peek().token_type {
+                let field_name = field_name.clone();
+                self.advance(); // consume identifier
+
+                // Capture comment immediately after the field name
+                let comment_after = self.skip_newlines_and_capture_comment();
+                let comment = comment_before.or(comment_after);
+                Ok(Argument::Shorthand(field_name, comment))
+            } else {
+                Err(self.syntax_error(
+                    "Expected field name after '.' in shorthand syntax".to_string(),
+                ))
+            }
+        } else if let TokenType::Identifier(name) = &self.peek().token_type {
+            let name = name.clone();
+            let next_pos = self.current + 1;
+            if next_pos < self.tokens.len()
+                && self.tokens[next_pos].token_type == TokenType::Equal
+            {
+                // This is a named argument
+                self.advance(); // consume identifier
+                self.advance(); // consume =
+                let value = self.expression()?;
+
+                // Capture comment immediately after the expression
+                let comment_after = self.skip_newlines_and_capture_comment();
+                let comment = comment_before.or(comment_after);
+                Ok(Argument::Named(name, value, comment))
+            } else {
+                // This is a bare argument starting with an identifier
+                let expr = self.expression()?;
+
+                // Capture comment immediately after the expression
+                let comment_after = self.skip_newlines_and_capture_comment();
+                let comment = comment_before.or(comment_after);
+                Ok(Argument::Bare(expr, comment))
+            }
+        } else {
+            // This is a bare argument
+            let expr = self.expression()?;
+
+            // Capture comment immediately after the expression
+            let comment_after = self.skip_newlines_and_capture_comment();
+            let comment = comment_before.or(comment_after);
+            Ok(Argument::Bare(expr, comment))
+        }
+    }
+
+    /// Handles comments that appear after a comma in function arguments
+    fn handle_post_comma_comments(&mut self, args: &mut Vec<Argument>, is_multiline: &mut bool) -> Result<(), VeltranoError> {
+        // After comma, check for either inline comment or standalone comment
+        // First check for immediate inline comment (no newlines)
+        if let Some(inline_comment) = self.capture_comment_preserve_newlines() {
+            // This is an inline comment - assign to previous argument
+            if let Some(last_arg) = args.last_mut() {
+                match last_arg {
+                    Argument::Bare(_, ref mut existing_comment) => {
+                        if existing_comment.is_none() {
+                            *existing_comment = Some(inline_comment);
+                        }
+                    }
+                    Argument::Named(_, _, ref mut existing_comment) => {
+                        if existing_comment.is_none() {
+                            *existing_comment = Some(inline_comment);
+                        }
+                    }
+                    Argument::Shorthand(_, ref mut existing_comment) => {
+                        if existing_comment.is_none() {
+                            *existing_comment = Some(inline_comment);
+                        }
+                    }
+                    Argument::StandaloneComment(_, _) => {
+                        // Standalone comments can't have inline comments attached
+                    }
+                }
+            }
+        } else {
+            // No inline comment found, check for standalone comment after newlines
+            // Skip newlines only (preserve comments)
+            let had_newlines = self.skip_newlines_only();
+            if had_newlines {
+                *is_multiline = true;
+
+                // Now check if there's a standalone comment
+                if let Some(standalone_comment) =
+                    self.try_parse_standalone_comment()
+                {
+                    args.push(Argument::StandaloneComment(
+                        standalone_comment.0,
+                        standalone_comment.1,
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     fn primary(&mut self) -> Result<LocatedExpr, VeltranoError> {
@@ -608,5 +551,112 @@ impl Parser {
         }
 
         Ok(expr)
+    }
+
+    /// Parses member access (method call or field access)
+    fn parse_member_access(&mut self, object: LocatedExpr) -> Result<LocatedExpr, VeltranoError> {
+        let field_or_method = self.consume_identifier("Expected field or method name after '.'")?;
+
+        // Check if this is a method call (has parentheses) or field access
+        if self.check(&TokenType::LeftParen) {
+            self.parse_method_call(object, field_or_method)
+        } else {
+            // Field access
+            let start_span = object.span.start.clone();
+            let end_span = Span::single(SourceLocation::new(
+                self.previous().line,
+                self.previous().column,
+            ))
+            .end;
+            Ok(Located::new(
+                Expr::FieldAccess(FieldAccessExpr {
+                    object: Box::new(object),
+                    field: field_or_method,
+                }),
+                Span::new(start_span, end_span),
+            ))
+        }
+    }
+
+    /// Parses a method call
+    fn parse_method_call(&mut self, object: LocatedExpr, method: String) -> Result<LocatedExpr, VeltranoError> {
+        self.advance(); // consume '('
+
+        let mut args = Vec::new();
+        if !self.check(&TokenType::RightParen) {
+            loop {
+                // Skip any newlines and comments before parsing the argument
+                self.skip_newlines_and_comments();
+
+                args.push(self.expression()?);
+
+                // Skip any newlines and comments after the argument
+                self.skip_newlines_and_comments();
+
+                if !self.match_token(&TokenType::Comma) {
+                    break;
+                }
+
+                // Skip any newlines and comments after the comma
+                self.skip_newlines_and_comments();
+            }
+        }
+
+        // Skip any newlines and comments before the closing parenthesis
+        self.skip_newlines_and_comments();
+
+        self.consume(
+            &TokenType::RightParen,
+            "Expected ')' after method arguments",
+        )?;
+
+        // Capture comment after method call without consuming statement-terminating newlines
+        let comment = self.capture_comment_preserve_newlines();
+
+        let id = self.next_call_id;
+        self.next_call_id += 1;
+
+        let start_span = object.span.start.clone();
+        let end_span = Span::single(SourceLocation::new(
+            self.previous().line,
+            self.previous().column,
+        ))
+        .end;
+        Ok(Located::new(
+            Expr::MethodCall(MethodCallExpr {
+                object: Box::new(object),
+                method,
+                args,
+                inline_comment: comment,
+                id,
+            }),
+            Span::new(start_span, end_span),
+        ))
+    }
+
+    /// Handles inline comments in method chains
+    fn handle_method_chain_comment(&mut self, expr: &mut LocatedExpr) -> bool {
+        // Check if this inline comment is followed by newline + dot (method chain continuation)
+        let next_pos = self.current + 1;
+        let nextnext_pos = self.current + 2;
+        if next_pos < self.tokens.len()
+            && nextnext_pos < self.tokens.len()
+            && matches!(self.tokens[next_pos].token_type, TokenType::Newline)
+            && matches!(self.tokens[nextnext_pos].token_type, TokenType::Dot)
+        {
+            // This is a method chain comment - capture it and attach to the current expression
+            if let Expr::MethodCall(ref mut method_call) = expr.node {
+                // Capture the comment and attach it to the last method call
+                let comment = self.parse_inline_comment();
+                if method_call.inline_comment.is_none() {
+                    method_call.inline_comment = comment;
+                }
+            } else {
+                // Skip comment if it's not attached to a method call
+                self.advance();
+            }
+            return true; // continue the loop
+        }
+        false // break from the loop
     }
 }
