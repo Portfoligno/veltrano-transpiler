@@ -16,6 +16,7 @@ mod expressions;
 mod formatting;
 mod statements;
 mod types;
+mod utils;
 
 use crate::ast::query::AstQuery;
 use crate::ast::*;
@@ -682,18 +683,6 @@ impl CodeGenerator {
         self.output.push_str(&rust_type.to_rust_syntax());
     }
 
-    fn indent(&mut self) {
-        for _ in 0..self.indent_level {
-            self.output.push_str("    ");
-        }
-    }
-
-    fn is_rust_macro(&self, name: &str) -> bool {
-        matches!(
-            name,
-            "println" | "print" | "panic" | "assert" | "debug_assert"
-        )
-    }
 
     fn generate_comma_separated_params(&mut self, params: &[Parameter], include_bump: bool) {
         let mut first = true;
