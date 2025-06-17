@@ -14,7 +14,9 @@ fn test_walk_pre_order() {
     // Create a binary expression: 1 + 2
     let expr = loc(Expr::Binary(BinaryExpr {
         left: Box::new(loc(Expr::Literal(LiteralExpr::Int(1)))),
+        comment_after_left: None,
         operator: BinaryOp::Add,
+        comment_after_operator: None,
         right: Box::new(loc(Expr::Literal(LiteralExpr::Int(2)))),
     }));
 
@@ -41,7 +43,9 @@ fn test_walk_post_order() {
     // Create a binary expression: 1 + 2
     let expr = loc(Expr::Binary(BinaryExpr {
         left: Box::new(loc(Expr::Literal(LiteralExpr::Int(1)))),
+        comment_after_left: None,
         operator: BinaryOp::Add,
+        comment_after_operator: None,
         right: Box::new(loc(Expr::Literal(LiteralExpr::Int(2)))),
     }));
 
@@ -71,7 +75,9 @@ fn test_walk_early_exit() {
         args: vec![veltrano::Argument::Bare(
             loc(Expr::Binary(BinaryExpr {
                 left: Box::new(loc(Expr::Literal(LiteralExpr::Int(1)))),
+                comment_after_left: None,
                 operator: BinaryOp::Add,
+                comment_after_operator: None,
                 right: Box::new(loc(Expr::Literal(LiteralExpr::Int(2)))),
             })),
             None,
@@ -129,7 +135,9 @@ fn test_any_subexpr() {
     // Create expression with nested literals
     let expr = loc(Expr::Binary(BinaryExpr {
         left: Box::new(loc(Expr::Literal(LiteralExpr::Int(42)))),
+        comment_after_left: None,
         operator: BinaryOp::Add,
+        comment_after_operator: None,
         right: Box::new(loc(Expr::Identifier("x".to_string()))),
     }));
 
@@ -145,7 +153,9 @@ fn test_all_subexprs() {
     // Create expression with only identifiers
     let expr = loc(Expr::Binary(BinaryExpr {
         left: Box::new(loc(Expr::Identifier("a".to_string()))),
+        comment_after_left: None,
         operator: BinaryOp::Add,
+        comment_after_operator: None,
         right: Box::new(loc(Expr::Identifier("b".to_string()))),
     }));
 
@@ -165,7 +175,9 @@ fn test_complex_traversal() {
             veltrano::Argument::Bare(
                 loc(Expr::Binary(BinaryExpr {
                     left: Box::new(loc(Expr::Identifier("a".to_string()))),
+                    comment_after_left: None,
                     operator: BinaryOp::Add,
+                    comment_after_operator: None,
                     right: Box::new(loc(Expr::Identifier("b".to_string()))),
                 })),
                 None,

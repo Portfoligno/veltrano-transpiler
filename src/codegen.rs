@@ -466,9 +466,75 @@ impl CodeGenerator {
             }
             Expr::Binary(binary) => {
                 self.generate_expression(&binary.left)?;
-                self.output.push(' ');
+                
+                // Generate comment after left operand if present
+                if let Some((content, whitespace)) = &binary.comment_after_left {
+                    if self.config.preserve_comments {
+                        let comment = Comment::from_tuple((content.clone(), whitespace.clone()));
+                        
+                        // Use Comment to determine style and format appropriately
+                        match comment.style {
+                            CommentStyle::Block => {
+                                // Block comment - can stay inline
+                                self.output.push(' ');
+                                self.output.push_str(&comment.whitespace);
+                                self.output.push_str(&comment.content);
+                                self.output.push(' ');
+                            }
+                            CommentStyle::Line => {
+                                // Line comment - needs to be on its own line
+                                self.output.push_str("  ");
+                                self.output.push_str("//");
+                                self.output.push_str(&comment.content);
+                                self.output.push('\n');
+                                // Add indentation for the next line
+                                for _ in 0..self.indent_level {
+                                    self.output.push_str("    ");
+                                }
+                            }
+                        }
+                    } else {
+                        self.output.push(' ');
+                    }
+                } else {
+                    self.output.push(' ');
+                }
+                
                 self.generate_binary_operator(&binary.operator);
-                self.output.push(' ');
+                
+                // Generate comment after operator if present
+                if let Some((content, whitespace)) = &binary.comment_after_operator {
+                    if self.config.preserve_comments {
+                        let comment = Comment::from_tuple((content.clone(), whitespace.clone()));
+                        
+                        // Use Comment to determine style and format appropriately
+                        match comment.style {
+                            CommentStyle::Block => {
+                                // Block comment - can stay inline
+                                self.output.push(' ');
+                                self.output.push_str(&comment.whitespace);
+                                self.output.push_str(&comment.content);
+                                self.output.push(' ');
+                            }
+                            CommentStyle::Line => {
+                                // Line comment - needs to be on its own line
+                                self.output.push_str("  ");
+                                self.output.push_str("//");
+                                self.output.push_str(&comment.content);
+                                self.output.push('\n');
+                                // Add indentation for the next line
+                                for _ in 0..self.indent_level {
+                                    self.output.push_str("    ");
+                                }
+                            }
+                        }
+                    } else {
+                        self.output.push(' ');
+                    }
+                } else {
+                    self.output.push(' ');
+                }
+                
                 self.generate_expression(&binary.right)?;
             }
             Expr::Call(call) => self.generate_call_expression(call, expr.span.clone())?,

@@ -22,6 +22,13 @@ fn test__if__else__comments() {
 }
 fn test__while__comments() {
     let limit = 5;
+    // Comment before while loop
+    // Note: This is a hypothetical example since Veltrano doesn't support mutation
+    // while (counter > 0) {  // Loop condition comment
+    //     // Comment at start of loop body
+    //     println("Countdown: {}", counter)
+    //     
+    //     /* Multi-line comment
     //        in the middle of loop */
     //     counter = counter - 1  // Decrement counter
     //     
@@ -62,11 +69,12 @@ fn test__logical__operators__with__comments() {
     let x = 5;
     let y = 10;
     // Test && operator with comments (not supported - will show parse error)
-    if x > 0 && y < 20 {  // Check y is less than 20
+    if x > 0 &&  // Check x is positive
+    y < 20 {  // Check y is less than 20
         println!("Both conditions met");
     }
     // Test with block comments in && expression
-    if x > 0 && y < 20 {
+    if x > 0 &&  /* second */ y < 20 {
         println!("Conditions with block comments");
     }
 }

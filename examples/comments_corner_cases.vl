@@ -1,0 +1,90 @@
+// Test corner cases for comment preservation that currently fail or produce incorrect output
+
+// 1. Comments inside function arguments
+fun greet(name: Str) {
+    println("Hello, {}", name)
+}
+
+fun testFunctionArgComments() {
+    // These comments break parsing or get misplaced:
+    greet(/* before arg */ "Alice")
+    greet("Bob" /* after arg */)
+    
+    // val result = max(
+    //     10, /* first arg */
+    //     20  /* second arg */
+    // )
+}
+
+// 2. Comments in method chains
+fun testMethodChainComments() {
+    val text = "hello"
+        // .toUpperCase()  // Convert to uppercase
+        // .trim()         // Remove whitespace
+    
+    // This breaks the method chain:
+    // val broken = "world"
+    //     .toUpperCase()  // This comment breaks parsing
+    //     .trim()
+}
+
+// 3. Comments inside expressions
+fun testExpressionComments() {
+    // Comments in binary operations
+    val sum = 10 + /* plus */ 20
+    val product = 5 * /* times */ 6
+    
+    // Comments in conditional expressions (if-expressions not supported)
+    // Testing comments in comparison operations instead
+    val comparison = (10 /* first */ > /* greater than */ 5 /* second */)
+    
+    // Comments in parentheses
+    val grouped = (10 + /* inside parens */ 20) * 2
+}
+
+// 4. Comments in data structures
+fun testDataStructureComments() {
+    // Comments in lists (if supported)
+    // val numbers = [1, /* two */ 2, 3 /* three */]
+    
+    // Comments in tuples (if supported)
+    // val point = (10 /* x */, 20 /* y */)
+}
+
+// 5. Comments in function parameters
+fun add(
+    a: I64, /* first number */
+    b: I64  /* second number */
+): I64 {
+    return a + b
+}
+
+// 6. Comments after closing braces
+fun testBraceComments() {
+    if (true) {
+        println("yes")
+    } /* end if */ else {
+        println("no")
+    } /* end else */
+} /* end function */
+
+// 7. Multiple comments on same line
+fun testMultipleComments() {
+    val x = 42  // First comment  // Second comment
+    val y = 10  /* block1 */ /* block2 */ // line comment
+}
+
+// 8. Comments in return statements
+fun testReturnComments(): I64 {
+    return 42 /* the answer */ + /* plus */ 8
+}
+
+fun main() {
+    testFunctionArgComments()
+    testMethodChainComments()
+    testExpressionComments()
+    testBraceComments()
+    testMultipleComments()
+    
+    println("Result: {}", testReturnComments())
+}

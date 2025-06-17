@@ -57,7 +57,9 @@ pub enum UnaryOp {
 #[derive(Debug, Clone)]
 pub struct BinaryExpr {
     pub left: Box<LocatedExpr>,
+    pub comment_after_left: Option<(String, String)>, // Optional comment after left operand
     pub operator: BinaryOp,
+    pub comment_after_operator: Option<(String, String)>, // Optional comment after operator
     pub right: Box<LocatedExpr>,
 }
 

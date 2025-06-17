@@ -28,7 +28,9 @@ fn test_contains_calls() {
     // Binary with call on left
     let binary = loc(Expr::Binary(BinaryExpr {
         left: Box::new(call),
+        comment_after_left: None,
         operator: BinaryOp::Add,
+        comment_after_operator: None,
         right: Box::new(loc(Expr::Literal(LiteralExpr::Int(42)))),
     }));
     assert!(AstQuery::contains_calls(&binary));
@@ -39,7 +41,9 @@ fn test_collect_identifiers() {
     // Binary expression with two identifiers
     let expr = loc(Expr::Binary(BinaryExpr {
         left: Box::new(loc(Expr::Identifier("x".to_string()))),
+        comment_after_left: None,
         operator: BinaryOp::Add,
+        comment_after_operator: None,
         right: Box::new(loc(Expr::Identifier("y".to_string()))),
     }));
 
@@ -117,7 +121,9 @@ fn test_uses_bump_allocation() {
     // Binary expression with bump on left side
     let binary_with_bump = loc(Expr::Binary(BinaryExpr {
         left: Box::new(bump_ref),
+        comment_after_left: None,
         operator: BinaryOp::Add,
+        comment_after_operator: None,
         right: Box::new(loc(Expr::Literal(LiteralExpr::Int(42)))),
     }));
     assert!(AstQuery::uses_bump_allocation(&binary_with_bump));
@@ -266,7 +272,9 @@ fn test_collect_variable_references() {
             type_annotation: None,
             initializer: Some(loc(Expr::Binary(BinaryExpr {
                 left: Box::new(loc(Expr::Identifier("a".to_string()))),
+                comment_after_left: None,
                 operator: BinaryOp::Add,
+                comment_after_operator: None,
                 right: Box::new(loc(Expr::Identifier("b".to_string()))),
             }))),
         }),

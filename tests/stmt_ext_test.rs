@@ -122,7 +122,9 @@ fn test_walk_expressions_in_statements() {
             type_annotation: None,
             initializer: Some(loc(Expr::Binary(BinaryExpr {
                 left: Box::new(loc(Expr::Identifier("a".to_string()))),
+                comment_after_left: None,
                 operator: BinaryOp::Add,
+                comment_after_operator: None,
                 right: Box::new(loc(Expr::Identifier("b".to_string()))),
             }))),
         }),
