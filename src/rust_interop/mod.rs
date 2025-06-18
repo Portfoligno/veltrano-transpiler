@@ -6,18 +6,23 @@
 //! 4. Dynamically query Rust toolchain for type information
 
 mod cache;
-mod compiler;
 mod parser;
 mod registry;
+mod rustdoc_querier;
 mod stdlib_querier;
+mod syn_querier;
 mod types;
 mod utils;
 
-pub use cache::CrateInfo;
+pub use cache::{CrateInfo, MethodInfo, RustTypeSignature, TypeInfo, TypeKind};
 /// Exposed for testing only. Not part of the stable public API.
 #[doc(hidden)]
 #[allow(unused_imports)]
-pub use compiler::{RustdocQuerier, SynQuerier};
+pub use rustdoc_querier::RustdocQuerier;
+/// Exposed for testing only. Not part of the stable public API.
+#[doc(hidden)]
+#[allow(unused_imports)]
+pub use syn_querier::SynQuerier;
 /// Exposed for testing only. Not part of the stable public API.
 #[doc(hidden)]
 #[allow(unused_imports)]

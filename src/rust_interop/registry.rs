@@ -5,9 +5,11 @@
 //! - DynamicRustRegistry: Dynamic registry that queries type information
 
 use super::cache::*;
-use super::compiler::*;
+use super::rustdoc_querier::RustdocQuerier;
+use super::syn_querier::SynQuerier;
 use super::types::*;
-use super::{ExternItem, RustInteropError, RustQuerier, StdLibQuerier};
+use super::stdlib_querier::StdLibQuerier;
+use super::{ExternItem, RustInteropError, RustQuerier};
 use crate::error::VeltranoError;
 use std::collections::HashMap;
 
