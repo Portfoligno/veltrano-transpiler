@@ -6,7 +6,6 @@ use super::dynamic_registry::DynamicRustRegistry;
 use crate::error::VeltranoError;
 use crate::rust_interop::{
     cache::*, parser::RustTypeParser, types::*, utils::camel_to_snake_case, ExternItem,
-    RustInteropError,
 };
 use std::collections::HashMap;
 
