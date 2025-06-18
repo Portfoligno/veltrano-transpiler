@@ -23,11 +23,11 @@ pub use rustdoc_querier::RustdocQuerier;
 #[doc(hidden)]
 #[allow(unused_imports)]
 pub use syn_querier::SynQuerier;
+pub use parser::RustTypeParser;
 /// Exposed for testing only. Not part of the stable public API.
 #[doc(hidden)]
 #[allow(unused_imports)]
 pub use registry::DynamicRustRegistry;
-pub use parser::RustTypeParser;
 pub use registry::RustInteropRegistry;
 pub use stdlib_querier::StdLibQuerier;
 pub use types::{RustType, SelfKind};
