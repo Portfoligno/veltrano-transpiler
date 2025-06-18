@@ -1,10 +1,6 @@
-//! Comment generation for the Veltrano code generator
+//! Comment generation and placement.
 //!
-//! This module handles generation of:
-//! - Standalone comments
-//! - Inline comments (line and block style)
-//! - Comment collection for method chains
-//! - Comment indentation
+//! Preserves all comment styles with proper indentation.
 
 use crate::ast_types::{CommentStmt, CommentContext};
 use crate::comments::{Comment, CommentStyle};

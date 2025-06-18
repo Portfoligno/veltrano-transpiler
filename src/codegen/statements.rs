@@ -1,11 +1,6 @@
-//! Statement code generation for the Veltrano language
+//! Statement code generation.
 //!
-//! This module handles generation of all statement types including:
-//! - Variable declarations
-//! - Function declarations
-//! - Control flow (if, while)
-//! - Data classes
-//! - Imports
+//! Handles declarations, control flow, data classes, and imports.
 
 use crate::ast::*;
 use crate::error::VeltranoError;

@@ -1,10 +1,6 @@
-//! Type generation for the Veltrano language
+//! Type generation with ownership handling.
 //!
-//! This module handles generation of type annotations including:
-//! - Primitive types
-//! - Generic types
-//! - Reference types with ownership
-//! - Lifetime analysis
+//! Converts Veltrano types to Rust types with proper lifetimes.
 
 use crate::types::{VeltranoType, TypeConstructor};
 use super::CodeGenerator;

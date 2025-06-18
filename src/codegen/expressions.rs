@@ -1,10 +1,6 @@
-//! Expression code generation for the Veltrano language
+//! Expression code generation.
 //!
-//! This module handles generation of all expression types including:
-//! - Literals (int, string, bool, null, unit)
-//! - Binary and unary operations
-//! - Function and method calls
-//! - Field access
+//! Handles literals, operators, calls, and field access.
 
 use crate::ast::*;
 use crate::ast_types::Argument;

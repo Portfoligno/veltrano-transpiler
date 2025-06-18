@@ -1,10 +1,6 @@
-//! Code formatting utilities for the Veltrano code generator
+//! Code formatting utilities.
 //!
-//! This module handles formatting of:
-//! - Function parameters
-//! - Function call arguments
-//! - Multiline vs single-line formatting
-//! - Struct initialization
+//! Handles parameter and argument formatting for functions and structs.
 
 use crate::ast::*;
 use crate::ast_types::Argument;

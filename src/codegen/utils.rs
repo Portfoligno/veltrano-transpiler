@@ -1,9 +1,6 @@
-//! Utility functions for code generation
+//! Code generation utilities.
 //!
-//! This module contains common utilities used across the code generator:
-//! - Indentation helpers
-//! - Rust keyword detection
-//! - String formatting utilities
+//! Common helpers for indentation and macro detection.
 
 use super::CodeGenerator;
 
