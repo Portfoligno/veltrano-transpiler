@@ -49,14 +49,14 @@ When WORKSPACE.md doesn't exist, create it immediately with:
 ### WORKSPACE.md Overview
 - **Purpose:** Store project context across Claude Code sessions
 - **Location:** `WORKSPACE.md` (gitignored)
-- **Token Limit:** 400 tokens (~300 words)
+- **Token Limit:** 800 tokens (~600 words)
 - **Check Frequency:** Every 5-10 tool uses
 
 ### Usage Protocol
 1. **Session Start:** ALWAYS read WORKSPACE.md first
 2. **During Work:** Update after major discoveries or changes
 3. **Token Check:** Run `wc -w WORKSPACE.md` regularly
-4. **Over 300 words:** Prune immediately
+4. **Over 600 words:** Prune immediately
 
 ### Anti-Violation Practices
 **BEFORE adding anything new:**
