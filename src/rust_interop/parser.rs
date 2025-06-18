@@ -1,6 +1,6 @@
 //! Rust type signature parser.
 //!
-//! Parses string representations of Rust types into RustType enum.
+//! Parses string representations of Rust types into structured form.
 
 use super::types::RustType;
 
