@@ -14,7 +14,15 @@ mod syn_querier;
 mod types;
 mod utils;
 
-pub use cache::{CrateInfo, MethodInfo, RustTypeSignature, TypeInfo, TypeKind};
+pub use cache::{CrateInfo, TypeInfo};
+
+// Re-export for tests only. Not part of the stable public API.
+#[doc(hidden)]
+#[allow(unused_imports)]
+pub use cache::{MethodInfo, RustTypeSignature, TypeKind};
+#[doc(hidden)]
+#[allow(unused_imports)]
+pub use stdlib_querier::StdLibQuerier;
 /// Exposed for testing only. Not part of the stable public API.
 #[doc(hidden)]
 #[allow(unused_imports)]
@@ -29,7 +37,6 @@ pub use parser::RustTypeParser;
 #[allow(unused_imports)]
 pub use registry::DynamicRustRegistry;
 pub use registry::RustInteropRegistry;
-pub use stdlib_querier::StdLibQuerier;
 pub use types::{RustType, SelfKind};
 pub use utils::camel_to_snake_case;
 
