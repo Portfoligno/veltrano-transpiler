@@ -121,7 +121,6 @@ fun main() {
     let expected = r#"fn process(a: i64, b: i64) {
     println!("{} {}", a, b);
 }
-
 fn main() {
     process(10 /* after first */, 20);
 }"#;
@@ -150,7 +149,6 @@ fun main() {
     let expected = r#"fn compute(x: i64, y: i64, z: i64) -> i64 {
     return x + y + z;
 }
-
 fn main() {
     let result = compute(
         10,  // first value
@@ -179,7 +177,6 @@ fun main() {
     let expected = r#"fn process(a: i64, b: i64, c: i64, d: i64) -> i64 {
     return a + b + c + d;
 }
-
 fn main() {
     process(/* a */ 1 /* after a */, /* b */ 2, 3 /* after c */, /* d */ 4);
 }"#;
@@ -211,7 +208,6 @@ fun main() {
     let expected = r#"fn calculate(a: i64, b: i64, c: i64) -> i64 {
     return a * b + c;
 }
-
 fn main() {
     calculate(
         10,
@@ -253,11 +249,9 @@ fun main() {
     let expected = r#"fn add(a: i64, b: i64) -> i64 {
     return a + b;
 }
-
 fn multiply(x: i64, y: i64) -> i64 {
     return x * y;
 }
-
 fn main() {
     let result = add(
         /* first */ multiply(2 /* x */, 3 /* y */),
@@ -288,7 +282,6 @@ fun main() {
     let expected = r#"fn test(a: i64, b: i64) {
     println!("{} {}", a, b);
 }
-
 fn main() {
     test(/**/ 10, 20 /**/);
 }"#;
