@@ -5,6 +5,8 @@
 
 // Type definitions module
 pub mod types;
+// Function registration module
+mod functions;
 
 // Re-export all types for convenience
 pub use types::*;
@@ -22,45 +24,15 @@ pub struct BuiltinRegistry {
 impl BuiltinRegistry {
     pub fn new() -> Self {
         let mut registry = Self {
-            functions: HashMap::new(),
+            functions: functions::register_builtin_functions(),
             methods: HashMap::new(),
         };
 
-        registry.register_builtin_functions();
         registry.register_builtin_methods();
 
         registry
     }
 
-    /// Register built-in functions
-    fn register_builtin_functions(&mut self) {
-        // Rust macros (variadic, skip type checking)
-        let rust_macros = vec!["println", "print", "panic", "assert", "debug_assert"];
-        for macro_name in rust_macros {
-            self.functions.insert(
-                macro_name.to_string(),
-                BuiltinFunctionKind::RustMacro {
-                    macro_name: macro_name.to_string(),
-                },
-            );
-        }
-
-        // Special functions with specific signatures
-        self.functions.insert(
-            "MutRef".to_string(),
-            BuiltinFunctionKind::SpecialFunction {
-                function_name: "MutRef".to_string(),
-                parameters: vec![VeltranoType::generic(
-                    "T".to_string(),
-                    vec!["Clone".to_string()],
-                )], // Generic parameter with Clone constraint
-                return_type: VeltranoType::mut_ref(VeltranoType::generic(
-                    "T".to_string(),
-                    vec!["Clone".to_string()],
-                )),
-            },
-        );
-    }
 
     /// Register built-in methods
     fn register_builtin_methods(&mut self) {
@@ -146,37 +118,12 @@ impl BuiltinRegistry {
 
     /// Check if a function is a Rust macro (skips type checking)
     pub fn is_rust_macro(&self, name: &str) -> bool {
-        if let Some(BuiltinFunctionKind::RustMacro { .. }) = self.functions.get(name) {
-            true
-        } else {
-            false
-        }
+        functions::is_rust_macro(name, &self.functions)
     }
 
     /// Get function signatures for type checker initialization
     pub fn get_function_signatures(&self) -> Vec<FunctionSignature> {
-        let mut signatures = Vec::new();
-
-        for (_name, kind) in &self.functions {
-            match kind {
-                BuiltinFunctionKind::RustMacro { .. } => {
-                    // Skip macros - they don't participate in type checking
-                }
-                BuiltinFunctionKind::SpecialFunction {
-                    function_name,
-                    parameters,
-                    return_type,
-                } => {
-                    signatures.push(FunctionSignature {
-                        name: function_name.clone(),
-                        parameters: parameters.clone(),
-                        return_type: return_type.clone(),
-                    });
-                }
-            }
-        }
-
-        signatures
+        functions::get_function_signatures(&self.functions)
     }
 
     /// Get the return type for a method call (with trait checking)
