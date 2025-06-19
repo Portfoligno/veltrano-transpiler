@@ -114,7 +114,7 @@ pub fn receiver_can_provide_rust_access(
 pub fn receiver_can_provide_rust_access_for_imported(
     receiver_type: &VeltranoType,
     rust_self_kind: &SelfKind,
-    trait_checker: &mut RustInteropRegistry,
+    _trait_checker: &mut RustInteropRegistry,
 ) -> bool {
     match rust_self_kind {
         SelfKind::Ref => {
