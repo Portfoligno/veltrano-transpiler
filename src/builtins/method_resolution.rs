@@ -130,17 +130,10 @@ pub fn receiver_can_provide_rust_access_for_imported(
             matches!(&receiver_type.constructor, TypeConstructor::MutRef)
         }
         SelfKind::Value => {
-            // Rust method takes self (consumes the value)
+            // Rust method takes self (consumes the value) - only owned types work
             match &receiver_type.constructor {
                 TypeConstructor::Own => true,
-                TypeConstructor::Ref | TypeConstructor::MutRef => false,
-                _ => {
-                    // For naturally owned types, they can be consumed if they're Copy
-                    let rust_type = receiver_type.to_rust_type(trait_checker);
-                    trait_checker
-                        .type_implements_trait(&rust_type, "Copy")
-                        .unwrap_or(false)
-                }
+                _ => true, // Naturally owned types (I64, Bool, etc.) can be consumed
             }
         }
         SelfKind::None => {
