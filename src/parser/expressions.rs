@@ -444,11 +444,15 @@ impl Parser {
     }
 
     fn primary(&mut self) -> Result<LocatedExpr, VeltranoError> {
-        // Skip any comments and newlines that appear before primary expressions
+        // Skip any comment tokens that appear before primary expressions
         // When preserve_comments is enabled, comments become tokens in the stream
-        // NOTE: This is necessary because comments/newlines before literals/identifiers
-        // are not attached to any expression and would cause parse errors
-        self.skip_newlines_and_comments();
+        // NOTE: We only skip comments, not newlines, to preserve error recovery
+        while matches!(
+            self.peek().token_type,
+            TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _)
+        ) {
+            self.advance();
+        }
 
         if self.match_token(&TokenType::True) {
             let token = self.previous();

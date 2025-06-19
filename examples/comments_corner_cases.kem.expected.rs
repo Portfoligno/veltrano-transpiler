@@ -29,9 +29,9 @@ fn test_expression_comments() {
     let product = 5 *  /* times */ 6;
     // Comments in conditional expressions (if-expressions not supported)
     // Testing comments in comparison operations instead
-    let comparison = 10  /* first */ >  /* greater than */ 5;
+    let comparison = (10  /* first */ >  /* greater than */ 5 /* second */);
     // Comments in parentheses
-    let grouped = 10 +  /* inside parens */ 20 * 2;
+    let grouped = (10 +  /* inside parens */ 20) * 2;
 }
 // 4. Comments in data structures
 fn test_data_structure_comments() {

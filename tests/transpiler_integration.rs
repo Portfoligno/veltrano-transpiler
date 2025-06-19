@@ -896,10 +896,10 @@ fn test_unary_expressions() {
 
     // Check that unary expressions are correctly transpiled
     assert!(rust_code.contains("let negative = -42"));
-    assert!(rust_code.contains("let expr = -(2 + 3)"));
+    assert!(rust_code.contains("let expr = -((2 + 3))"));
     assert!(rust_code.contains("let spaced = -15")); // Space allowed
     assert!(rust_code.contains("let var__neg = -negative"));
-    assert!(rust_code.contains("let parens = -(-20)")); // OK with parentheses
+    assert!(rust_code.contains("let parens = -((-20))")); // OK with parentheses
 }
 
 #[test]

@@ -11,8 +11,8 @@ fn test_method_chain_comments() {
 fn test_expression_comments() {
     let sum = 10 + 20;
     let product = 5 * 6;
-    let comparison = 10 > 5;
-    let grouped = 10 + 20 * 2;
+    let comparison = (10 > 5);
+    let grouped = (10 + 20) * 2;
 }
 fn test_data_structure_comments() {
 }
