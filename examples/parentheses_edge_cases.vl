@@ -1,0 +1,172 @@
+// Parentheses Edge Cases and Comment Interactions
+// Tests edge cases introduced by ParenthesizedExpr AST node
+
+import str.len
+import str.toUppercase
+import String.len
+
+fun testParenthesesParsing() {
+    // Single value in parentheses
+    val a = (42)
+    val b = ((42))
+    val c = (((42)))
+    
+    // Should these generate different AST nodes?
+    val d = 42      // Literal
+    val e = (42)    // ParenthesizedExpr containing Literal
+    
+    // Negation with parentheses
+    val f = -(42)    // Unary(ParenthesizedExpr(Literal))
+    val g = (-42)    // ParenthesizedExpr(Unary(Literal))
+    val h = (-(42))  // ParenthesizedExpr(Unary(ParenthesizedExpr(Literal)))
+}
+
+fun testCommentPreservation() {
+    // Comments at different positions
+    val a = (/* before expr */ 42)
+    val b = (42 /* after expr */)
+    val c = (/* before */ 42 /* after */)
+    
+    // Line comments force multiline
+    val d = (// comment
+        42
+    )
+    
+    val e = (
+        42
+        // comment
+    )
+    
+    // Mixed comment types
+    val f = (/* block */ // line
+        42
+    )
+    
+    val g = (// line
+        42 /* block */
+    )
+}
+
+fun testNestedParenthesesWithComments() {
+    // Comments at each level
+    val a = (/* outer */ (/* inner */ 42))
+    val b = ((42 /* inner */) /* outer */)
+    
+    // Complex nesting
+    val c = (/* 1 */ (/* 2 */ (/* 3 */ 42 /* 3 */) /* 2 */) /* 1 */)
+    
+    // Line comments in nested parens
+    val d = (// outer
+        (// inner
+            42
+        )
+    )
+}
+
+fun testBinaryExpressionInteraction() {
+    // Binary expr with parenthesized operands
+    val a = (2) + (3)
+    val b = (2 + 3) * (4 + 5)
+    
+    // Comments in binary with parentheses
+    val c = (/* left */ 2) + (/* right */ 3)
+    val d = (2 /* in left */) + /* middle */ (3 /* in right */)
+    
+    // Line comments forcing multiline
+    val e = (// left
+        2
+    ) + (// right
+        3
+    )
+}
+
+fun testUnaryWithParentheses() {
+    // Various combinations
+    val a = -(42)      // Unary(Parenthesized)
+    val b = (-42)      // Parenthesized(Unary)
+    val c = -(-(42))   // Unary(Unary(Parenthesized))
+    val d = (-(42))    // Parenthesized(Unary(Parenthesized))
+    
+    // With comments
+    val e = -(/* neg */ 42)
+    val f = (/* paren */ -42)
+    val g = -(/* outer */ (/* inner */ 42))
+}
+
+fun testMethodCallsInParentheses() {
+    // Method calls
+    val s = "hello"
+    val a = (s.len())
+    val b = (s.toUppercase()).ref().len()
+    val c = ((s.toUppercase()).ref().len())
+    
+    // With comments
+    val d = (/* before */ s.len() /* after */)
+    // val e = (s /* obj */./* dot */ len(/* args */))  // TODO: Complex comment placement
+}
+
+fun testPrecedenceAmbiguities() {
+    // Cases where parentheses matter
+    val a1 = 2 + 3 * 4    // 14
+    val a2 = (2 + 3) * 4  // 20
+    
+    val b1 = -5 + 3       // -2
+    val b2 = -(5 + 3)     // -8
+    
+    val c1 = true || false && false    // true
+    val c2 = (true || false) && false  // false
+    
+    // Cases where parentheses don't change meaning but exist
+    val d1 = 2 * 3        // 6
+    val d2 = (2 * 3)      // 6, but different AST
+    val d3 = (2) * (3)    // 6, even more different AST
+}
+
+fun testWhitespaceAndFormatting() {
+    // Various spacing
+    val a = (42)
+    val b = ( 42 )
+    val c = (  42  )
+    val d = (
+        42
+    )
+    val e = (
+
+        42
+
+    )
+    
+    // With operators
+    val f = ( 2 + 3 )
+    val g = (2+3)
+    val h = ( 2 + 3 ) * ( 4 + 5 )
+}
+
+fun testErrorRecovery() {
+    // These might have caused issues before fixes
+    // val a = (// comment without expression after - should this parse?
+    // )
+    
+    // Missing closing paren - parser should recover
+    // val b = (42
+    
+    // Extra closing paren - parser should recover  
+    // val c = (42))
+    
+    // Valid complex case
+    val d = ((((((42))))))
+}
+
+fun main() {
+    println("Testing parentheses edge cases...")
+    testParenthesesParsing()
+    testCommentPreservation()
+    testNestedParenthesesWithComments()
+    testBinaryExpressionInteraction()
+    testUnaryWithParentheses()
+    testMethodCallsInParentheses()
+    testPrecedenceAmbiguities()
+    testWhitespaceAndFormatting()
+    // testErrorRecovery() // Commented out invalid cases
+    println("Edge case tests completed!")
+}

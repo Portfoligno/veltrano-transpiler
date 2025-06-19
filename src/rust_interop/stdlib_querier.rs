@@ -297,6 +297,47 @@ impl StdLibQuerier {
         };
         crate_info.types.insert("String".to_string(), string_type);
 
+        // Add str type with methods
+        let str_type = TypeInfo {
+            name: "str".to_string(),
+            full_path: "str".to_string(),
+            kind: TypeKind::Struct, // Primitive types are treated as structs
+            generics: vec![],
+            methods: vec![
+                MethodInfo {
+                    name: "len".to_string(),
+                    self_kind: SelfKind::Ref,
+                    generics: vec![],
+                    parameters: vec![],
+                    return_type: RustTypeSignature {
+                        raw: "usize".to_string(),
+                        parsed: Some(RustType::USize),
+                        lifetimes: vec![],
+                        bounds: vec![],
+                    },
+                    is_unsafe: false,
+                    is_const: false,
+                },
+                MethodInfo {
+                    name: "to_uppercase".to_string(),
+                    self_kind: SelfKind::Ref,
+                    generics: vec![],
+                    parameters: vec![],
+                    return_type: RustTypeSignature {
+                        raw: "String".to_string(),
+                        parsed: Some(RustType::String),
+                        lifetimes: vec![],
+                        bounds: vec![],
+                    },
+                    is_unsafe: false,
+                    is_const: false,
+                },
+            ],
+            fields: vec![],
+            variants: vec![],
+        };
+        crate_info.types.insert("str".to_string(), str_type);
+
         crate_info
     }
 }

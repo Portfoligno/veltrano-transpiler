@@ -1,0 +1,132 @@
+// Expression Priorities and Edge Cases Test
+// This file tests various expression constructs and their priorities
+
+import str.len
+import str.toUppercase
+import String.len
+
+fun testArithmeticPriorities() {
+    // Basic arithmetic precedence
+    val a = 2 + 3 * 4  // Should be 2 + (3 * 4) = 14
+    val b = 20 / 4 - 2  // Should be (20 / 4) - 2 = 3
+    val c = 10 % 3 + 1  // Should be (10 % 3) + 1 = 2
+    
+    // Parentheses override precedence
+    val d = (2 + 3) * 4  // Should be 20
+    val e = 20 / (4 - 2)  // Should be 10
+    
+    // Nested parentheses
+    val f = ((2 + 3) * (4 - 1)) / 5  // Should be (5 * 3) / 5 = 3
+    
+    // Multiple operators same precedence (left-to-right)
+    val g = 100 / 10 / 2  // Should be (100 / 10) / 2 = 5
+    val h = 10 - 5 - 2  // Should be (10 - 5) - 2 = 3
+}
+
+fun testUnaryOperators() {
+    // Unary minus precedence
+    val a = -5 + 3  // Should be (-5) + 3 = -2
+    val b = -(5 + 3)  // Should be -(8) = -8
+    val c = -5 * 3  // Should be (-5) * 3 = -15
+    val d = -(5 * 3)  // Should be -(15) = -15 (same result)
+    
+    // Double negation
+    val e = -(-10)  // Should be 10
+    val f = -(-(-5))  // Should be -5
+    
+    // Unary with parentheses
+    val g = -(2 + 3) * 4  // Should be (-5) * 4 = -20
+    val h = -((2 + 3) * 4)  // Should be -(20) = -20
+}
+
+fun testComparisonPriorities() {
+    // Comparison vs arithmetic
+    val a = 2 + 3 > 4  // Should be (2 + 3) > 4 = true
+    val b = 10 < 5 * 3  // Should be 10 < (5 * 3) = true
+    
+    // Multiple comparisons (not chainable in most languages)
+    val c = (5 > 3) && (3 > 1)  // Explicit grouping
+    val d = 10 >= 5 + 4  // Should be 10 >= (5 + 4) = true
+}
+
+fun testLogicalOperators() {
+    // AND has higher precedence than OR
+    val a = true || false && false  // Should be true || (false && false) = true
+    val b = true && false || true  // Should be (true && false) || true = true
+    
+    // Parentheses to override
+    val c = (true || false) && false  // Should be true && false = false
+    
+    // With comparisons
+    val d = 5 > 3 && 2 < 4  // Should be (5 > 3) && (2 < 4) = true
+    val e = 1 > 2 || 3 < 4 && 5 > 3  // Should be (1 > 2) || ((3 < 4) && (5 > 3)) = true
+}
+
+fun testMethodChaining() {
+    // Method calls bind tightly
+    val s = "hello"
+    val a = s.len() + 5  // Should be (s.len()) + 5
+    val b = s.toUppercase().ref().len()  // Chained calls
+    
+    // With arithmetic
+    val c = s.len() * 2 + 1  // Should be ((s.len()) * 2) + 1
+}
+
+fun testMixedExpressions() {
+    // Complex mixed expression
+    val a = -5 + 3 * 2 > 0 && true  // Should be (((-5) + (3 * 2)) > 0) && true = true
+    
+    // Very nested
+    val b = ((2 + 3) * 4 - 5) / (6 - 4) > 7  // Should be ((20 - 5) / 2) > 7 = true
+    
+    // Method calls in arithmetic
+    val s = "test"
+    val c = s.len() * 2 + 3 > 10  // Should be (((s.len()) * 2) + 3) > 10 = true
+}
+
+fun testParenthesesEdgeCases() {
+    // Empty-looking parentheses with comments
+    val a = (/* comment */ 42)
+    val b = (
+        // line comment
+        42
+    )
+    
+    // Multiple parentheses
+    val c = (((42)))  // Should still be 42
+    val d = -(((-42)))  // Should be 42
+    
+    // Parentheses with all expression types
+    val e = (1 + 2)
+    val f = (true && false)
+    val g = ("hello".len())
+    val h = (a > b)
+}
+
+fun testCommentedExpressions() {
+    // Comments shouldn't affect precedence
+    val a = 2 /* multiply */ * 3 /* add */ + 4  // Should be (2 * 3) + 4 = 10
+    val b = 2 + /* comment */ 3 * /* comment */ 4  // Should be 2 + (3 * 4) = 14
+    
+    // Comments in parentheses
+    val c = (/* start */ 2 + 3 /* end */) * 4  // Should be 20
+    val d = 2 * (3 /* inside */ + 4)  // Should be 14
+    
+    // Line comments with expressions
+    val e = 2 + // first part
+            3 * // second part  
+            4   // Should be 14
+}
+
+fun main() {
+    println("Testing expression priorities...")
+    testArithmeticPriorities()
+    testUnaryOperators()
+    testComparisonPriorities()
+    testLogicalOperators()
+    testMethodChaining()
+    testMixedExpressions()
+    testParenthesesEdgeCases()
+    testCommentedExpressions()
+    println("All tests completed!")
+}

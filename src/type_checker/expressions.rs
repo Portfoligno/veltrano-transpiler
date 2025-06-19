@@ -91,12 +91,14 @@ impl VeltranoTypeChecker {
             | BinaryOp::Multiply
             | BinaryOp::Divide
             | BinaryOp::Modulo => {
-                // Both operands must be I64
-                let expected_int = VeltranoType::i64();
+                // Allow arithmetic between numeric types (I64 and USize)
+                let is_numeric = |t: &VeltranoType| {
+                    matches!(t.constructor, TypeConstructor::I64 | TypeConstructor::USize)
+                };
 
-                if !TypeValidator::types_equal(&left_type, &expected_int) {
+                if !is_numeric(&left_type) {
                     return Err(TypeCheckError::TypeMismatch {
-                        expected: expected_int,
+                        expected: VeltranoType::i64(),
                         actual: left_type,
                         location: SourceLocation::new(
                             binary.left.span.start_line(),
@@ -105,9 +107,9 @@ impl VeltranoTypeChecker {
                     });
                 }
 
-                if !TypeValidator::types_equal(&right_type, &expected_int) {
+                if !is_numeric(&right_type) {
                     return Err(TypeCheckError::TypeMismatch {
-                        expected: expected_int,
+                        expected: VeltranoType::i64(),
                         actual: right_type,
                         location: SourceLocation::new(
                             binary.right.span.start_line(),
@@ -116,7 +118,15 @@ impl VeltranoTypeChecker {
                     });
                 }
 
-                Ok(VeltranoType::i64())
+                // Result type: If either operand is USize, result is USize
+                // Otherwise result is I64
+                if matches!(left_type.constructor, TypeConstructor::USize)
+                    || matches!(right_type.constructor, TypeConstructor::USize)
+                {
+                    Ok(VeltranoType::usize())
+                } else {
+                    Ok(VeltranoType::i64())
+                }
             }
             BinaryOp::Equal
             | BinaryOp::NotEqual
@@ -124,16 +134,24 @@ impl VeltranoTypeChecker {
             | BinaryOp::LessEqual
             | BinaryOp::Greater
             | BinaryOp::GreaterEqual => {
-                // Types must match exactly, result is Bool
-                if !TypeValidator::types_equal(&left_type, &right_type) {
+                // Allow comparison between numeric types
+                let is_numeric = |t: &VeltranoType| {
+                    matches!(t.constructor, TypeConstructor::I64 | TypeConstructor::USize)
+                };
+
+                // If both are numeric, allow the comparison
+                if is_numeric(&left_type) && is_numeric(&right_type) {
+                    Ok(VeltranoType::bool())
+                } else if TypeValidator::types_equal(&left_type, &right_type) {
+                    // Otherwise types must match exactly
+                    Ok(VeltranoType::bool())
+                } else {
                     return Err(TypeCheckError::TypeMismatch {
                         expected: left_type,
                         actual: right_type,
                         location: SourceLocation::new(span.start_line(), span.start_column()),
                     });
                 }
-
-                Ok(VeltranoType::bool())
             }
             BinaryOp::And | BinaryOp::Or => {
                 // Both operands must be Bool
