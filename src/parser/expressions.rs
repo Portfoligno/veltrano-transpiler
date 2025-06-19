@@ -9,7 +9,7 @@
 use super::Parser;
 use crate::ast::{
     Argument, ArgumentComment, BinaryExpr, BinaryOp, CallExpr, Expr, FieldAccessExpr, LiteralExpr,
-    MethodCallExpr, UnaryExpr, UnaryOp,
+    MethodCallExpr, ParenthesizedExpr, UnaryExpr, UnaryOp,
 };
 use crate::ast_types::{Located, LocatedExpr};
 use crate::error::{SourceLocation, Span, VeltranoError};
@@ -499,15 +499,28 @@ impl Parser {
         }
 
         if self.match_token(&TokenType::LeftParen) {
-            let _start = self.previous();
+            let start_token = self.previous();
+            let start_loc = SourceLocation::new(start_token.line, start_token.column);
+
+            // Capture comments after opening paren
+            let open_paren_comment = self.capture_comment_sequence();
+
             let expr = self.expression()?;
 
-            // Skip any comments before the closing parenthesis
-            self.skip_newlines_and_comments();
+            // Capture comments before closing paren
+            let close_paren_comment = self.capture_comment_sequence();
 
-            let _end = self.consume(&TokenType::RightParen, "Expected ')' after expression")?;
-            // For parenthesized expressions, use the span of the inner expression
-            return Ok(expr);
+            let end_token =
+                self.consume(&TokenType::RightParen, "Expected ')' after expression")?;
+            let end_loc = SourceLocation::new(end_token.line, end_token.column);
+
+            let paren_expr = Expr::Parenthesized(ParenthesizedExpr {
+                expr: Box::new(expr),
+                open_paren_comment,
+                close_paren_comment,
+            });
+
+            return Ok(self.located_expr_with_span(paren_expr, start_loc, end_loc));
         }
 
         Err(self.unexpected_token("expression"))

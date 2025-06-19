@@ -52,9 +52,13 @@ impl CodeGenerator {
                         self.output.push_str(&comment.content);
                     }
                     CommentStyle::Line => {
-                        // Line comment - add // prefix
-                        self.output.push_str("//");
-                        self.output.push_str(&comment.content);
+                        // Line comment - check if it already has the prefix
+                        if comment.content.starts_with("//") {
+                            self.output.push_str(&comment.content);
+                        } else {
+                            self.output.push_str("//");
+                            self.output.push_str(&comment.content);
+                        }
                     }
                 }
             }

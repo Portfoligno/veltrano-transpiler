@@ -176,8 +176,13 @@ impl CodeGenerator {
                                     self.output.push_str(&comment.content);
                                 }
                                 CommentStyle::Line => {
-                                    self.output.push_str("//");
-                                    self.output.push_str(&comment.content);
+                                    // Check if it already has the prefix
+                                    if comment.content.starts_with("//") {
+                                        self.output.push_str(&comment.content);
+                                    } else {
+                                        self.output.push_str("//");
+                                        self.output.push_str(&comment.content);
+                                    }
                                 }
                             }
                         }

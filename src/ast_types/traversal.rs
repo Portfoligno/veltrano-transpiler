@@ -82,6 +82,9 @@ impl ExprExt for LocatedExpr {
             Expr::FieldAccess(field_access) => {
                 field_access.object.walk(visitor)?;
             }
+            Expr::Parenthesized(paren_expr) => {
+                paren_expr.expr.walk(visitor)?;
+            }
             Expr::Literal(_) | Expr::Identifier(_) => {
                 // Leaf nodes - no children to visit
             }
@@ -121,6 +124,9 @@ impl ExprExt for LocatedExpr {
             }
             Expr::FieldAccess(field_access) => {
                 field_access.object.walk_post(visitor)?;
+            }
+            Expr::Parenthesized(paren_expr) => {
+                paren_expr.expr.walk_post(visitor)?;
             }
             Expr::Literal(_) | Expr::Identifier(_) => {
                 // Leaf nodes - no children to visit
@@ -170,6 +176,9 @@ impl ExprExt for LocatedExpr {
                 }
                 Expr::FieldAccess(field_access) => {
                     collect(&field_access.object, predicate, results);
+                }
+                Expr::Parenthesized(paren_expr) => {
+                    collect(&paren_expr.expr, predicate, results);
                 }
                 Expr::Literal(_) | Expr::Identifier(_) => {}
             }

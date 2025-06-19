@@ -4,7 +4,7 @@
 
 use super::{CodeGenerator, CodegenError};
 use crate::ast::*;
-use crate::ast_types::Argument;
+use crate::ast_types::{Argument, ParenthesizedExpr};
 use crate::comments::{Comment, CommentStyle};
 use crate::error::{Span, VeltranoError};
 use crate::rust_interop::camel_to_snake_case;
@@ -53,6 +53,9 @@ impl CodeGenerator {
             }
             Expr::FieldAccess(field_access) => {
                 self.generate_field_access(field_access)?;
+            }
+            Expr::Parenthesized(paren_expr) => {
+                self.generate_parenthesized_expression(paren_expr)?;
             }
         }
         Ok(())
@@ -576,6 +579,97 @@ impl CodeGenerator {
             self.output.push_str(", ");
             self.generate_expression(arg)?;
         }
+        self.output.push(')');
+        Ok(())
+    }
+
+    /// Generate code for parenthesized expressions with comments
+    fn generate_parenthesized_expression(
+        &mut self,
+        paren_expr: &ParenthesizedExpr,
+    ) -> Result<(), VeltranoError> {
+        self.output.push('(');
+
+        // Check if we need multiline formatting based on has_newline_after
+        let needs_multiline = paren_expr
+            .open_paren_comment
+            .as_ref()
+            .map(|seq| seq.has_newline_after)
+            .unwrap_or(false)
+            || paren_expr
+                .close_paren_comment
+                .as_ref()
+                .map(|seq| {
+                    seq.has_newline_after || seq.comments.iter().any(|(c, _)| !c.starts_with("/*"))
+                })
+                .unwrap_or(false);
+
+        // Generate comments after opening paren
+        if let Some(ref comment_seq) = paren_expr.open_paren_comment {
+            if self.config.preserve_comments {
+                if comment_seq.has_newline_after {
+                    // Comments followed by newline in source - preserve multiline format
+                    for (content, _whitespace) in &comment_seq.comments {
+                        self.output.push_str(content);
+                        self.output.push('\n');
+                        self.indent_level += 1;
+                        self.indent();
+                        self.indent_level -= 1;
+                    }
+                } else {
+                    // No newline after comments - stay inline
+                    for (content, _whitespace) in &comment_seq.comments {
+                        self.output.push_str(content);
+                        self.output.push(' ');
+                    }
+                }
+            }
+        } else if needs_multiline {
+            // No open comment but needs multiline for close comment
+            self.output.push('\n');
+            self.indent_level += 1;
+            self.indent();
+            self.indent_level -= 1;
+        }
+
+        // Generate the expression with proper indentation
+        if needs_multiline {
+            self.indent_level += 1;
+        }
+        self.generate_expression(&paren_expr.expr)?;
+        if needs_multiline {
+            self.indent_level -= 1;
+        }
+
+        // Handle closing paren with potential comments
+        if let Some(ref comment_seq) = paren_expr.close_paren_comment {
+            if self.config.preserve_comments {
+                if needs_multiline {
+                    // Multiline format - comments on their own line
+                    self.output.push('\n');
+                    self.indent_level += 1;
+                    self.indent();
+                    self.indent_level -= 1;
+
+                    for (content, _whitespace) in &comment_seq.comments {
+                        self.output.push_str(content);
+                        self.output.push('\n');
+                        self.indent();
+                    }
+                } else {
+                    // Inline format - keep comments inline
+                    for (content, _whitespace) in &comment_seq.comments {
+                        self.output.push(' ');
+                        self.output.push_str(content);
+                    }
+                }
+            }
+        } else if needs_multiline {
+            // Need to close on new line for proper formatting
+            self.output.push('\n');
+            self.indent();
+        }
+
         self.output.push(')');
         Ok(())
     }

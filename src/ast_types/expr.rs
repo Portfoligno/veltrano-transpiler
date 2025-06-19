@@ -17,6 +17,7 @@ pub enum Expr {
     Call(CallExpr),
     MethodCall(MethodCallExpr),
     FieldAccess(FieldAccessExpr),
+    Parenthesized(ParenthesizedExpr),
 }
 
 #[derive(Debug, Clone)]
@@ -100,4 +101,17 @@ pub struct MethodCallExpr {
 pub struct FieldAccessExpr {
     pub object: Box<LocatedExpr>,
     pub field: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ParenthesizedExpr {
+    pub expr: Box<LocatedExpr>,
+    pub open_paren_comment: Option<CommentSequence>, // Comments after (
+    pub close_paren_comment: Option<CommentSequence>, // Comments before )
+}
+
+#[derive(Debug, Clone)]
+pub struct CommentSequence {
+    pub comments: Vec<(String, String)>, // (content, whitespace) pairs
+    pub has_newline_after: bool,         // Track if newline follows for formatting
 }

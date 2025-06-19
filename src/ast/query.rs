@@ -23,6 +23,7 @@ impl AstQuery {
             Expr::Binary(b) => Self::contains_calls(&b.left) || Self::contains_calls(&b.right),
             Expr::Unary(u) => Self::contains_calls(&u.operand),
             Expr::FieldAccess(f) => Self::contains_calls(&f.object),
+            Expr::Parenthesized(p) => Self::contains_calls(&p.expr),
             _ => false,
         }
     }
@@ -73,6 +74,9 @@ impl AstQuery {
             }
             Expr::FieldAccess(f) => {
                 Self::collect_identifiers_impl(&f.object, acc);
+            }
+            Expr::Parenthesized(p) => {
+                Self::collect_identifiers_impl(&p.expr, acc);
             }
             Expr::Literal(_) => {}
         }
@@ -128,6 +132,7 @@ impl AstQuery {
                     })
             }
             Expr::FieldAccess(f) => Self::uses_bump_allocation(&f.object),
+            Expr::Parenthesized(p) => Self::uses_bump_allocation(&p.expr),
             Expr::Literal(_) | Expr::Identifier(_) => false,
         }
     }
@@ -320,6 +325,7 @@ fn expr_children(expr: &LocatedExpr) -> Vec<&LocatedExpr> {
             children
         }
         Expr::FieldAccess(f) => vec![&f.object],
+        Expr::Parenthesized(p) => vec![&p.expr],
         Expr::Literal(_) | Expr::Identifier(_) => vec![],
     }
 }

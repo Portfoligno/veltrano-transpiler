@@ -47,6 +47,7 @@ impl VeltranoTypeChecker {
             Expr::Call(call) => self.check_call_expression(call, &expr.span),
             Expr::MethodCall(method_call) => self.check_method_call(method_call),
             Expr::FieldAccess(field_access) => self.check_field_access(field_access, &expr.span),
+            Expr::Parenthesized(paren_expr) => self.check_expression(&paren_expr.expr),
         }
     }
 

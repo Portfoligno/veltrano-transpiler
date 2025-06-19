@@ -33,6 +33,16 @@ impl Parser {
         )
     }
 
+    /// Create a Located expression with span from start to end source locations
+    pub(super) fn located_expr_with_span(
+        &self,
+        expr: crate::ast::Expr,
+        start: SourceLocation,
+        end: SourceLocation,
+    ) -> LocatedExpr {
+        Located::new(expr, Span::new(start, end))
+    }
+
     /// Check if the current token matches a type (without consuming)
     pub(super) fn check(&self, token_type: &TokenType) -> bool {
         if self.is_at_end() {
@@ -146,8 +156,12 @@ impl Parser {
     pub(super) fn parse_inline_comment(&mut self) -> Option<(String, String)> {
         match &self.peek().token_type {
             TokenType::LineComment(content, whitespace, _context) => {
-                // Lexer returns line comment content without // prefix
-                let comment = Comment::new(content.clone(), whitespace.clone(), CommentStyle::Line);
+                // Lexer returns line comment content without // prefix, so add it
+                let comment = Comment::new(
+                    format!("//{}", content),
+                    whitespace.clone(),
+                    CommentStyle::Line,
+                );
                 self.advance();
                 Some(comment.to_tuple())
             }
@@ -268,6 +282,43 @@ impl Parser {
                     ))
                 }
             }
+        }
+    }
+
+    /// Capture a sequence of comments with newline tracking
+    pub(super) fn capture_comment_sequence(&mut self) -> Option<crate::ast::CommentSequence> {
+        let mut comments = Vec::new();
+        let mut has_newline_after = false;
+
+        // Skip initial newlines and capture comments
+        loop {
+            if self.match_token(&TokenType::Newline) {
+                has_newline_after = true;
+                continue;
+            }
+
+            // Check for comments
+            match &self.peek().token_type {
+                TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _) => {
+                    if let Some(comment) = self.parse_inline_comment() {
+                        // After a line comment, we expect a newline
+                        if !comment.0.starts_with("/*") {
+                            has_newline_after = true;
+                        }
+                        comments.push(comment);
+                    }
+                }
+                _ => break,
+            }
+        }
+
+        if comments.is_empty() {
+            None
+        } else {
+            Some(crate::ast::CommentSequence {
+                comments,
+                has_newline_after,
+            })
         }
     }
 }
