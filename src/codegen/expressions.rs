@@ -118,7 +118,7 @@ impl CodeGenerator {
                     CommentStyle::Line => {
                         // Line comment - needs to be on its own line
                         self.output.push_str("  ");
-                        self.output.push_str("//");
+                        // Content already includes // from parser
                         self.output.push_str(&comment.content);
                         self.output.push('\n');
                         // Add indentation for the next line

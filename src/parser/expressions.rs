@@ -584,11 +584,8 @@ impl Parser {
             self.advance();
             let operator = map_operator(&self.previous().token_type);
 
-            // Capture any comments after the operator
-            let comment_after_operator = self.capture_comment_preserve_newlines();
-
-            // Skip newlines for multi-line expressions
-            self.skip_newlines_only();
+            // Skip newlines and capture any comments after the operator
+            let comment_after_operator = self.skip_newlines_and_capture_comment();
 
             let right = next(self)?;
             let start_span = expr.span.start.clone();
