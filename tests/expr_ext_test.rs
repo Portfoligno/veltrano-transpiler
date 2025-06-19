@@ -80,7 +80,10 @@ fn test_walk_early_exit() {
                 comment_after_operator: None,
                 right: Box::new(loc(Expr::Literal(LiteralExpr::Int(2)))),
             })),
-            None,
+            veltrano::ArgumentComment {
+                before: None,
+                after: None,
+            },
         )],
         is_multiline: false,
         id: 0,
@@ -180,7 +183,10 @@ fn test_complex_traversal() {
                     comment_after_operator: None,
                     right: Box::new(loc(Expr::Identifier("b".to_string()))),
                 })),
-                None,
+                veltrano::ArgumentComment {
+                    before: None,
+                    after: None,
+                },
             ),
             veltrano::Argument::Bare(
                 loc(Expr::MethodCall(MethodCallExpr {
@@ -190,7 +196,10 @@ fn test_complex_traversal() {
                     inline_comment: None,
                     id: 0,
                 })),
-                None,
+                veltrano::ArgumentComment {
+                    before: None,
+                    after: None,
+                },
             ),
         ],
         is_multiline: false,

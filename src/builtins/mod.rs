@@ -33,8 +33,6 @@ impl BuiltinRegistry {
         }
     }
 
-
-
     /// Check if a function is a Rust macro (skips type checking)
     pub fn is_rust_macro(&self, name: &str) -> bool {
         functions::is_rust_macro(name, &self.functions)
@@ -61,7 +59,6 @@ impl BuiltinRegistry {
         )
     }
 
-
     /// Check if a Veltrano receiver type can provide the required Rust access for imported methods
     /// This is similar to receiver_can_provide_rust_access but doesn't require trait checking
     /// since we already know the method exists from the imported signature
@@ -77,7 +74,6 @@ impl BuiltinRegistry {
             trait_checker,
         )
     }
-
 }
 
 impl Default for BuiltinRegistry {

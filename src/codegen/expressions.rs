@@ -2,12 +2,12 @@
 //!
 //! Handles literals, operators, calls, and field access.
 
+use super::{CodeGenerator, CodegenError};
 use crate::ast::*;
 use crate::ast_types::Argument;
 use crate::comments::{Comment, CommentStyle};
-use crate::error::{VeltranoError, Span};
+use crate::error::{Span, VeltranoError};
 use crate::rust_interop::camel_to_snake_case;
-use super::{CodeGenerator, CodegenError};
 
 impl CodeGenerator {
     /// Generate code for any expression type
@@ -84,15 +84,15 @@ impl CodeGenerator {
     /// Generate code for binary expressions with proper comment handling
     fn generate_binary_expression(&mut self, binary: &BinaryExpr) -> Result<(), VeltranoError> {
         self.generate_expression(&binary.left)?;
-        
+
         // Generate comment after left operand if present
         self.generate_binary_operator_comment(&binary.comment_after_left);
-        
+
         self.generate_binary_operator(&binary.operator);
-        
+
         // Generate comment after operator if present
         self.generate_binary_operator_comment(&binary.comment_after_operator);
-        
+
         self.generate_expression(&binary.right)?;
         Ok(())
     }
@@ -102,7 +102,7 @@ impl CodeGenerator {
         if let Some((content, whitespace)) = comment {
             if self.config.preserve_comments {
                 let comment = Comment::from_tuple((content.clone(), whitespace.clone()));
-                
+
                 // Use Comment to determine style and format appropriately
                 match comment.style {
                     CommentStyle::Block => {
@@ -206,12 +206,17 @@ impl CodeGenerator {
             } else if let Some((type_name, original_method)) = self.imports.get(name) {
                 let type_name = type_name.clone();
                 let original_method = original_method.clone();
-                return self.generate_imported_function_call(&type_name, &original_method, call, call_span);
+                return self.generate_imported_function_call(
+                    &type_name,
+                    &original_method,
+                    call,
+                    call_span,
+                );
             } else if self.is_rust_macro(name) {
                 return self.generate_macro_call(name, call, call_span);
             }
         }
-        
+
         // Default case: generate as generic call
         self.generate_generic_call(call, call_span)
     }
@@ -232,13 +237,13 @@ impl CodeGenerator {
             let resolution = resolution.clone();
             return self.generate_resolved_method_call(&resolution, method_call);
         }
-        
+
         if let Some((type_name, original_method)) = self.imports.get(&method_call.method) {
             let type_name = type_name.clone();
             let original_method = original_method.clone();
             return self.generate_imported_method_call(&type_name, &original_method, method_call);
         }
-        
+
         // Check for special builtin methods
         match method_call.method.as_str() {
             "ref" if method_call.args.is_empty() => {
@@ -282,7 +287,10 @@ impl CodeGenerator {
     }
 
     // Helper to collect all comments from a method chain
-    pub(super) fn collect_method_chain_comments(&self, expr: &LocatedExpr) -> Vec<(String, String)> {
+    pub(super) fn collect_method_chain_comments(
+        &self,
+        expr: &LocatedExpr,
+    ) -> Vec<(String, String)> {
         let mut comments = Vec::new();
 
         if let Expr::MethodCall(method_call) = &expr.node {
@@ -364,7 +372,8 @@ impl CodeGenerator {
                         // Always add comma for multiline struct fields
                         self.output.push(',');
 
-                        self.generate_inline_comment(comment);
+                        let comment_to_use = comment.before.as_ref().or(comment.after.as_ref());
+                        self.generate_inline_comment(&comment_to_use.cloned());
                         self.output.push('\n');
                     }
                     Argument::Shorthand(field_name, comment) => {
@@ -374,7 +383,8 @@ impl CodeGenerator {
                         // Always add comma for multiline struct fields
                         self.output.push(',');
 
-                        self.generate_inline_comment(comment);
+                        let comment_to_use = comment.before.as_ref().or(comment.after.as_ref());
+                        self.generate_inline_comment(&comment_to_use.cloned());
                         self.output.push('\n');
                     }
                     Argument::Bare(_, _) => {

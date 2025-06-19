@@ -20,7 +20,11 @@ pub fn get_method_return_type(
     if let Some(method_variants) = methods.get(method_name) {
         for method_kind in method_variants {
             if method_matches_receiver(method_kind, receiver_type, trait_checker) {
-                return Some(compute_return_type(method_kind, receiver_type, trait_checker));
+                return Some(compute_return_type(
+                    method_kind,
+                    receiver_type,
+                    trait_checker,
+                ));
             }
         }
     }
@@ -220,9 +224,7 @@ fn compute_return_type(
     match strategy {
         MethodReturnTypeStrategy::SameAsReceiver => receiver_type.clone(),
         MethodReturnTypeStrategy::RefToReceiver => VeltranoType::ref_(receiver_type.clone()),
-        MethodReturnTypeStrategy::MutRefToReceiver => {
-            VeltranoType::mut_ref(receiver_type.clone())
-        }
+        MethodReturnTypeStrategy::MutRefToReceiver => VeltranoType::mut_ref(receiver_type.clone()),
         MethodReturnTypeStrategy::FixedType(fixed_type) => fixed_type.clone(),
         MethodReturnTypeStrategy::RefSemantics => {
             // Implement correct ref() semantics:
@@ -277,8 +279,7 @@ fn get_imported_method_return_type(
                     }
                     _ => {
                         // For other types, use normal conversion
-                        if let Ok(veltrano_return_type) =
-                            method_info.return_type.to_veltrano_type()
+                        if let Ok(veltrano_return_type) = method_info.return_type.to_veltrano_type()
                         {
                             return Some(veltrano_return_type);
                         }

@@ -1,8 +1,8 @@
 //! Parser error handling and recovery utilities
 
+use super::Parser;
 use crate::error::{ErrorKind, SourceLocation, Span, VeltranoError};
 use crate::lexer::{Token, TokenType};
-use super::Parser;
 
 impl Parser {
     /// Synchronize parser after an error to a known good state
@@ -40,7 +40,12 @@ impl Parser {
     }
 
     /// Create an error at a specific token
-    pub(super) fn error_at_token(&self, kind: ErrorKind, message: String, token: &Token) -> VeltranoError {
+    pub(super) fn error_at_token(
+        &self,
+        kind: ErrorKind,
+        message: String,
+        token: &Token,
+    ) -> VeltranoError {
         VeltranoError::new(kind, message)
             .with_span(Span::single(SourceLocation::new(token.line, token.column)))
     }

@@ -10,7 +10,9 @@ use veltrano::parser::Parser;
 
 /// Helper function to parse source code
 fn parse(source: &str) -> Result<Program, veltrano::error::VeltranoError> {
-    let config = Config { preserve_comments: false };
+    let config = Config {
+        preserve_comments: false,
+    };
     let mut lexer = Lexer::with_config(source.to_string(), config);
     let tokens = lexer.tokenize();
     let mut parser = Parser::new(tokens);
@@ -19,7 +21,9 @@ fn parse(source: &str) -> Result<Program, veltrano::error::VeltranoError> {
 
 /// Helper function to parse with comment preservation
 fn parse_with_comments(source: &str) -> Result<Program, veltrano::error::VeltranoError> {
-    let config = Config { preserve_comments: true };
+    let config = Config {
+        preserve_comments: true,
+    };
     let mut lexer = Lexer::with_config(source.to_string(), config);
     let tokens = lexer.tokenize();
     let mut parser = Parser::new(tokens);
@@ -36,7 +40,7 @@ fn test_expression_parsing_module() {
         func(a, b, c)
         arr.map(double)
     "#;
-    
+
     let result = parse(source);
     if let Err(e) = &result {
         eprintln!("Parse error: {}", e);
@@ -44,7 +48,7 @@ fn test_expression_parsing_module() {
     assert!(result.is_ok());
     let program = result.unwrap();
     assert_eq!(program.statements.len(), 5);
-    
+
     // All should be expression statements
     for stmt in &program.statements {
         assert!(matches!(stmt, Stmt::Expression(_)));
@@ -68,7 +72,7 @@ fn test_statement_parsing_module() {
             println("loop")
         }
     "#;
-    
+
     let result = parse(source);
     if let Err(e) = &result {
         eprintln!("Parse error in statement test: {}", e);
@@ -76,7 +80,7 @@ fn test_statement_parsing_module() {
     assert!(result.is_ok());
     let program = result.unwrap();
     assert_eq!(program.statements.len(), 4);
-    
+
     assert!(matches!(&program.statements[0], Stmt::VarDecl(_)));
     assert!(matches!(&program.statements[1], Stmt::FunDecl(_)));
     assert!(matches!(&program.statements[2], Stmt::If(_)));
@@ -96,12 +100,12 @@ fn test_type_parsing_module() {
         val g: Ref<String> = "test"
         val h: MutRef<I32> = x
     "#;
-    
+
     let result = parse(source);
     assert!(result.is_ok());
     let program = result.unwrap();
     assert_eq!(program.statements.len(), 8);
-    
+
     // All should be variable declarations with type annotations
     for stmt in &program.statements {
         match stmt {
@@ -125,19 +129,23 @@ fn test_error_recovery() {
         }
         val w = 30
     "#;
-    
-    let config = Config { preserve_comments: false };
+
+    let config = Config {
+        preserve_comments: false,
+    };
     let mut lexer = Lexer::with_config(source.to_string(), config);
     let tokens = lexer.tokenize();
     let mut parser = Parser::new(tokens);
     let (program, errors) = parser.parse_with_recovery();
-    
+
     // Should have recovered and parsed some statements
     assert!(program.statements.len() >= 3);
     assert!(!errors.errors().is_empty());
-    
+
     // Check that we parsed the valid declarations
-    let var_count = program.statements.iter()
+    let var_count = program
+        .statements
+        .iter()
         .filter(|s| matches!(s, Stmt::VarDecl(_)))
         .count();
     assert!(var_count >= 3); // x, z, and w should be parsed
@@ -159,13 +167,15 @@ fn test_comment_preservation() {
         /* Block comment */
         val z = 42 // inline comment
     "#;
-    
+
     let result = parse_with_comments(source);
     assert!(result.is_ok());
     let program = result.unwrap();
-    
+
     // Should have comments as separate statements
-    let comment_count = program.statements.iter()
+    let comment_count = program
+        .statements
+        .iter()
         .filter(|s| matches!(s, Stmt::Comment(_)))
         .count();
     assert!(comment_count > 0);
@@ -180,12 +190,12 @@ fn test_method_chaining_across_lines() {
             .filter(isLarge)
             .collect()
     "#;
-    
+
     let result = parse(source);
     assert!(result.is_ok());
     let program = result.unwrap();
     assert_eq!(program.statements.len(), 1);
-    
+
     // Should be a single expression statement with chained method calls
     match &program.statements[0] {
         Stmt::Expression(expr) => {
@@ -208,19 +218,19 @@ fn test_complex_function_calls() {
             inc
         )
     "#;
-    
+
     let result = parse(source);
     assert!(result.is_ok());
     let program = result.unwrap();
     assert_eq!(program.statements.len(), 1);
-    
+
     match &program.statements[0] {
         Stmt::Expression(expr) => {
             match &expr.node {
                 Expr::Call(call) => {
                     assert_eq!(call.args.len(), 5);
                     assert!(call.is_multiline);
-                    
+
                     // Check argument types
                     assert!(matches!(&call.args[0], Argument::Bare(_, _)));
                     assert!(matches!(&call.args[1], Argument::Named(_, _, _)));
@@ -244,12 +254,12 @@ fn test_data_class_parsing() {
             val email: Option<String>
         )
     "#;
-    
+
     let result = parse(source);
     assert!(result.is_ok());
     let program = result.unwrap();
     assert_eq!(program.statements.len(), 2);
-    
+
     match &program.statements[0] {
         Stmt::DataClass(dc) => {
             assert_eq!(dc.name, "Point");
@@ -257,7 +267,7 @@ fn test_data_class_parsing() {
         }
         _ => panic!("Expected data class"),
     }
-    
+
     match &program.statements[1] {
         Stmt::DataClass(dc) => {
             assert_eq!(dc.name, "Person");
@@ -275,12 +285,12 @@ fn test_import_statements() {
         import Vec.push as vecPush
         import Option.map
     "#;
-    
+
     let result = parse(source);
     assert!(result.is_ok());
     let program = result.unwrap();
     assert_eq!(program.statements.len(), 3);
-    
+
     match &program.statements[0] {
         Stmt::Import(import) => {
             assert_eq!(import.type_name, "String");
@@ -289,7 +299,7 @@ fn test_import_statements() {
         }
         _ => panic!("Expected import"),
     }
-    
+
     match &program.statements[1] {
         Stmt::Import(import) => {
             assert_eq!(import.type_name, "Vec");
@@ -304,7 +314,7 @@ fn test_import_statements() {
 fn test_double_minus_error() {
     // Test that double minus is caught as an error
     let source = "val x = --5";
-    
+
     let result = parse(source);
     assert!(result.is_err());
     let err = result.unwrap_err();
@@ -320,7 +330,7 @@ fn test_nested_expressions() {
         obj.field.method(x, y).result
         result.unwrap()
     "#;
-    
+
     let result = parse(source);
     assert!(result.is_ok());
     let program = result.unwrap();
@@ -340,14 +350,14 @@ fn test_bump_allocation_analysis() {
             v.push("test")
         }
     "#;
-    
+
     let result = parse(source);
     if let Err(e) = &result {
         eprintln!("Parse error in bump test: {}", e);
     }
     assert!(result.is_ok());
     let program = result.unwrap();
-    
+
     // Check that bump allocation flags are set correctly
     for stmt in &program.statements {
         if let Stmt::FunDecl(fun_decl) = stmt {
@@ -359,4 +369,3 @@ fn test_bump_allocation_analysis() {
         }
     }
 }
-

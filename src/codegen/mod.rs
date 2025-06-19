@@ -1,5 +1,5 @@
 //! Rust code generation from Veltrano AST.
-//! 
+//!
 //! Orchestrates the transpilation process and maintains generation state.
 
 mod comments;
@@ -165,13 +165,6 @@ impl CodeGenerator {
         }
         Ok(self.output.clone())
     }
-
-
-
-
-
-
-
 
     fn check_function_needs_bump(&self, fun_decl: &FunDeclStmt) -> bool {
         // First check for direct bump allocation usage

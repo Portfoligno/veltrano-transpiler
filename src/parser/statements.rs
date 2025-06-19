@@ -6,12 +6,15 @@
 //! - Block statements
 //! - Expression statements
 
-use crate::ast::{DataClassField, DataClassStmt, FunDeclStmt, IfStmt, ImportStmt, Parameter, Stmt, VarDeclStmt, WhileStmt};
+use super::Parser;
+use crate::ast::{
+    DataClassField, DataClassStmt, FunDeclStmt, IfStmt, ImportStmt, Parameter, Stmt, VarDeclStmt,
+    WhileStmt,
+};
 use crate::ast_types::{CommentContext, CommentStmt};
 use crate::error::{ErrorKind, VeltranoError};
 use crate::lexer::TokenType;
 use nonempty::NonEmpty;
-use super::Parser;
 
 impl Parser {
     pub(super) fn declaration(&mut self) -> Result<NonEmpty<Stmt>, VeltranoError> {
@@ -262,7 +265,7 @@ impl Parser {
         // Look ahead for else without consuming comments
         let mut lookahead_pos = self.current;
         let mut found_else = false;
-        
+
         // Skip newlines and look for else
         while lookahead_pos < self.tokens.len() {
             match &self.tokens[lookahead_pos].token_type {
@@ -283,14 +286,14 @@ impl Parser {
                 }
             }
         }
-        
+
         let else_branch = if found_else {
             // Now consume everything up to and including else
             while self.current < lookahead_pos {
                 self.advance();
             }
             self.advance(); // consume else token
-            
+
             let else_stmts = self.statement()?;
             Some(Parser::nonempty_to_stmt(else_stmts))
         } else {
@@ -330,7 +333,6 @@ impl Parser {
         let mut statements = Vec::new();
 
         while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
-            
             // First, always check for comments to prevent them from being consumed by primary()
             if matches!(
                 self.peek().token_type,
@@ -342,7 +344,7 @@ impl Parser {
                 }
                 continue;
             }
-            
+
             // Skip any newlines
             if self.check(&TokenType::Newline) {
                 self.advance();
@@ -376,4 +378,3 @@ impl Parser {
         }
     }
 }
-

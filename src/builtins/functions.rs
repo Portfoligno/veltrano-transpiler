@@ -10,7 +10,7 @@ use std::collections::HashMap;
 /// Register all built-in functions
 pub fn register_builtin_functions() -> HashMap<String, BuiltinFunctionKind> {
     let mut functions = HashMap::new();
-    
+
     // Rust macros (variadic, skip type checking)
     let rust_macros = vec!["println", "print", "panic", "assert", "debug_assert"];
     for macro_name in rust_macros {
@@ -37,7 +37,7 @@ pub fn register_builtin_functions() -> HashMap<String, BuiltinFunctionKind> {
             )),
         },
     );
-    
+
     functions
 }
 
@@ -51,7 +51,9 @@ pub fn is_rust_macro(name: &str, functions: &HashMap<String, BuiltinFunctionKind
 }
 
 /// Get function signatures for type checker initialization
-pub fn get_function_signatures(functions: &HashMap<String, BuiltinFunctionKind>) -> Vec<FunctionSignature> {
+pub fn get_function_signatures(
+    functions: &HashMap<String, BuiltinFunctionKind>,
+) -> Vec<FunctionSignature> {
     let mut signatures = Vec::new();
 
     for (_name, kind) in functions {

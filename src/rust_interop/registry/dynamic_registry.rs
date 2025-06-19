@@ -3,11 +3,11 @@
 //! Manages multiple queriers and provides a unified interface.
 
 use crate::error::VeltranoError;
+use crate::rust_interop::cache::{FunctionInfo, TraitInfo};
 use crate::rust_interop::{
     rustdoc_querier::RustdocQuerier, stdlib_querier::StdLibQuerier, syn_querier::SynQuerier,
     CrateInfo, RustInteropError, RustQuerier, TypeInfo,
 };
-use crate::rust_interop::cache::{FunctionInfo, TraitInfo};
 use std::collections::HashMap;
 
 #[derive(Debug)]

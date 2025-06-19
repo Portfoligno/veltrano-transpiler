@@ -20,9 +20,9 @@ fn main() {
     );
     // Test 3: Block comments in multiline calls
     let result3 = test_function(
-        100, /* first */
-        200, /* second */
-        300  /* third */
+        100,
+         /* first */ 200,
+         /* second */ 300  /* third */
     );
     // Test 4: Comments in function parameter definitions
     fn with_commented_params(

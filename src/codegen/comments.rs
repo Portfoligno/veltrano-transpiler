@@ -2,9 +2,9 @@
 //!
 //! Preserves all comment styles with proper indentation.
 
-use crate::ast_types::{CommentStmt, CommentContext};
-use crate::comments::{Comment, CommentStyle};
 use super::CodeGenerator;
+use crate::ast_types::{CommentContext, CommentStmt};
+use crate::comments::{Comment, CommentStyle};
 
 impl CodeGenerator {
     /// Generate a standalone comment statement
@@ -62,7 +62,10 @@ impl CodeGenerator {
     }
 
     /// Generate an inline comment as block style (converts line comments to block)
-    pub(super) fn generate_inline_comment_as_block(&mut self, inline_comment: &Option<(String, String)>) {
+    pub(super) fn generate_inline_comment_as_block(
+        &mut self,
+        inline_comment: &Option<(String, String)>,
+    ) {
         if let Some((content, whitespace)) = inline_comment {
             if self.config.preserve_comments {
                 let comment = Comment::from_tuple((content.clone(), whitespace.clone()));

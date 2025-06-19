@@ -66,11 +66,17 @@ pub enum BinaryOp {
 }
 
 #[derive(Debug, Clone)]
+pub struct ArgumentComment {
+    pub before: Option<(String, String)>,
+    pub after: Option<(String, String)>,
+}
+
+#[derive(Debug, Clone)]
 pub enum Argument {
-    Bare(LocatedExpr, Option<(String, String)>), // Expression with optional inline comment
-    Named(String, LocatedExpr, Option<(String, String)>), // Named argument with optional inline comment
-    Shorthand(String, Option<(String, String)>), // Shorthand field (.field) with optional inline comment
-    StandaloneComment(String, String), // Standalone comment with content and preceding whitespace
+    Bare(LocatedExpr, ArgumentComment), // Expression with comments
+    Named(String, LocatedExpr, ArgumentComment), // Named argument with comments
+    Shorthand(String, ArgumentComment), // Shorthand field (.field) with comments
+    StandaloneComment(String, String),  // Standalone comment with content and preceding whitespace
 }
 
 #[derive(Debug, Clone)]

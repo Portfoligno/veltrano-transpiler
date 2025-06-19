@@ -24,10 +24,10 @@ use crate::lexer::{Token, TokenType};
 pub struct Parser {
     pub(super) tokens: Vec<Token>,
     pub(super) current: usize,
-    pub(super) in_function_body: bool,  // Track if we're parsing inside a function body
-    pub(super) next_call_id: usize,     // Counter for unique call IDs (both method and function calls)
-    errors: ErrorCollection, // Collection of errors encountered during parsing
-    panic_mode: bool,        // Flag to avoid cascading errors after a syntax error
+    pub(super) in_function_body: bool, // Track if we're parsing inside a function body
+    pub(super) next_call_id: usize, // Counter for unique call IDs (both method and function calls)
+    errors: ErrorCollection,        // Collection of errors encountered during parsing
+    panic_mode: bool,               // Flag to avoid cascading errors after a syntax error
 }
 
 impl Parser {
@@ -125,7 +125,4 @@ impl Parser {
             }
         }
     }
-
-
 }
-

@@ -5,7 +5,7 @@ fn greet<'a>(bump: &'a bumpalo::Bump, name: &'a str) {
 }
 fn test_function_arg_comments<'a>(bump: &'a bumpalo::Bump) {
     // These comments break parsing or get misplaced:
-    greet(bump, "Alice"/* before arg */);
+    greet(bump, /* before arg */ "Alice");
     greet(bump, "Bob" /* after arg */);
     // val result = max(
     //     10, /* first arg */

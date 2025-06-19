@@ -2,16 +2,20 @@
 //!
 //! Handles parameter and argument formatting for functions and structs.
 
+use super::{CodeGenerator, CodegenError};
 use crate::ast::*;
 use crate::ast_types::Argument;
 use crate::comments::{Comment, CommentStyle};
-use crate::error::{VeltranoError, Span};
+use crate::error::{Span, VeltranoError};
 use crate::rust_interop::camel_to_snake_case;
-use super::{CodeGenerator, CodegenError};
 
 impl CodeGenerator {
     /// Generate comma-separated parameters for function declarations
-    pub(super) fn generate_comma_separated_params(&mut self, params: &[Parameter], include_bump: bool) {
+    pub(super) fn generate_comma_separated_params(
+        &mut self,
+        params: &[Parameter],
+        include_bump: bool,
+    ) {
         let mut first = true;
 
         if include_bump {
@@ -93,12 +97,14 @@ impl CodeGenerator {
                     self.output.push_str(&camel_to_snake_case(name));
                     self.output.push_str(": ");
                     self.generate_expression(expr)?;
-                    self.generate_inline_comment(comment);
+                    let comment_to_use = comment.before.as_ref().or(comment.after.as_ref());
+                    self.generate_inline_comment(&comment_to_use.cloned());
                 }
                 Argument::Shorthand(field_name, comment) => {
                     // Shorthand: generate field_name (variable matches field name)
                     self.output.push_str(&camel_to_snake_case(field_name));
-                    self.generate_inline_comment(comment);
+                    let comment_to_use = comment.before.as_ref().or(comment.after.as_ref());
+                    self.generate_inline_comment(&comment_to_use.cloned());
                 }
                 Argument::StandaloneComment(_, _) => {
                     // For single-line struct initialization, ignore standalone comments
@@ -125,19 +131,27 @@ impl CodeGenerator {
 
                 match arg {
                     Argument::Bare(expr, comment) => {
+                        if let Some(ref before_comment) = comment.before {
+                            self.generate_inline_comment(&Some(before_comment.clone()));
+                            self.output.push(' ');
+                        }
                         self.generate_expression(expr)?;
                         if i < args.len() - 1 {
                             self.output.push(',');
                         }
-                        self.generate_inline_comment(comment);
+                        self.generate_inline_comment(&comment.after);
                     }
                     // For function calls, named arguments are just treated as positional
                     Argument::Named(_, expr, comment) => {
+                        if let Some(ref before_comment) = comment.before {
+                            self.generate_inline_comment(&Some(before_comment.clone()));
+                            self.output.push(' ');
+                        }
                         self.generate_expression(expr)?;
                         if i < args.len() - 1 {
                             self.output.push(',');
                         }
-                        self.generate_inline_comment(comment);
+                        self.generate_inline_comment(&comment.after);
                     }
                     Argument::Shorthand(field_name, _) => {
                         return Err(CodegenError::InvalidShorthandUsage {
@@ -179,18 +193,42 @@ impl CodeGenerator {
             let mut first = true;
             for arg in args {
                 if !first {
-                    self.output.push_str(", ");
+                    self.output.push(',');
+                    // Check if current argument (that we're about to process) has a before comment
+                    let current_has_before_comment = match arg {
+                        Argument::Bare(_, comment) => comment.before.is_some(),
+                        Argument::Named(_, _, comment) => comment.before.is_some(),
+                        Argument::Shorthand(_, comment) => comment.before.is_some(),
+                        Argument::StandaloneComment(_, _) => false,
+                    };
+                    if !current_has_before_comment {
+                        self.output.push(' ');
+                    }
                 }
                 first = false;
                 match arg {
                     Argument::Bare(expr, comment) => {
+                        if let Some(ref before_comment) = comment.before {
+                            self.generate_inline_comment_as_block(&Some(before_comment.clone()));
+                            self.output.push(' ');
+                        }
                         self.generate_expression(expr)?;
-                        self.generate_inline_comment_as_block(comment);
+                        if let Some(ref after_comment) = comment.after {
+                            // Don't add extra space - the comment's whitespace already includes it
+                            self.generate_inline_comment_as_block(&Some(after_comment.clone()));
+                        }
                     }
                     // For function calls, named arguments are just treated as positional
                     Argument::Named(_, expr, comment) => {
+                        if let Some(ref before_comment) = comment.before {
+                            self.generate_inline_comment_as_block(&Some(before_comment.clone()));
+                            self.output.push(' ');
+                        }
                         self.generate_expression(expr)?;
-                        self.generate_inline_comment_as_block(comment);
+                        if let Some(ref after_comment) = comment.after {
+                            // Don't add extra space - the comment's whitespace already includes it
+                            self.generate_inline_comment_as_block(&Some(after_comment.clone()));
+                        }
                     }
                     Argument::Shorthand(field_name, _) => {
                         return Err(CodegenError::InvalidShorthandUsage {

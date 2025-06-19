@@ -2,13 +2,12 @@
 //!
 //! Converts Veltrano types to Rust types with proper lifetimes.
 
-use crate::types::{VeltranoType, TypeConstructor};
 use super::CodeGenerator;
+use crate::types::{TypeConstructor, VeltranoType};
 
 impl CodeGenerator {
     /// Generate Rust type representation from Veltrano type annotation
     pub(super) fn generate_type(&mut self, type_annotation: &VeltranoType) {
-
         // For data class types that need lifetime parameters, we need special handling
         if let TypeConstructor::Custom(name) = &type_annotation.constructor {
             if self.data_classes_with_lifetime.contains(name) {
@@ -39,7 +38,6 @@ impl CodeGenerator {
 
     /// Check if a type needs lifetime parameters (is naturally referenced)
     pub(super) fn type_needs_lifetime(&mut self, veltrano_type: &VeltranoType) -> bool {
-
         match &veltrano_type.constructor {
             // Reference types always need lifetimes
             TypeConstructor::Ref | TypeConstructor::MutRef => true,
@@ -54,7 +52,6 @@ impl CodeGenerator {
 
     /// Generate type annotation for data class fields (with lifetime 'a)
     pub(super) fn generate_data_class_field_type(&mut self, type_annotation: &VeltranoType) {
-
         // For data class fields, we always need lifetime 'a for reference types
         // Special handling for custom types with lifetime parameters
         if let TypeConstructor::Custom(name) = &type_annotation.constructor {

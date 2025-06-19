@@ -2,10 +2,10 @@
 //!
 //! Handles declarations, control flow, data classes, and imports.
 
+use super::CodeGenerator;
 use crate::ast::*;
 use crate::error::VeltranoError;
 use crate::rust_interop::camel_to_snake_case;
-use super::CodeGenerator;
 
 impl CodeGenerator {
     /// Generate code for any statement type

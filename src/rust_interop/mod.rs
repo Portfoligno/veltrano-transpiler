@@ -20,23 +20,23 @@ pub use cache::{CrateInfo, TypeInfo};
 #[doc(hidden)]
 #[allow(unused_imports)]
 pub use cache::{MethodInfo, RustTypeSignature, TypeKind};
-#[doc(hidden)]
-#[allow(unused_imports)]
-pub use stdlib_querier::StdLibQuerier;
-/// Exposed for testing only. Not part of the stable public API.
-#[doc(hidden)]
-#[allow(unused_imports)]
-pub use rustdoc_querier::RustdocQuerier;
-/// Exposed for testing only. Not part of the stable public API.
-#[doc(hidden)]
-#[allow(unused_imports)]
-pub use syn_querier::SynQuerier;
 pub use parser::RustTypeParser;
 /// Exposed for testing only. Not part of the stable public API.
 #[doc(hidden)]
 #[allow(unused_imports)]
 pub use registry::DynamicRustRegistry;
 pub use registry::RustInteropRegistry;
+/// Exposed for testing only. Not part of the stable public API.
+#[doc(hidden)]
+#[allow(unused_imports)]
+pub use rustdoc_querier::RustdocQuerier;
+#[doc(hidden)]
+#[allow(unused_imports)]
+pub use stdlib_querier::StdLibQuerier;
+/// Exposed for testing only. Not part of the stable public API.
+#[doc(hidden)]
+#[allow(unused_imports)]
+pub use syn_querier::SynQuerier;
 pub use types::{RustType, SelfKind};
 pub use utils::camel_to_snake_case;
 
@@ -97,4 +97,3 @@ pub trait RustQuerier: std::fmt::Debug {
     fn supports_crate(&self, crate_name: &str) -> bool;
     fn priority(&self) -> u32; // Higher priority queriers tried first
 }
-

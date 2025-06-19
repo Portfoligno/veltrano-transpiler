@@ -6,11 +6,14 @@
 //! - Function and method calls
 //! - Field access
 
-use crate::ast::{Argument, BinaryExpr, BinaryOp, CallExpr, Expr, FieldAccessExpr, LiteralExpr, MethodCallExpr, UnaryExpr, UnaryOp};
+use super::Parser;
+use crate::ast::{
+    Argument, ArgumentComment, BinaryExpr, BinaryOp, CallExpr, Expr, FieldAccessExpr, LiteralExpr,
+    MethodCallExpr, UnaryExpr, UnaryOp,
+};
 use crate::ast_types::{Located, LocatedExpr};
 use crate::error::{SourceLocation, Span, VeltranoError};
 use crate::lexer::TokenType;
-use super::Parser;
 
 impl Parser {
     /// Parse an expression with operator precedence
@@ -126,7 +129,6 @@ impl Parser {
 
             if self.match_token(&TokenType::LeftParen) {
                 expr = self.parse_function_call(expr)?;
-
             } else if self.match_token(&TokenType::Dot) {
                 expr = self.parse_member_access(expr)?;
             } else if let TokenType::LineComment(_, _, _) = &self.peek().token_type {
@@ -178,10 +180,7 @@ impl Parser {
         }
 
         // If we consumed newlines but didn't find a dot, we need to backtrack
-        if newline_count > 0
-            && !self.check(&TokenType::Dot)
-            && !self.check(&TokenType::LeftParen)
-        {
+        if newline_count > 0 && !self.check(&TokenType::Dot) && !self.check(&TokenType::LeftParen) {
             // Backtrack to the position after the last consumed token before newlines
             self.current = start_pos;
             return false;
@@ -230,70 +229,122 @@ impl Parser {
     }
 
     /// Parses function arguments including named, shorthand, and bare arguments
-    fn parse_function_arguments(&mut self, is_multiline: &mut bool) -> Result<Vec<Argument>, VeltranoError> {
+    fn parse_function_arguments(
+        &mut self,
+        is_multiline: &mut bool,
+    ) -> Result<Vec<Argument>, VeltranoError> {
         let mut args = Vec::new();
+        let mut comment_for_next_arg: Option<(String, String)> = None;
 
         loop {
-            // First check if we have a standalone comment (on its own line)
-            // A standalone comment must be preceded by a newline or be at the start
-            let is_after_newline = self.current == 0 || 
-                (self.current > 0 && self.tokens[self.current - 1].token_type == TokenType::Newline);
-            
-            if is_after_newline && matches!(
-                self.peek().token_type,
-                TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _)
-            ) {
-                // This is a standalone comment
-                if let Some(comment) = self.parse_inline_comment() {
-                    args.push(Argument::StandaloneComment(
-                        comment.0,
-                        comment.1,
-                    ));
-                    *is_multiline = true; // Standalone comments force multiline
-
-                    // Check for comma after standalone comment
-                    if self.match_token(&TokenType::Comma) {
-                        continue; // Continue to next argument/comment
-                    } else {
-                        break; // No comma, end of arguments
-                    }
-                }
-            }
-
-            // Skip only newlines (not comments) and track multiline
+            // Skip newlines and track multiline
             let had_newlines = self.skip_newlines_only();
             if had_newlines {
                 *is_multiline = true;
             }
 
-            // Check for inline comment before the argument
-            let comment_before = if matches!(
-                self.peek().token_type,
-                TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _)
-            ) {
-                // This is an inline comment (not standalone since we didn't see it above)
-                self.parse_inline_comment()
-            } else {
-                None
-            };
-
-            // Parse the argument
-            let arg = self.parse_single_argument(comment_before)?;
-            args.push(arg);
-
-            if !self.match_token(&TokenType::Comma) {
+            // Check if we're at the end of arguments
+            if self.check(&TokenType::RightParen) || self.is_at_end() {
                 break;
             }
 
-            // After comma, handle post-comma comments
-            self.handle_post_comma_comments(&mut args, is_multiline)?;
+            // Check if we have a comment at the start of a line
+            if had_newlines
+                && matches!(
+                    self.peek().token_type,
+                    TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _)
+                )
+            {
+                // We have a comment after newlines. Check if there's an expression after it on the same line
+                let saved_pos = self.current;
+                let comment = self.parse_inline_comment();
+
+                // Check if there's a non-newline token after the comment
+                let has_content_after = !self.check(&TokenType::Newline)
+                    && !self.check(&TokenType::RightParen)
+                    && !self.is_at_end();
+
+                if has_content_after {
+                    // There's content after the comment on the same line, so it's an inline comment
+                    // Restore position and let the normal inline comment handling take over
+                    self.current = saved_pos;
+                } else {
+                    // It's a standalone comment
+                    if let Some(comment) = comment {
+                        args.push(Argument::StandaloneComment(comment.0, comment.1));
+                        *is_multiline = true;
+
+                        // After a standalone comment, optionally consume a comma
+                        self.match_token(&TokenType::Comma);
+                        continue;
+                    }
+                }
+            }
+
+            // Check for inline comment before the argument (or use saved comment from after previous comma)
+            let comment_before = comment_for_next_arg.take().or_else(|| {
+                if matches!(
+                    self.peek().token_type,
+                    TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _)
+                ) {
+                    self.parse_inline_comment()
+                } else {
+                    None
+                }
+            });
+
+            // Parse the argument
+            let mut arg = self.parse_single_argument(comment_before)?;
+
+            // Check for comma
+            if !self.match_token(&TokenType::Comma) {
+                args.push(arg);
+                break;
+            }
+
+            // After a comma, capture any trailing comment before the newline
+            if let Some(comment_after_comma) = self.capture_comment_preserve_newlines() {
+                let is_line_comment = !comment_after_comma.0.starts_with("/*");
+
+                // If we captured a line comment after comma, consume the newline
+                if is_line_comment {
+                    self.match_token(&TokenType::Newline);
+                }
+
+                // Decide where to attach the comment based on its type
+                if is_line_comment {
+                    // Line comments after commas belong to the current argument
+                    match &mut arg {
+                        Argument::Bare(_, ref mut comment)
+                        | Argument::Named(_, _, ref mut comment)
+                        | Argument::Shorthand(_, ref mut comment) => {
+                            // If there's already an after comment, keep it
+                            // Otherwise, use the comment after the comma
+                            if comment.after.is_none() {
+                                comment.after = Some(comment_after_comma);
+                            }
+                        }
+                        Argument::StandaloneComment(_, _) => {
+                            // Standalone comments don't have an after comment field
+                        }
+                    }
+                } else {
+                    // Block comments after commas belong to the next argument
+                    comment_for_next_arg = Some(comment_after_comma);
+                }
+            }
+
+            args.push(arg);
         }
 
         Ok(args)
     }
 
     /// Parses a single argument (named, shorthand, or bare)
-    fn parse_single_argument(&mut self, comment_before: Option<(String, String)>) -> Result<Argument, VeltranoError> {
+    fn parse_single_argument(
+        &mut self,
+        comment_before: Option<(String, String)>,
+    ) -> Result<Argument, VeltranoError> {
         // Try to parse regular argument (named, shorthand, or bare)
         if self.check(&TokenType::Dot) {
             // This is shorthand syntax (.field)
@@ -303,19 +354,29 @@ impl Parser {
                 self.advance(); // consume identifier
 
                 // Capture comment immediately after the field name
-                let comment_after = self.skip_newlines_and_capture_comment();
-                let comment = comment_before.or(comment_after);
+                let comment_after = self.capture_comment_preserve_newlines();
+
+                // If we captured a line comment, consume the newline after it
+                if let Some((content, _)) = &comment_after {
+                    if !content.starts_with("/*") {
+                        // It's a line comment, consume the newline
+                        self.match_token(&TokenType::Newline);
+                    }
+                }
+
+                let comment = ArgumentComment {
+                    before: comment_before,
+                    after: comment_after,
+                };
                 Ok(Argument::Shorthand(field_name, comment))
             } else {
-                Err(self.syntax_error(
-                    "Expected field name after '.' in shorthand syntax".to_string(),
-                ))
+                Err(self
+                    .syntax_error("Expected field name after '.' in shorthand syntax".to_string()))
             }
         } else if let TokenType::Identifier(name) = &self.peek().token_type {
             let name = name.clone();
             let next_pos = self.current + 1;
-            if next_pos < self.tokens.len()
-                && self.tokens[next_pos].token_type == TokenType::Equal
+            if next_pos < self.tokens.len() && self.tokens[next_pos].token_type == TokenType::Equal
             {
                 // This is a named argument
                 self.advance(); // consume identifier
@@ -323,16 +384,40 @@ impl Parser {
                 let value = self.expression()?;
 
                 // Capture comment immediately after the expression
-                let comment_after = self.skip_newlines_and_capture_comment();
-                let comment = comment_before.or(comment_after);
+                let comment_after = self.capture_comment_preserve_newlines();
+
+                // If we captured a line comment, consume the newline after it
+                if let Some((content, _)) = &comment_after {
+                    if !content.starts_with("/*") {
+                        // It's a line comment, consume the newline
+                        self.match_token(&TokenType::Newline);
+                    }
+                }
+
+                let comment = ArgumentComment {
+                    before: comment_before,
+                    after: comment_after,
+                };
                 Ok(Argument::Named(name, value, comment))
             } else {
                 // This is a bare argument starting with an identifier
                 let expr = self.expression()?;
 
                 // Capture comment immediately after the expression
-                let comment_after = self.skip_newlines_and_capture_comment();
-                let comment = comment_before.or(comment_after);
+                let comment_after = self.capture_comment_preserve_newlines();
+
+                // If we captured a line comment, consume the newline after it
+                if let Some((content, _)) = &comment_after {
+                    if !content.starts_with("/*") {
+                        // It's a line comment, consume the newline
+                        self.match_token(&TokenType::Newline);
+                    }
+                }
+
+                let comment = ArgumentComment {
+                    before: comment_before,
+                    after: comment_after,
+                };
                 Ok(Argument::Bare(expr, comment))
             }
         } else {
@@ -340,59 +425,22 @@ impl Parser {
             let expr = self.expression()?;
 
             // Capture comment immediately after the expression
-            let comment_after = self.skip_newlines_and_capture_comment();
-            let comment = comment_before.or(comment_after);
+            let comment_after = self.capture_comment_preserve_newlines();
+
+            // If we captured a line comment, consume the newline after it
+            if let Some((content, _)) = &comment_after {
+                if !content.starts_with("/*") {
+                    // It's a line comment, consume the newline
+                    self.match_token(&TokenType::Newline);
+                }
+            }
+
+            let comment = ArgumentComment {
+                before: comment_before,
+                after: comment_after,
+            };
             Ok(Argument::Bare(expr, comment))
         }
-    }
-
-    /// Handles comments that appear after a comma in function arguments
-    fn handle_post_comma_comments(&mut self, args: &mut Vec<Argument>, is_multiline: &mut bool) -> Result<(), VeltranoError> {
-        // After comma, check for either inline comment or standalone comment
-        // First check for immediate inline comment (no newlines)
-        if let Some(inline_comment) = self.capture_comment_preserve_newlines() {
-            // This is an inline comment - assign to previous argument
-            if let Some(last_arg) = args.last_mut() {
-                match last_arg {
-                    Argument::Bare(_, ref mut existing_comment) => {
-                        if existing_comment.is_none() {
-                            *existing_comment = Some(inline_comment);
-                        }
-                    }
-                    Argument::Named(_, _, ref mut existing_comment) => {
-                        if existing_comment.is_none() {
-                            *existing_comment = Some(inline_comment);
-                        }
-                    }
-                    Argument::Shorthand(_, ref mut existing_comment) => {
-                        if existing_comment.is_none() {
-                            *existing_comment = Some(inline_comment);
-                        }
-                    }
-                    Argument::StandaloneComment(_, _) => {
-                        // Standalone comments can't have inline comments attached
-                    }
-                }
-            }
-        } else {
-            // No inline comment found, check for standalone comment after newlines
-            // Skip newlines only (preserve comments)
-            let had_newlines = self.skip_newlines_only();
-            if had_newlines {
-                *is_multiline = true;
-
-                // Now check if there's a standalone comment
-                if let Some(standalone_comment) =
-                    self.try_parse_standalone_comment()
-                {
-                    args.push(Argument::StandaloneComment(
-                        standalone_comment.0,
-                        standalone_comment.1,
-                    ));
-                }
-            }
-        }
-        Ok(())
     }
 
     fn primary(&mut self) -> Result<LocatedExpr, VeltranoError> {
@@ -453,10 +501,10 @@ impl Parser {
         if self.match_token(&TokenType::LeftParen) {
             let _start = self.previous();
             let expr = self.expression()?;
-            
+
             // Skip any comments before the closing parenthesis
             self.skip_newlines_and_comments();
-            
+
             let _end = self.consume(&TokenType::RightParen, "Expected ')' after expression")?;
             // For parenthesized expressions, use the span of the inner expression
             return Ok(expr);
@@ -481,7 +529,7 @@ impl Parser {
             // Look ahead to see if we have an operator (possibly after comments)
             let mut lookahead_pos = self.current;
             let mut comment_count = 0;
-            
+
             // Count comments while looking for operator
             while lookahead_pos < self.tokens.len() {
                 match &self.tokens[lookahead_pos].token_type {
@@ -492,31 +540,33 @@ impl Parser {
                     _ => break,
                 }
             }
-            
+
             // Check if we have one of the expected operators at the lookahead position
             let mut found_operator = false;
             if lookahead_pos < self.tokens.len() {
                 for token_type in operators {
-                    if std::mem::discriminant(&self.tokens[lookahead_pos].token_type) == std::mem::discriminant(token_type) {
+                    if std::mem::discriminant(&self.tokens[lookahead_pos].token_type)
+                        == std::mem::discriminant(token_type)
+                    {
                         found_operator = true;
                         break;
                     }
                 }
             }
-            
+
             if !found_operator {
                 // No operator found, we're done with this precedence level
                 // Don't consume any comments - they belong to a higher level
                 break;
             }
-            
+
             // Now we know this operator belongs to us, so consume any comments before it
             let comment_after_left = if comment_count > 0 {
                 self.capture_comment_preserve_newlines()
             } else {
                 None
             };
-            
+
             // Skip any remaining comments before the operator
             while matches!(
                 self.peek().token_type,
@@ -524,14 +574,14 @@ impl Parser {
             ) {
                 self.advance();
             }
-            
+
             // Now consume the operator
             self.advance();
             let operator = map_operator(&self.previous().token_type);
-            
+
             // Capture any comments after the operator
             let comment_after_operator = self.capture_comment_preserve_newlines();
-            
+
             // Skip newlines for multi-line expressions
             self.skip_newlines_only();
 
@@ -579,7 +629,11 @@ impl Parser {
     }
 
     /// Parses a method call
-    fn parse_method_call(&mut self, object: LocatedExpr, method: String) -> Result<LocatedExpr, VeltranoError> {
+    fn parse_method_call(
+        &mut self,
+        object: LocatedExpr,
+        method: String,
+    ) -> Result<LocatedExpr, VeltranoError> {
         self.advance(); // consume '('
 
         let mut args = Vec::new();

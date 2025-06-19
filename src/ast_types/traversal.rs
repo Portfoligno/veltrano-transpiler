@@ -45,7 +45,6 @@ pub trait ExprExt {
         F: Fn(&LocatedExpr) -> bool;
 }
 
-
 impl ExprExt for LocatedExpr {
     fn walk<F, E>(&self, visitor: &mut F) -> Result<(), E>
     where
@@ -253,7 +252,6 @@ pub trait StmtExt {
     /// Returns true if the statement or any sub-statement contains a return.
     fn can_exit_early(&self) -> bool;
 }
-
 
 impl StmtExt for Stmt {
     fn walk<F, E>(&self, visitor: &mut F) -> Result<(), E>

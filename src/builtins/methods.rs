@@ -9,7 +9,7 @@ use std::collections::HashMap;
 /// Register all built-in methods
 pub fn register_builtin_methods() -> HashMap<String, Vec<BuiltinMethodKind>> {
     let mut methods = HashMap::new();
-    
+
     // Helper closure to register a method
     let mut register = |method_name: &str, method_kind: BuiltinMethodKind| {
         methods
@@ -88,6 +88,6 @@ pub fn register_builtin_methods() -> HashMap<String, Vec<BuiltinMethodKind>> {
             return_type_strategy: MethodReturnTypeStrategy::RefSemantics,
         },
     );
-    
+
     methods
 }

@@ -1,11 +1,11 @@
 //! Parser utility functions for token manipulation and common operations
 
+use super::Parser;
 use crate::ast::Stmt;
 use crate::ast_types::{CommentStmt, Located, LocatedExpr};
 use crate::comments::{Comment, CommentStyle};
 use crate::error::{SourceLocation, Span, VeltranoError};
 use crate::lexer::{Token, TokenType};
-use super::Parser;
 use nonempty::NonEmpty;
 
 impl Parser {
@@ -18,7 +18,12 @@ impl Parser {
     }
 
     /// Create a Located expression with span from start to end tokens
-    pub(super) fn _located_expr_span(&self, expr: crate::ast::Expr, start: &Token, end: &Token) -> LocatedExpr {
+    pub(super) fn _located_expr_span(
+        &self,
+        expr: crate::ast::Expr,
+        start: &Token,
+        end: &Token,
+    ) -> LocatedExpr {
         Located::new(
             expr,
             Span::new(
@@ -61,7 +66,11 @@ impl Parser {
     }
 
     /// Consume a token of the expected type or return an error
-    pub(super) fn consume(&mut self, token_type: &TokenType, message: &str) -> Result<&Token, VeltranoError> {
+    pub(super) fn consume(
+        &mut self,
+        token_type: &TokenType,
+        message: &str,
+    ) -> Result<&Token, VeltranoError> {
         if self.check(token_type) {
             Ok(self.advance())
         } else {
@@ -220,17 +229,6 @@ impl Parser {
     /// This is used for method chains where we need to preserve statement boundaries
     pub(super) fn capture_comment_preserve_newlines(&mut self) -> Option<(String, String)> {
         // Only capture comment if it's immediately present (no newlines before it)
-        match &self.peek().token_type {
-            TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _) => {
-                self.parse_inline_comment()
-            }
-            _ => None,
-        }
-    }
-
-    /// Try to parse a standalone comment
-    pub(super) fn try_parse_standalone_comment(&mut self) -> Option<(String, String)> {
-        // Check if there's a comment token immediately at current position
         match &self.peek().token_type {
             TokenType::LineComment(_, _, _) | TokenType::BlockComment(_, _, _) => {
                 self.parse_inline_comment()

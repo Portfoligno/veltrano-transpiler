@@ -6,11 +6,11 @@
 //! - Container types (Box, Vec, Array, Option, Result)
 //! - Custom types
 
+use super::Parser;
 use crate::ast_types::Located;
 use crate::error::{SourceLocation, Span, VeltranoError};
 use crate::lexer::TokenType;
 use crate::types::VeltranoType;
-use super::Parser;
 
 impl Parser {
     pub(super) fn parse_type(&mut self) -> Result<Located<VeltranoType>, VeltranoError> {
@@ -128,4 +128,3 @@ impl Parser {
         Ok(VeltranoType::result(ok_type.node, err_type.node))
     }
 }
-
