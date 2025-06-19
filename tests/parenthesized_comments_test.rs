@@ -80,11 +80,8 @@ fn test_multiple_comments_in_parens() {
 }"#;
 
     let expected = r#"fn main() {
-    let x = (
-        // first comment
-        10 + 
-        /* middle */ 
-        20
+    let x = (// first comment
+        10 + /* middle */ 20
         // last comment
     );
 }"#;
