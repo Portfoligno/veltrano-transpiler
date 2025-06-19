@@ -7,6 +7,8 @@
 pub mod types;
 // Function registration module
 mod functions;
+// Method registration module
+mod methods;
 
 // Re-export all types for convenience
 pub use types::*;
@@ -23,98 +25,13 @@ pub struct BuiltinRegistry {
 
 impl BuiltinRegistry {
     pub fn new() -> Self {
-        let mut registry = Self {
+        Self {
             functions: functions::register_builtin_functions(),
-            methods: HashMap::new(),
-        };
-
-        registry.register_builtin_methods();
-
-        registry
+            methods: methods::register_builtin_methods(),
+        }
     }
 
 
-    /// Register built-in methods
-    fn register_builtin_methods(&mut self) {
-        // Universal trait methods - signature information will be looked up dynamically
-        self.register_method(
-            "clone",
-            BuiltinMethodKind::TraitMethod {
-                method_name: "clone".to_string(),
-                required_trait: "Clone".to_string(),
-            },
-        );
-
-        self.register_method(
-            "toString",
-            BuiltinMethodKind::TraitMethod {
-                method_name: "toString".to_string(),
-                required_trait: "ToString".to_string(),
-            },
-        );
-
-        // Reference creation methods (available on all appropriate types)
-        self.register_method(
-            "ref",
-            BuiltinMethodKind::SpecialMethod {
-                method_name: "ref".to_string(),
-                receiver_type_filter: TypeFilter::All,
-                parameters: vec![],
-                return_type_strategy: MethodReturnTypeStrategy::RefSemantics,
-            },
-        );
-
-        self.register_method(
-            "mutRef",
-            BuiltinMethodKind::SpecialMethod {
-                method_name: "mutRef".to_string(),
-                receiver_type_filter: TypeFilter::All, // Allow .mutRef() on any type
-                parameters: vec![],
-                return_type_strategy: MethodReturnTypeStrategy::MutRefToReceiver,
-            },
-        );
-
-        // Special methods
-        self.register_method(
-            "toSlice",
-            BuiltinMethodKind::SpecialMethod {
-                method_name: "toSlice".to_string(),
-                receiver_type_filter: TypeFilter::TypeConstructors(vec![TypeConstructor::Vec]),
-                parameters: vec![],
-                return_type_strategy: MethodReturnTypeStrategy::RefToReceiver,
-            },
-        );
-
-        // Other common methods
-        self.register_method(
-            "length",
-            BuiltinMethodKind::SpecialMethod {
-                method_name: "length".to_string(),
-                receiver_type_filter: TypeFilter::All, // Available on all types for now
-                parameters: vec![],
-                return_type_strategy: MethodReturnTypeStrategy::FixedType(VeltranoType::i64()),
-            },
-        );
-
-        // Bump allocation methods (available on all types)
-        self.register_method(
-            "bumpRef",
-            BuiltinMethodKind::SpecialMethod {
-                method_name: "bumpRef".to_string(),
-                receiver_type_filter: TypeFilter::All,
-                parameters: vec![],
-                return_type_strategy: MethodReturnTypeStrategy::RefSemantics,
-            },
-        );
-    }
-
-    /// Helper to register a method
-    fn register_method(&mut self, method_name: &str, method_kind: BuiltinMethodKind) {
-        self.methods
-            .entry(method_name.to_string())
-            .or_insert_with(Vec::new)
-            .push(method_kind);
-    }
 
     /// Check if a function is a Rust macro (skips type checking)
     pub fn is_rust_macro(&self, name: &str) -> bool {
