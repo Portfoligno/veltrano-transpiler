@@ -1,4 +1,4 @@
-// Expected error: VariableNotFound
+// Expected error: Variable 'unknown_var' not found
 // This example demonstrates error reporting with multiple errors
 
 fun main() {

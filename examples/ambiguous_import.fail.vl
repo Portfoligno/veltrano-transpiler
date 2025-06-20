@@ -1,4 +1,4 @@
-// Expected error: AmbiguousMethodCall
+// Expected error: Ambiguous method call
 // This example should FAIL type checking with an ambiguous method call error
 
 // Import the same method (new) from Vec twice with same alias

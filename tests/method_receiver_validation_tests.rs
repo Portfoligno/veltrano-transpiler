@@ -113,15 +113,12 @@ fn test_clone_fails_on_owned_types() {
         "Own<T>.clone() should fail - explicit conversion required"
     );
 
-    if let Err(errors) = result {
-        let has_method_not_found = errors.iter().any(|err| {
-            matches!(
-                err,
-                veltrano::TypeCheckError::MethodNotFound { .. }
-                    | veltrano::TypeCheckError::_MethodNotFoundWithSuggestion { .. }
-            )
-        });
-        assert!(has_method_not_found, "Should have method not found error");
+    if let Err(error) = result {
+        assert!(
+            matches!(error.kind, veltrano::error::ErrorKind::InvalidMethodCall),
+            "Should have method not found error, got: {:?}",
+            error
+        );
     }
 }
 
@@ -143,12 +140,9 @@ fn test_tostring_fails_on_owned_display_types() {
     // This test might pass or fail depending on how Own<I64> is created
     // The key point is that if it fails, it should be due to method not found on Own<I64>
     if result.is_err() {
-        if let Err(errors) = result {
-            let has_method_not_found = errors
-                .iter()
-                .any(|err| matches!(err, veltrano::TypeCheckError::MethodNotFound { .. }));
+        if let Err(error) = result {
             // If it fails, it should be due to method not found, not other reasons
-            if has_method_not_found {
+            if matches!(error.kind, veltrano::error::ErrorKind::InvalidMethodCall) {
                 println!("Correctly rejected Own<I64>.toString() - explicit conversion required");
             }
         }

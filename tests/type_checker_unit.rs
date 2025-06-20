@@ -44,18 +44,13 @@ fn test_type_mismatch_detection() {
         "Type checking should fail for type mismatch"
     );
 
-    if let Err(errors) = result {
-        assert!(!errors.is_empty(), "Should have at least one type error");
-
+    if let Err(error) = result {
         // Check that we have a type mismatch error
-        let has_type_mismatch = errors.iter().any(|err| {
-            matches!(
-                err,
-                TypeCheckError::TypeMismatch { .. }
-                    | TypeCheckError::_TypeMismatchWithSuggestion { .. }
-            )
-        });
-        assert!(has_type_mismatch, "Should have a type mismatch error");
+        assert!(
+            matches!(error.kind, veltrano::error::ErrorKind::TypeMismatch),
+            "Should have a type mismatch error, got: {:?}",
+            error
+        );
     }
 }
 
@@ -77,11 +72,12 @@ fn test_variable_not_found() {
         "Type checking should fail for undefined variable"
     );
 
-    if let Err(errors) = result {
-        let has_var_not_found = errors
-            .iter()
-            .any(|err| matches!(err, TypeCheckError::VariableNotFound { .. }));
-        assert!(has_var_not_found, "Should have a variable not found error");
+    if let Err(error) = result {
+        assert!(
+            matches!(error.kind, veltrano::error::ErrorKind::UndefinedVariable),
+            "Should have a variable not found error, got: {:?}",
+            error
+        );
     }
 }
 
@@ -103,10 +99,8 @@ fn test_ref_method_conversion() {
     };
     let result = common::parse_and_type_check(code, config).map(|_| ());
 
-    if let Err(errors) = &result {
-        for error in errors {
-            eprintln!("Type check error: {:?}", error);
-        }
+    if let Err(error) = &result {
+        eprintln!("Type check error: {:?}", error);
     }
     assert!(
         result.is_ok(),
@@ -183,17 +177,11 @@ fn test_shorthand_argument_type_checking() {
         "Type checking should fail for shorthand argument with wrong type"
     );
 
-    if let Err(errors) = result {
-        let has_type_mismatch = errors.iter().any(|err| {
-            matches!(
-                err,
-                TypeCheckError::TypeMismatch { .. }
-                    | TypeCheckError::_TypeMismatchWithSuggestion { .. }
-            )
-        });
+    if let Err(error) = result {
         assert!(
-            has_type_mismatch,
-            "Should have a type mismatch error for shorthand argument"
+            matches!(error.kind, veltrano::error::ErrorKind::TypeMismatch),
+            "Should have a type mismatch error for shorthand argument, got: {:?}",
+            error
         );
     }
 }
@@ -219,13 +207,11 @@ fn test_shorthand_argument_field_not_found() {
         "Type checking should fail for shorthand argument with undefined field"
     );
 
-    if let Err(errors) = result {
-        let has_field_not_found = errors
-            .iter()
-            .any(|err| matches!(err, TypeCheckError::FieldNotFound { .. }));
+    if let Err(error) = result {
         assert!(
-            has_field_not_found,
-            "Should have a field not found error for shorthand argument"
+            matches!(error.kind, veltrano::error::ErrorKind::TypeError),
+            "Should have a field not found error for shorthand argument, got: {:?}",
+            error
         );
     }
 }

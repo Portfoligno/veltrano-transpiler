@@ -26,10 +26,8 @@ fn test_chained_ref_conversions() {
     };
     let result = parse_and_type_check(code, config).map(|_| ());
 
-    if let Err(errors) = &result {
-        for error in errors {
-            eprintln!("Type check error: {:?}", error);
-        }
+    if let Err(error) = &result {
+        eprintln!("Type check error: {:?}", error);
     }
 
     assert!(result.is_ok(), "Chained .ref() conversions should work");
@@ -53,10 +51,8 @@ fn test_mutref_conversion() {
     };
     let result = parse_and_type_check(code, config).map(|_| ());
 
-    if let Err(errors) = &result {
-        for error in errors {
-            eprintln!("Type check error: {:?}", error);
-        }
+    if let Err(error) = &result {
+        eprintln!("Type check error: {:?}", error);
     }
 
     assert!(result.is_ok(), "MutRef conversion should work");
@@ -81,10 +77,8 @@ fn test_mutref_to_immutable_conversion() {
     };
     let result = parse_and_type_check(code, config).map(|_| ());
 
-    if let Err(errors) = &result {
-        for error in errors {
-            eprintln!("Type check error: {:?}", error);
-        }
+    if let Err(error) = &result {
+        eprintln!("Type check error: {:?}", error);
     }
 
     assert!(result.is_ok(), "MutRef to immutable conversion should work");
@@ -185,10 +179,8 @@ fn test_comprehensive_type_combinations() {
     };
     let result = parse_and_type_check(code, config).map(|_| ());
 
-    if let Err(errors) = &result {
-        for error in errors {
-            eprintln!("Type check error: {:?}", error);
-        }
+    if let Err(error) = &result {
+        eprintln!("Type check error: {:?}", error);
     }
 
     assert!(

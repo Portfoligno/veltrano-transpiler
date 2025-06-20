@@ -204,11 +204,11 @@ fn test_imported_method_permissive_behavior() {
         "Imported methods should be type-checked and fail when types don't match"
     );
 
-    if let Err(errors) = result {
-        let error_message = format!("{:?}", errors);
+    if let Err(error) = result {
         assert!(
-            error_message.contains("MethodNotFound"),
-            "Should have method not found error"
+            matches!(error.kind, veltrano::error::ErrorKind::InvalidMethodCall),
+            "Should have method not found error, got: {:?}",
+            error
         );
     }
 }
@@ -260,11 +260,11 @@ fn test_method_not_found_unified() {
     let result = parse_and_type_check(code, config);
     assert!(result.is_err(), "Non-existent methods should be rejected");
 
-    if let Err(errors) = result {
-        let error_message = format!("{:?}", errors);
+    if let Err(error) = result {
         assert!(
-            error_message.contains("MethodNotFound"),
-            "Should have method not found error"
+            matches!(error.kind, veltrano::error::ErrorKind::InvalidMethodCall),
+            "Should have method not found error, got: {:?}",
+            error
         );
     }
 }

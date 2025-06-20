@@ -6,6 +6,7 @@ use veltrano::{
     ast::Program,
     codegen::CodeGenerator,
     config::Config,
+    error::VeltranoError,
     lexer::Lexer,
     parser::Parser,
     type_checker::{TypeCheckError, VeltranoTypeChecker},
@@ -113,17 +114,29 @@ pub fn parse_and_type_check(
         Program,
         std::collections::HashMap<usize, veltrano::type_checker::MethodResolution>,
     ),
-    Vec<TypeCheckError>,
+    VeltranoError,
 > {
     let program = parse_veltrano_code(code, config).map_err(|e| {
-        vec![TypeCheckError::VariableNotFound {
-            name: format!("Parse error: {}", e),
-            location: default_source_location(),
-        }]
+        VeltranoError::new(
+            veltrano::error::ErrorKind::SyntaxError,
+            format!("Parse error: {}", e),
+        )
     })?;
 
     let mut type_checker = VeltranoTypeChecker::new();
-    type_checker.check_program(&program)?;
+    type_checker.check_program(&program).map_err(|errors| {
+        // Convert the first TypeCheckError to VeltranoError
+        errors
+            .into_iter()
+            .next()
+            .map(Into::into)
+            .unwrap_or_else(|| {
+                VeltranoError::new(
+                    veltrano::error::ErrorKind::TypeError,
+                    "Unknown type checking error",
+                )
+            })
+    })?;
     let resolutions = type_checker.get_method_resolutions().clone();
 
     Ok((program, resolutions))
@@ -137,7 +150,8 @@ pub fn transpile(code: &str, ctx: &TestContext) -> Result<String, String> {
             std::collections::HashMap::new(),
         )
     } else {
-        parse_and_type_check(code, ctx.config.clone()).map_err(format_type_check_errors)?
+        parse_and_type_check(code, ctx.config.clone())
+            .map_err(|e| format!("{}: {}", e.kind, e.message))?
     };
 
     Ok(generate_rust_code(
@@ -177,11 +191,6 @@ fn build_diff_error_message(context: &str, expected_rust: &str, actual_rust: &st
     }
 
     error_msg
-}
-
-/// Helper to create a default source location for error handling
-fn default_source_location() -> veltrano::error::SourceLocation {
-    veltrano::error::SourceLocation::new(0, 0)
 }
 
 /// Helper function to separate imports from code
@@ -389,8 +398,8 @@ pub fn assert_transpilation_output(
 pub fn assert_type_check_error(code: &str, ctx: &TestContext) -> Result<String, String> {
     match parse_and_type_check(code, ctx.config.clone()) {
         Ok(_) => Err("Expected type checking to fail, but it succeeded".to_string()),
-        Err(errors) => {
-            let error_message = format_type_check_errors(errors);
+        Err(error) => {
+            let error_message = format!("{}: {}", error.kind, error.message);
             match &ctx.expected_error {
                 Some(expected) if error_message.contains(expected) => Ok(error_message),
                 Some(expected) => Err(format!(
