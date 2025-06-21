@@ -1,0 +1,5 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: content
+---
+let x = 42; // important

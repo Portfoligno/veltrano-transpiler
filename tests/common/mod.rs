@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+pub mod snapshot_utils;
+
 use std::fs;
 use std::process::Command;
 use veltrano::{

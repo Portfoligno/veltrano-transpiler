@@ -1,0 +1,9 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: "format!(\"=== INPUT (Veltrano) ===\\n{}\\n\\n=== OUTPUT (Rust) ===\\n{}\",\nveltrano_code, rust_output)"
+---
+=== INPUT (Veltrano) ===
+val x = 42
+
+=== OUTPUT (Rust) ===
+let x = 42;

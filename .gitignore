@@ -16,3 +16,6 @@
 # Claude Code artifacts
 /.claude
 
+# Snapshot testing
+*.snap.new
+
