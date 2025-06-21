@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 pub mod snapshot_utils;
+pub mod error_assertions;
 
 use std::fs;
 use std::process::Command;
@@ -82,7 +83,7 @@ impl TestContext {
 }
 
 /// Shared utility to parse Veltrano code into an AST
-fn parse_veltrano_code(code: &str, config: Config) -> Result<Program, VeltranoError> {
+pub fn parse_veltrano_code(code: &str, config: Config) -> Result<Program, VeltranoError> {
     let mut lexer = Lexer::with_config(code.to_string(), config);
     let tokens = lexer.tokenize();
 
