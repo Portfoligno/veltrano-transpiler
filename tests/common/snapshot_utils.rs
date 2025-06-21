@@ -35,7 +35,7 @@ pub fn assert_error_snapshot(name: &str, error: &dyn std::fmt::Display) {
 
 /// Helper for config-specific snapshots
 pub fn assert_config_snapshot(base_name: &str, config_name: &str, content: &str) {
-    let snapshot_name = format!("{}_{}", base_name, config_name);
+    let snapshot_name = format!("{}.{}", base_name, config_name);
     with_settings(|| {
         assert_snapshot!(snapshot_name, content);
     });

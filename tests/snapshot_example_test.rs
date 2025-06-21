@@ -1,6 +1,7 @@
 //! Example test demonstrating snapshot testing
 
 mod common;
+mod test_configs;
 
 use common::{transpile, TestContext};
 use common::snapshot_utils::{assert_transpiler_snapshot, assert_error_snapshot};
@@ -37,22 +38,15 @@ fn test_parse_error_snapshot() {
 #[test]
 fn test_config_specific_snapshot() {
     use common::snapshot_utils::assert_config_snapshot;
+    use test_configs::test_configs;
     
     let veltrano_code = "val x = 42 // important";
+    let configs = test_configs();
     
-    // Test with comments preserved
-    let ctx_with = TestContext::with_config(Config {
-        preserve_comments: true,
-    });
-    let output_with = transpile(veltrano_code, &ctx_with)
-        .expect("Transpilation should succeed");
-    assert_config_snapshot("val_with_comment", "preserve", &output_with);
-    
-    // Test without comments
-    let ctx_without = TestContext::with_config(Config {
-        preserve_comments: false,
-    });
-    let output_without = transpile(veltrano_code, &ctx_without)
-        .expect("Transpilation should succeed");
-    assert_config_snapshot("val_with_comment", "strip", &output_without);
+    for (config_key, config) in configs {
+        let ctx = TestContext::with_config(config);
+        let output = transpile(veltrano_code, &ctx)
+            .expect("Transpilation should succeed");
+        assert_config_snapshot("val_with_comment", config_key, &output);
+    }
 }
