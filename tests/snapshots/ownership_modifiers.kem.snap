@@ -1,0 +1,9 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: content
+---
+let a = "hello";
+let b = &a;
+let c = &mut a;
+let d: i64 = 42;
+let e = &d;

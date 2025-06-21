@@ -1,0 +1,15 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: content
+---
+fn check__sign(x: i64) {
+    if x > 0 {
+        return "positive";
+    }
+    else     if x < 0 {
+        return "negative";
+    }
+    else {
+        return "zero";
+    }
+}

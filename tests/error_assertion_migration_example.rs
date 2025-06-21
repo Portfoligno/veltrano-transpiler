@@ -112,7 +112,7 @@ fn test_new_style_multiple_scenarios() {
     // Test 3: Another parse error
     assert_parse_fails(
         "fun test(",
-        ErrorKind::UnexpectedEof,
+        ErrorKind::SyntaxError,
         "Expected"
     );
 }

@@ -1,0 +1,28 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: content
+---
+fn count_down(n: i64) {
+    if n > 0 {
+        println!("Starting countdown from {}", n);
+    }
+    println!("Liftoff!");
+}
+fn check_number(n: i64) {
+    if n > 0 {
+        println!("{} is positive", n);
+    }
+    else     if n < 0 {
+        println!("{} is negative", n);
+    }
+    else {
+        println!("{} is zero", n);
+    }
+}
+fn main() {
+    count_down(5);
+    println!("");
+    check_number(42);
+    check_number(-7);
+    check_number(0);
+}

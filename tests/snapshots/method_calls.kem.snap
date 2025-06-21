@@ -1,0 +1,8 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: content
+---
+let text = "hello";
+let text__ref = &text;
+let number = 42;
+let num__string = ToString::to_string(number);

@@ -1,0 +1,12 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: content
+---
+fn check__value(x: i64) {
+    if x > 0 {
+        return x * 2;
+    }
+    else {
+        return 0;
+    }
+}

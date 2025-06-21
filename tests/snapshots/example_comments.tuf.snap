@@ -1,0 +1,10 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: content
+---
+fn main() {
+    let message: &str = "Hello, World!";
+    println!("{}", message);
+    let number: i64 = 42;
+    println!("{}", number);
+}

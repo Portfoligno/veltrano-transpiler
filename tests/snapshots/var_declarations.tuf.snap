@@ -1,0 +1,7 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: content
+---
+let count = 0;
+let message = "initial";
+let flag = false;
