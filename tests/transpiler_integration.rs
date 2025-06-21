@@ -73,13 +73,11 @@ fn test_readme_examples() {
         let config = Config {
             preserve_comments: true,
         };
-        if let Err(error) = assert_transpilation_match(
+        assert_transpilation_match(
             &veltrano_code,
             &expected_rust,
             &TestContext::with_config(config),
-        ) {
-            panic!("README example failed: {}", error);
-        }
+        );
     }
 }
 
@@ -573,16 +571,14 @@ fn test_own_value_type_validation() {
         r#"fun main() { val x: Own<I64> = 42 }"#,
         &TestContext::with_config(config.clone())
             .expect_error("Cannot use Own<I64>. Types that implement Copy are always owned by default and don't need the Own<> wrapper."),
-    )
-    .expect("Own<I64> should be rejected");
+    );
 
     // Test that Own<Bool> is rejected
     assert_type_check_error(
         r#"fun main() { val flag: Own<Bool> = true }"#,
         &TestContext::with_config(config.clone())
             .expect_error("Types that implement Copy are always owned by default and don't need the Own<> wrapper."),
-    )
-    .expect("Own<Bool> should be rejected");
+    );
 
     // Test that Own<String> is accepted
     transpile(
@@ -595,8 +591,7 @@ fn test_own_value_type_validation() {
     assert_type_check_error(
         r#"fun main() { val x: Own<MutRef<String>> = something }"#,
         &TestContext::with_config(config.clone()).expect_error("MutRef<T> is already owned"),
-    )
-    .expect("Own<MutRef<T>> should be rejected");
+    );
 
     // Test that Own<Box<T>> is accepted (Box is no longer rejected)
     // Just test that the type is valid by using a declaration without initialization
@@ -611,8 +606,7 @@ fn test_own_value_type_validation() {
         r#"fun main() { val x: Own<Own<String>> = something }"#,
         &TestContext::with_config(config)
             .expect_error("Cannot use Own<Own<T>>. This creates double ownership."),
-    )
-    .expect("Own<Own<T>> should be rejected");
+    );
 }
 
 #[test]
@@ -665,15 +659,10 @@ fn test_fail_examples() {
         let config = Config {
             preserve_comments: false,
         };
-        if let Err(error) = assert_parse_or_type_check_error(
+        assert_parse_or_type_check_error(
             &veltrano_code,
             &TestContext::with_config(config).expect_error(expected_error),
-        ) {
-            panic!(
-                "Parse failure validation failed for {}: {}",
-                fail_file, error
-            );
-        }
+        );
     }
 }
 
@@ -910,8 +899,7 @@ fn test_double_minus_forbidden() {
     assert_parse_error(
         r#"fun main() { val bad = --5 }"#,
         &TestContext::with_config(config).expect_error("Double minus (--) is not allowed"),
-    )
-    .expect("Double minus should be forbidden");
+    );
 }
 
 #[test]
@@ -1542,17 +1530,12 @@ fn test_expected_outputs() {
 
         // Test transpilation against expected output
         let context = format!("File: {}, Config: {}", expected_filename, config_key);
-        if let Err(error) = assert_transpilation_output(
+        assert_transpilation_output(
             &veltrano_code,
             &expected_rust,
             &TestContext::with_config(config),
             &context,
-        ) {
-            panic!(
-                "Output mismatch for {} with config '{}': {}",
-                base_name, config_key, error
-            );
-        }
+        );
     }
 
     // Print summary if no expected files found

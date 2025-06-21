@@ -335,18 +335,19 @@ pub fn compile_rust_code(rust_code: &str, ctx: &TestContext) -> Result<(), Strin
 }
 
 /// Helper to assert parsing fails with optional specific error message
-pub fn assert_parse_error(code: &str, ctx: &TestContext) -> Result<VeltranoError, String> {
+pub fn assert_parse_error(code: &str, ctx: &TestContext) -> VeltranoError {
     match parse_veltrano_code(code, ctx.config.clone()) {
-        Ok(_) => Err("Expected parsing to fail, but it succeeded".to_string()),
+        Ok(_) => panic!("Expected parsing to fail, but it succeeded"),
         Err(error) => {
             let error_string = error.to_string();
             match &ctx.expected_error {
-                Some(expected) if error_string.contains(expected) => Ok(error),
-                Some(expected) => Err(format!(
-                    "Expected error containing '{}', but got: '{}'",
-                    expected, error_string
-                )),
-                None => Ok(error),
+                Some(expected) if !error_string.contains(expected) => {
+                    panic!(
+                        "Expected error containing '{}', but got: '{}'",
+                        expected, error_string
+                    )
+                }
+                _ => error,
             }
         }
     }
@@ -357,18 +358,19 @@ pub fn assert_transpilation_match(
     veltrano_code: &str,
     expected_rust: &str,
     ctx: &TestContext,
-) -> Result<(), String> {
-    let actual_rust = transpile(veltrano_code, ctx)?;
+) {
+    let actual_rust = match transpile(veltrano_code, ctx) {
+        Ok(rust) => rust,
+        Err(e) => panic!("Transpilation failed: {}", e),
+    };
 
     // Compare with trimmed whitespace to handle trailing newlines
     if actual_rust.trim() != expected_rust.trim() {
-        return Err(format!(
+        panic!(
             "\nVeltrano code:\n{}\n\nExpected Rust:\n{}\n\nActual Rust:\n{}",
             veltrano_code, expected_rust, actual_rust
-        ));
+        );
     }
-
-    Ok(())
 }
 
 /// Helper to assert transpilation output with detailed diff reporting
@@ -377,34 +379,36 @@ pub fn assert_transpilation_output(
     expected_rust: &str,
     ctx: &TestContext,
     context: &str, // For error reporting (e.g., "file: example.vl, config: tuf")
-) -> Result<(), String> {
-    let actual_rust = transpile(veltrano_code, ctx)?;
+) {
+    let actual_rust = match transpile(veltrano_code, ctx) {
+        Ok(rust) => rust,
+        Err(e) => panic!("Transpilation failed: {}", e),
+    };
 
     // Compare output (trim to handle trailing newlines)
     if actual_rust.trim() != expected_rust.trim() {
-        return Err(build_diff_error_message(
+        panic!("{}", build_diff_error_message(
             context,
             expected_rust,
             &actual_rust,
         ));
     }
-
-    Ok(())
 }
 
 /// Helper to assert type checking fails with optional specific error message
-pub fn assert_type_check_error(code: &str, ctx: &TestContext) -> Result<String, String> {
+pub fn assert_type_check_error(code: &str, ctx: &TestContext) -> String {
     match parse_and_type_check(code, ctx.config.clone()) {
-        Ok(_) => Err("Expected type checking to fail, but it succeeded".to_string()),
+        Ok(_) => panic!("Expected type checking to fail, but it succeeded"),
         Err(error) => {
             let error_message = format!("{}: {}", error.kind, error.message);
             match &ctx.expected_error {
-                Some(expected) if error_message.contains(expected) => Ok(error_message),
-                Some(expected) => Err(format!(
-                    "Expected error containing '{}', but got: '{}'",
-                    expected, error_message
-                )),
-                None => Ok(error_message),
+                Some(expected) if !error_message.contains(expected) => {
+                    panic!(
+                        "Expected error containing '{}', but got: '{}'",
+                        expected, error_message
+                    )
+                }
+                _ => error_message,
             }
         }
     }
@@ -412,19 +416,20 @@ pub fn assert_type_check_error(code: &str, ctx: &TestContext) -> Result<String, 
 
 /// Helper to assert either parsing or type checking fails with optional specific error message
 /// This tries parsing first, and if that succeeds, tries type checking
-pub fn assert_parse_or_type_check_error(code: &str, ctx: &TestContext) -> Result<String, String> {
+pub fn assert_parse_or_type_check_error(code: &str, ctx: &TestContext) -> String {
     // First try parsing only
     match parse_veltrano_code(code, ctx.config.clone()) {
         Err(parse_error) => {
             // Parse failed - check if this matches expected error
             let error_string = parse_error.to_string();
             match &ctx.expected_error {
-                Some(expected) if error_string.contains(expected) => Ok(error_string),
-                Some(expected) => Err(format!(
-                    "Expected error containing '{}', but got: '{}'",
-                    expected, error_string
-                )),
-                None => Ok(error_string),
+                Some(expected) if !error_string.contains(expected) => {
+                    panic!(
+                        "Expected error containing '{}', but got: '{}'",
+                        expected, error_string
+                    )
+                }
+                _ => error_string,
             }
         }
         Ok(_) => {
