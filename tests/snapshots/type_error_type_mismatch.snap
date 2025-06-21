@@ -1,0 +1,5 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: "format!(\"{:#}\", error)"
+---
+2:25: type mismatch: Type mismatch: expected VeltranoType { constructor: String, args: [] }, found VeltranoType { constructor: I64, args: [] }

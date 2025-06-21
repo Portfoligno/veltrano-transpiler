@@ -1,0 +1,5 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: "format!(\"{:#}\", error)"
+---
+2:15: syntax error: Expected newline after statement at line 2, column 15, but found Identifier("x")

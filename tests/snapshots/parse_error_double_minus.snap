@@ -1,0 +1,5 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: "format!(\"{:#}\", error)"
+---
+1:10: syntax error: Double minus (--) is not allowed. Use -(-x) instead.

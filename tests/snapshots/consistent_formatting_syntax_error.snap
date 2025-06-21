@@ -1,0 +1,5 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: "format!(\"{:#}\", error)"
+---
+1:1: syntax error: Invalid character '#'

@@ -1,0 +1,5 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: "format!(\"{:#}\", error)"
+---
+1:8: type error: Cannot use Own<I64>. Types that implement Copy are always owned by default and don't need the Own<> wrapper.

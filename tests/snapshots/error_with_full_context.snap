@@ -1,0 +1,7 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: "format!(\"{:#}\", error)"
+---
+3:15: parse error: Expected closing parenthesis
+note: Opening parenthesis was here
+help: Add a closing ')' to match the opening '('

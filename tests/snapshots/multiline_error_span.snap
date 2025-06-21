@@ -1,0 +1,5 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: "format!(\"{:#}\", error)"
+---
+5:5: unexpected token: Expected Expected ')' after parameters, found Identifier("z")

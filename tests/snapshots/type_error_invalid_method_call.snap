@@ -1,0 +1,5 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: "format!(\"{:#}\", error)"
+---
+3:17: invalid method call: Method 'undefined_method' not found for type VeltranoType { constructor: I64, args: [] }

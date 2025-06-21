@@ -1,0 +1,5 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: "format!(\"{:#}\", error)"
+---
+2:33: unexpected token: Expected Expected '{' before function body, found Arrow

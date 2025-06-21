@@ -1,0 +1,5 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: "format!(\"{:#}\", error)"
+---
+1:8: type error: Cannot use Own<MutRef<T>>. MutRef<T> is already owned.
