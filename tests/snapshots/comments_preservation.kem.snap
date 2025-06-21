@@ -1,0 +1,12 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: content
+---
+// This is a top-level comment
+let x = 42; // inline comment
+/* Block comment
+   spans multiple lines */
+fn test() {
+    // Function comment
+    return x;
+}

@@ -1,0 +1,12 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: content
+---
+let x = 10;
+let y = 20;
+let eq = x == y;
+let ne = x != y;
+let lt = x < y;
+let gt = x > y;
+let le = x <= y;
+let ge = x >= y;

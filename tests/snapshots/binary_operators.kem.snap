@@ -1,0 +1,9 @@
+---
+source: tests/common/snapshot_utils.rs
+expression: content
+---
+let sum = 1 + 2;
+let diff = 10 - 5;
+let product = 3 * 4;
+let quotient = 20 / 5;
+let remainder = 17 % 5;
