@@ -80,12 +80,12 @@ impl TestContext {
 }
 
 /// Shared utility to parse Veltrano code into an AST
-fn parse_veltrano_code(code: &str, config: Config) -> Result<Program, String> {
+fn parse_veltrano_code(code: &str, config: Config) -> Result<Program, VeltranoError> {
     let mut lexer = Lexer::with_config(code.to_string(), config);
     let tokens = lexer.tokenize();
 
     let mut parser = Parser::new(tokens);
-    parser.parse().map_err(|e| e.to_string())
+    parser.parse()
 }
 
 /// Generate Rust code from an AST program with optional method resolutions
@@ -116,12 +116,7 @@ pub fn parse_and_type_check(
     ),
     VeltranoError,
 > {
-    let program = parse_veltrano_code(code, config).map_err(|e| {
-        VeltranoError::new(
-            veltrano::error::ErrorKind::SyntaxError,
-            format!("Parse error: {}", e),
-        )
-    })?;
+    let program = parse_veltrano_code(code, config)?;
 
     let mut type_checker = VeltranoTypeChecker::new();
     type_checker.check_program(&program).map_err(|errors| {
@@ -146,12 +141,12 @@ pub fn parse_and_type_check(
 pub fn transpile(code: &str, ctx: &TestContext) -> Result<String, String> {
     let (program, resolutions) = if ctx.skip_type_check {
         (
-            parse_veltrano_code(code, ctx.config.clone())?,
+            parse_veltrano_code(code, ctx.config.clone()).map_err(|e| e.to_string())?,
             std::collections::HashMap::new(),
         )
     } else {
         parse_and_type_check(code, ctx.config.clone())
-            .map_err(|e| format!("{}: {}", e.kind, e.message))?
+            .map_err(|e| e.to_string())?
     };
 
     Ok(generate_rust_code(
@@ -340,17 +335,20 @@ pub fn compile_rust_code(rust_code: &str, ctx: &TestContext) -> Result<(), Strin
 }
 
 /// Helper to assert parsing fails with optional specific error message
-pub fn assert_parse_error(code: &str, ctx: &TestContext) -> Result<String, String> {
+pub fn assert_parse_error(code: &str, ctx: &TestContext) -> Result<VeltranoError, String> {
     match parse_veltrano_code(code, ctx.config.clone()) {
         Ok(_) => Err("Expected parsing to fail, but it succeeded".to_string()),
-        Err(error) => match &ctx.expected_error {
-            Some(expected) if error.contains(expected) => Ok(error),
-            Some(expected) => Err(format!(
-                "Expected error containing '{}', but got: '{}'",
-                expected, error
-            )),
-            None => Ok(error),
-        },
+        Err(error) => {
+            let error_string = error.to_string();
+            match &ctx.expected_error {
+                Some(expected) if error_string.contains(expected) => Ok(error),
+                Some(expected) => Err(format!(
+                    "Expected error containing '{}', but got: '{}'",
+                    expected, error_string
+                )),
+                None => Ok(error),
+            }
+        }
     }
 }
 
@@ -419,13 +417,14 @@ pub fn assert_parse_or_type_check_error(code: &str, ctx: &TestContext) -> Result
     match parse_veltrano_code(code, ctx.config.clone()) {
         Err(parse_error) => {
             // Parse failed - check if this matches expected error
+            let error_string = parse_error.to_string();
             match &ctx.expected_error {
-                Some(expected) if parse_error.contains(expected) => Ok(parse_error),
+                Some(expected) if error_string.contains(expected) => Ok(error_string),
                 Some(expected) => Err(format!(
                     "Expected error containing '{}', but got: '{}'",
-                    expected, parse_error
+                    expected, error_string
                 )),
-                None => Ok(parse_error),
+                None => Ok(error_string),
             }
         }
         Ok(_) => {
