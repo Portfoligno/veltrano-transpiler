@@ -2,6 +2,8 @@
 
 This document identifies hard-coded numeric constants and string literals in the veltrano-transpiler codebase that could be extracted into named constants for better maintainability.
 
+**Last Updated:** June 2025 (Note: File structure has changed since original analysis)
+
 ## Summary
 
 The codebase contains several categories of hard-coded values:
@@ -14,9 +16,13 @@ The codebase contains several categories of hard-coded values:
 ## Numeric Constants
 
 ### 1. Indentation Constants
-**Current Usage:**
-- `src/lexer.rs:381,383` - Uses `4` for tracking indentation levels
-- `src/codegen.rs:492,527,674` - Uses `4` for generating indented output
+**Current Usage (Updated):**
+- `src/lexer.rs:381,383` - Uses `4` for tracking indentation levels ✓
+- `src/codegen/utils.rs:11` - Uses `"    "` (4 spaces) for indentation
+- `src/codegen/expressions.rs:126` - Also uses `"    "` hardcoded
+- Multiple other locations in codegen module
+
+**Note:** The original `codegen.rs` has been refactored into a module structure.
 
 **Recommendation:**
 ```rust
@@ -26,9 +32,11 @@ pub const INDENT_STR: &str = "    ";  // Pre-computed 4-space string
 ```
 
 ### 2. Default Version Numbers
-**Current Usage:**
-- `src/rust_interop/compiler.rs:466` - `"0.1.0"` as default crate version
-- `src/rust_interop/mod.rs:231` - `"1.0.0"` as default version
+**Current Usage (Updated):**
+- `src/rust_interop/syn_querier.rs:281` - `"0.1.0"` as default crate version
+- `src/rust_interop/stdlib_querier.rs:32` - `"1.0.0"` as default version
+
+**Note:** The `compiler.rs` file no longer exists in rust_interop.
 
 **Recommendation:**
 ```rust
@@ -69,8 +77,10 @@ These method names trigger special transpilation behavior and are critical to th
 **Current Recommendation:** Leave as-is until the type system integration plan is implemented.
 
 ### 4. Lifetime Annotations
-**Current Usage:**
-- `src/codegen.rs:613,668` - `"'a"` as default lifetime
+**Current Usage (Updated):**
+- `src/codegen/types.rs:29,81` - `"'a"` as default lifetime
+
+**Note:** Now located in the types submodule of codegen.
 
 **Recommendation:**
 ```rust
@@ -78,18 +88,19 @@ pub const DEFAULT_LIFETIME: &str = "'a";
 ```
 
 ### 5. Comment Markers
-**Current Usage:**
+**Current Usage (Updated):**
 - `src/lexer.rs` uses character-by-character parsing (clear in context, no extraction needed)
-- `src/codegen.rs` has 8 occurrences of comment markers as strings for output generation:
-  - `"//"` - 6 occurrences (lines 487, 522, 833, 949, 1223, 1245)
-  - `"/*"` - 1 occurrence (line 1219)
-  - `"*/"` - 1 occurrence (line 1221)
+- Comment markers now spread across codegen module:
+  - `src/codegen/comments.rs` - Multiple occurrences of `"//"`
+  - `src/codegen/expressions.rs` - Has `"//"`
+  - `src/codegen/formatting.rs` - Has `"//"`
+  - Multiple occurrences of `"/*"` and `"*/"` for block comments
 
 **Note:** The fact that Veltrano and Rust use the same comment syntax is coincidental. The lexer detects and strips comment markers during parsing, and codegen re-adds them during output.
 
-**Recommendation:** Since codegen has multiple occurrences, consider local constants within the codegen module only:
+**Recommendation:** Since codegen has multiple occurrences across submodules, consider constants at the module level:
 ```rust
-// Within codegen.rs (for string output)
+// Within codegen/mod.rs or a dedicated constants module
 const DOUBLE_SLASH: &str = "//";
 const SLASH_STAR: &str = "/*";
 const STAR_SLASH: &str = "*/";
@@ -102,19 +113,17 @@ const STAR_SLASH: &str = "*/";
 **Note:** Single occurrence in a clear context. No extraction needed.
 
 ### 7. Rust Syntax Elements
-**Current Usage in `src/codegen.rs`:**
-- `": "` - type annotation separator (6 occurrences: lines 252, 412, 700, 723, 763, 957)
-  - Used for parameter types, struct field types, variable type annotations
-- `", "` - parameter/argument separator (6 occurrences: lines 695, 748, 850, 1047, 1138, 1155)
-  - Used in function parameters, tuple elements, array elements
-- `"::"` - path separator (4 occurrences: lines 911, 1061, 1129, 1146)
-  - Used for module paths like `std::vec::Vec`
+**Current Usage (Updated):**
+These syntax elements are now spread across the codegen module:
+- `": "` - type annotation separator (multiple occurrences in types.rs, statements.rs)
+- `", "` - parameter/argument separator (expressions.rs, statements.rs, formatting.rs)
+- `"::"` - path separator (expressions.rs for module paths)
 
 **Note:** These are standard Rust syntax elements that are universally recognized and unlikely to change.
 
 **Recommendation:** Low priority - only extract if absolute consistency is desired:
 ```rust
-// Within codegen.rs (if needed for consistency)
+// Within codegen/mod.rs (if needed for consistency)
 const COLON_SPACE: &str = ": ";
 const COMMA_SPACE: &str = ", ";
 const DOUBLE_COLON: &str = "::";
@@ -147,24 +156,24 @@ Note: Excluded from extraction:
 
 ## Suggested Implementation Approach
 
-Instead of a central constants module, define constants locally in the modules where they're used:
+Given the refactored module structure, define constants at appropriate levels:
 
 ```rust
 // Within src/lexer.rs
 const SPACES_PER_INDENT: usize = 4;
 
-// Within src/codegen.rs
-const SPACES_PER_INDENT: usize = 4;
-const INDENT_STR: &str = "    ";
-const DEFAULT_LIFETIME: &str = "'a";
-const DOUBLE_SLASH: &str = "//";
-const SLASH_STAR: &str = "/*";
-const STAR_SLASH: &str = "*/";
+// Within src/codegen/mod.rs (for shared use across submodules)
+pub(crate) const SPACES_PER_INDENT: usize = 4;
+pub(crate) const INDENT_STR: &str = "    ";
+pub(crate) const DEFAULT_LIFETIME: &str = "'a";
+pub(crate) const DOUBLE_SLASH: &str = "//";
+pub(crate) const SLASH_STAR: &str = "/*";
+pub(crate) const STAR_SLASH: &str = "*/";
 
-// Within src/rust_interop/compiler.rs
+// Within src/rust_interop/syn_querier.rs
 const DEFAULT_CRATE_VERSION: &str = "0.1.0";
 
-// Within src/rust_interop/mod.rs
+// Within src/rust_interop/stdlib_querier.rs
 const DEFAULT_RUST_VERSION: &str = "1.0.0";
 ```
 
@@ -174,6 +183,15 @@ This approach:
 - Makes each module more self-contained
 - Allows different modules to have different values if needed
 
+## Structural Changes Since Original Analysis
+
+The codebase has undergone significant refactoring:
+- `codegen.rs` has been split into a module with submodules (expressions, statements, types, comments, formatting, utils)
+- `rust_interop/compiler.rs` no longer exists
+- Hardcoded values are now distributed across multiple files
+
+Despite these changes, the core findings remain valid - the same hardcoded values exist but in different locations.
+
 ## Conclusion
 
-While the codebase is generally well-structured, extracting these hard-coded values would improve maintainability and make the code more self-documenting. The highest priority should be given to values used in multiple locations (indentation constants) and configuration values (default versions). Using local constants rather than a central module keeps the code modular and avoids unnecessary dependencies.
+While the codebase is generally well-structured, extracting these hard-coded values would improve maintainability and make the code more self-documenting. The highest priority should be given to values used in multiple locations (indentation constants) and configuration values (default versions). The module structure changes make it even more important to have shared constants at the module level rather than duplicating strings across submodules.
