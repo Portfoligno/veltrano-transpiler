@@ -12,6 +12,9 @@ use crate::error::VeltranoError;
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 
+/// Default version for standard library
+const DEFAULT_RUST_VERSION: &str = "1.0.0";
+
 /// Standard library querier with minimal hardcoded knowledge
 /// This will be replaced with proper rustdoc parsing in the future
 #[derive(Debug)]
@@ -29,7 +32,7 @@ impl StdLibQuerier {
     fn create_std_crate_info() -> CrateInfo {
         let mut crate_info = CrateInfo {
             name: "std".to_string(),
-            version: "1.0.0".to_string(),
+            version: DEFAULT_RUST_VERSION.to_string(),
             functions: HashMap::new(),
             types: HashMap::new(),
             traits: HashMap::new(),

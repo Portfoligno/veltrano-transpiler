@@ -5,6 +5,9 @@
 use super::CodeGenerator;
 use crate::types::{TypeConstructor, VeltranoType};
 
+/// Default lifetime annotation
+const DEFAULT_LIFETIME: &str = "'a";
+
 impl CodeGenerator {
     /// Generate Rust type representation from Veltrano type annotation
     pub(super) fn generate_type(&mut self, type_annotation: &VeltranoType) {
@@ -14,11 +17,14 @@ impl CodeGenerator {
                 // For naturally referenced custom types with lifetime parameters
                 self.output.push('&');
                 if self.generating_bump_function {
-                    self.output.push_str("'a ");
+                    self.output.push_str(DEFAULT_LIFETIME);
+                    self.output.push(' ');
                 }
                 self.output.push_str(name);
                 if self.generating_bump_function {
-                    self.output.push_str("<'a>");
+                    self.output.push('<');
+                    self.output.push_str(DEFAULT_LIFETIME);
+                    self.output.push('>');
                 }
                 return;
             }
@@ -26,7 +32,7 @@ impl CodeGenerator {
 
         // Use the new to_rust_type_with_lifetime method
         let lifetime = if self.generating_bump_function {
-            Some("'a".to_string())
+            Some(DEFAULT_LIFETIME.to_string())
         } else {
             None
         };
@@ -69,16 +75,18 @@ impl CodeGenerator {
                 if let TypeConstructor::Custom(name) = &inner.constructor {
                     self.output.push_str(name);
                     if self.data_classes_with_lifetime.contains(name) {
-                        self.output.push_str("<'a>");
+                        self.output.push('<');
+                        self.output.push_str(DEFAULT_LIFETIME);
+                        self.output.push('>');
                     }
                     return;
                 }
             }
         }
 
-        // For all other types, use the standard conversion with lifetime 'a
+        // For all other types, use the standard conversion with lifetime
         let rust_type = type_annotation
-            .to_rust_type_with_lifetime(&mut self.trait_checker, Some("'a".to_string()));
+            .to_rust_type_with_lifetime(&mut self.trait_checker, Some(DEFAULT_LIFETIME.to_string()));
         self.output.push_str(&rust_type.to_rust_syntax());
     }
 }

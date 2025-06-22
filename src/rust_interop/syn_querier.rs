@@ -12,6 +12,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+/// Default crate version when not found in metadata
+const DEFAULT_CRATE_VERSION: &str = "0.1.0";
+
 /// Queries Rust type information by parsing source files with syn
 #[derive(Debug)]
 pub struct SynQuerier {
@@ -278,7 +281,7 @@ impl SynQuerier {
                 .as_ref()
                 .and_then(|m| m.packages.iter().find(|p| p.name == crate_name))
                 .map(|p| p.version.clone())
-                .unwrap_or_else(|| "0.1.0".to_string()),
+                .unwrap_or_else(|| DEFAULT_CRATE_VERSION.to_string()),
             functions: HashMap::new(),
             types: HashMap::new(),
             traits: HashMap::new(),

@@ -7,6 +7,9 @@
 use crate::ast::CommentContext;
 use crate::config::Config;
 
+/// Number of spaces per indentation level
+const SPACES_PER_INDENT: usize = 4;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     // Keywords
@@ -375,12 +378,11 @@ impl Lexer {
     }
 
     /// Calculate expected indentation based on current context
-    /// Uses 4 spaces per indentation level to match Rust conventions
     fn expected_indentation(&self) -> usize {
         // Base indentation from brace depth
-        let base = self.brace_depth * 4;
+        let base = self.brace_depth * SPACES_PER_INDENT;
         // Add extra indentation for each level of parentheses (function calls, etc.)
-        base + (self.paren_depth * 4)
+        base + (self.paren_depth * SPACES_PER_INDENT)
     }
 
     /// Strip expected base indentation from whitespace for comments

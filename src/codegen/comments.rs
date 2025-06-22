@@ -6,6 +6,11 @@ use super::CodeGenerator;
 use crate::ast::{CommentContext, CommentStmt};
 use crate::comments::{Comment, CommentStyle};
 
+/// Comment markers (for string output)
+const DOUBLE_SLASH: &str = "//";
+const SLASH_STAR: &str = "/*";
+const STAR_SLASH: &str = "*/";
+
 impl CodeGenerator {
     /// Generate a standalone comment statement
     pub(super) fn generate_comment(&mut self, comment: &CommentStmt) {
@@ -26,11 +31,11 @@ impl CodeGenerator {
         self.output.push_str(&comment.preceding_whitespace);
 
         if comment.is_block_comment {
-            self.output.push_str("/*");
+            self.output.push_str(SLASH_STAR);
             self.output.push_str(&comment.content);
-            self.output.push_str("*/");
+            self.output.push_str(STAR_SLASH);
         } else {
-            self.output.push_str("//");
+            self.output.push_str(DOUBLE_SLASH);
             self.output.push_str(&comment.content);
         }
 
@@ -53,10 +58,10 @@ impl CodeGenerator {
                     }
                     CommentStyle::Line => {
                         // Line comment - check if it already has the prefix
-                        if comment.content.starts_with("//") {
+                        if comment.content.starts_with(DOUBLE_SLASH) {
                             self.output.push_str(&comment.content);
                         } else {
-                            self.output.push_str("//");
+                            self.output.push_str(DOUBLE_SLASH);
                             self.output.push_str(&comment.content);
                         }
                     }

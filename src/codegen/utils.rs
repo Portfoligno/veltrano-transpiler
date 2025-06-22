@@ -4,11 +4,14 @@
 
 use super::CodeGenerator;
 
+/// String used for one level of indentation
+const INDENT_STR: &str = "    ";
+
 impl CodeGenerator {
     /// Adds the current indentation level to the output
     pub(super) fn indent(&mut self) {
         for _ in 0..self.indent_level {
-            self.output.push_str("    ");
+            self.output.push_str(INDENT_STR);
         }
     }
 

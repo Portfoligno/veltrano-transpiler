@@ -9,6 +9,12 @@ use crate::comments::{Comment, CommentStyle};
 use crate::error::{Span, VeltranoError};
 use crate::rust_interop::camel_to_snake_case;
 
+/// String used for one level of indentation
+const INDENT_STR: &str = "    ";
+
+/// Comment marker
+const DOUBLE_SLASH: &str = "//";
+
 impl CodeGenerator {
     /// Generate code for any expression type
     pub(super) fn generate_expression(&mut self, expr: &LocatedExpr) -> Result<(), VeltranoError> {
@@ -123,7 +129,7 @@ impl CodeGenerator {
                         self.output.push('\n');
                         // Add indentation for the next line
                         for _ in 0..self.indent_level {
-                            self.output.push_str("    ");
+                            self.output.push_str(INDENT_STR);
                         }
                     }
                 }
@@ -361,7 +367,7 @@ impl CodeGenerator {
                                 CommentStyle::Line,
                             );
                             self.output.push_str(&comment.whitespace);
-                            self.output.push_str("//");
+                            self.output.push_str(DOUBLE_SLASH);
                             self.output.push_str(&comment.content);
                         }
                         self.output.push('\n');

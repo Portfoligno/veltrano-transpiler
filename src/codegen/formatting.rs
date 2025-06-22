@@ -9,6 +9,9 @@ use crate::comments::{Comment, CommentStyle};
 use crate::error::{Span, VeltranoError};
 use crate::rust_interop::camel_to_snake_case;
 
+/// Comment marker
+const DOUBLE_SLASH: &str = "//";
+
 impl CodeGenerator {
     /// Generate comma-separated parameters for function declarations
     pub(super) fn generate_comma_separated_params(
@@ -177,10 +180,10 @@ impl CodeGenerator {
                                 }
                                 CommentStyle::Line => {
                                     // Check if it already has the prefix
-                                    if comment.content.starts_with("//") {
+                                    if comment.content.starts_with(DOUBLE_SLASH) {
                                         self.output.push_str(&comment.content);
                                     } else {
-                                        self.output.push_str("//");
+                                        self.output.push_str(DOUBLE_SLASH);
                                         self.output.push_str(&comment.content);
                                     }
                                 }
