@@ -2,7 +2,7 @@
 
 use super::Parser;
 use crate::ast::Stmt;
-use crate::ast_types::{CommentStmt, Located, LocatedExpr};
+use crate::ast::{CommentStmt, Located, LocatedExpr};
 use crate::comments::{Comment, CommentStyle};
 use crate::error::{SourceLocation, Span, VeltranoError};
 use crate::lexer::{Token, TokenType};

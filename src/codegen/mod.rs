@@ -11,7 +11,7 @@ mod utils;
 
 use crate::ast::query::AstQuery;
 use crate::ast::*;
-use crate::ast_types::StmtExt;
+use crate::ast::StmtExt;
 use crate::config::Config;
 use crate::error::{SourceLocation, VeltranoError};
 use crate::rust_interop::RustInteropRegistry;

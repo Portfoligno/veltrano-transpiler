@@ -4,7 +4,7 @@
 
 use super::{CodeGenerator, CodegenError};
 use crate::ast::*;
-use crate::ast_types::Argument;
+use crate::ast::Argument;
 use crate::comments::{Comment, CommentStyle};
 use crate::error::{Span, VeltranoError};
 use crate::rust_interop::camel_to_snake_case;

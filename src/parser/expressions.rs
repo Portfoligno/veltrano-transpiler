@@ -11,7 +11,7 @@ use crate::ast::{
     Argument, ArgumentComment, BinaryExpr, BinaryOp, CallExpr, Expr, FieldAccessExpr, LiteralExpr,
     MethodCallExpr, ParenthesizedExpr, UnaryExpr, UnaryOp,
 };
-use crate::ast_types::{Located, LocatedExpr};
+use crate::ast::{Located, LocatedExpr};
 use crate::error::{SourceLocation, Span, VeltranoError};
 use crate::lexer::TokenType;
 

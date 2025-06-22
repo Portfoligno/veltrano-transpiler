@@ -4,7 +4,7 @@
 //! code into a stream of tokens for the parser. It handles all token types including
 //! keywords, identifiers, literals, operators, and comments.
 
-use crate::ast_types::CommentContext;
+use crate::ast::CommentContext;
 use crate::config::Config;
 
 #[derive(Debug, Clone, PartialEq)]

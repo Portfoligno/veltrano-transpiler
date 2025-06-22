@@ -7,7 +7,7 @@
 //! - Custom types
 
 use super::Parser;
-use crate::ast_types::Located;
+use crate::ast::Located;
 use crate::error::{SourceLocation, Span, VeltranoError};
 use crate::lexer::TokenType;
 use crate::types::VeltranoType;

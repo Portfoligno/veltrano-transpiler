@@ -1,5 +1,4 @@
 mod ast;
-mod ast_types;
 mod builtins;
 mod codegen;
 mod comments;

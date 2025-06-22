@@ -11,7 +11,7 @@ use crate::ast::{
     DataClassField, DataClassStmt, FunDeclStmt, IfStmt, ImportStmt, Parameter, Stmt, VarDeclStmt,
     WhileStmt,
 };
-use crate::ast_types::{CommentContext, CommentStmt};
+use crate::ast::{CommentContext, CommentStmt};
 use crate::error::{ErrorKind, VeltranoError};
 use crate::lexer::TokenType;
 use nonempty::NonEmpty;

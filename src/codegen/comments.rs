@@ -3,7 +3,7 @@
 //! Preserves all comment styles with proper indentation.
 
 use super::CodeGenerator;
-use crate::ast_types::{CommentContext, CommentStmt};
+use crate::ast::{CommentContext, CommentStmt};
 use crate::comments::{Comment, CommentStyle};
 
 impl CodeGenerator {
