@@ -59,28 +59,28 @@ impl SynQuerier {
     #[doc(hidden)]
     #[allow(dead_code)]
     pub fn parse_function(&self, func: &syn::ItemFn) -> Result<FunctionInfo, VeltranoError> {
-        self.extract_function(func)
+        self.extract_function(func, "test_crate")
     }
 
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
     #[allow(dead_code)]
     pub fn parse_struct(&self, s: &syn::ItemStruct) -> Result<TypeInfo, VeltranoError> {
-        self.extract_struct(s)
+        self.extract_struct(s, "test_crate")
     }
 
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
     #[allow(dead_code)]
     pub fn parse_enum(&self, e: &syn::ItemEnum) -> Result<TypeInfo, VeltranoError> {
-        self.extract_enum(e)
+        self.extract_enum(e, "test_crate")
     }
 
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
     #[allow(dead_code)]
     pub fn parse_trait(&self, t: &syn::ItemTrait) -> Result<TraitInfo, VeltranoError> {
-        self.extract_trait(t)
+        self.extract_trait(t, "test_crate")
     }
 
     /// Exposed for testing only. Not part of the stable public API.
@@ -292,24 +292,24 @@ impl SynQuerier {
         for item in &file.items {
             match item {
                 syn::Item::Fn(func) => {
-                    if let Ok(func_info) = self.extract_function(func) {
+                    if let Ok(func_info) = self.extract_function(func, crate_name) {
                         crate_info
                             .functions
                             .insert(func.sig.ident.to_string(), func_info);
                     }
                 }
                 syn::Item::Struct(s) => {
-                    if let Ok(type_info) = self.extract_struct(s) {
+                    if let Ok(type_info) = self.extract_struct(s, crate_name) {
                         crate_info.types.insert(s.ident.to_string(), type_info);
                     }
                 }
                 syn::Item::Enum(e) => {
-                    if let Ok(type_info) = self.extract_enum(e) {
+                    if let Ok(type_info) = self.extract_enum(e, crate_name) {
                         crate_info.types.insert(e.ident.to_string(), type_info);
                     }
                 }
                 syn::Item::Trait(t) => {
-                    if let Ok(trait_info) = self.extract_trait(t) {
+                    if let Ok(trait_info) = self.extract_trait(t, crate_name) {
                         crate_info.traits.insert(t.ident.to_string(), trait_info);
                     }
                 }
@@ -325,10 +325,20 @@ impl SynQuerier {
 
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
-    pub fn extract_function(&self, func: &syn::ItemFn) -> Result<FunctionInfo, VeltranoError> {
+    pub fn extract_function(
+        &self,
+        func: &syn::ItemFn,
+        crate_name: &str,
+    ) -> Result<FunctionInfo, VeltranoError> {
+        let func_name = func.sig.ident.to_string();
         Ok(FunctionInfo {
-            name: func.sig.ident.to_string(),
-            full_path: func.sig.ident.to_string(), // TODO: Get full path
+            name: func_name.clone(),
+            full_path: func_name.clone(), // TODO: Get full path
+            path: RustPath::ModuleItem(
+                RustModulePath(crate_name.into(), vec![]),
+                func_name,
+                ItemKind::Function,
+            ),
             generics: self.extract_generics(&func.sig.generics),
             parameters: self.extract_parameters(&func.sig),
             return_type: self.extract_return_type(&func.sig.output),
@@ -340,7 +350,11 @@ impl SynQuerier {
 
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
-    pub fn extract_struct(&self, s: &syn::ItemStruct) -> Result<TypeInfo, VeltranoError> {
+    pub fn extract_struct(
+        &self,
+        s: &syn::ItemStruct,
+        crate_name: &str,
+    ) -> Result<TypeInfo, VeltranoError> {
         let fields = match &s.fields {
             syn::Fields::Named(fields) => fields
                 .named
@@ -357,9 +371,14 @@ impl SynQuerier {
             _ => vec![],
         };
 
+        let type_name = s.ident.to_string();
         Ok(TypeInfo {
-            name: s.ident.to_string(),
-            full_path: s.ident.to_string(), // TODO: Get full path
+            name: type_name.clone(),
+            full_path: type_name.clone(), // TODO: Get full path
+            path: RustPath::Type(RustTypePath(
+                RustModulePath(crate_name.into(), vec![]),
+                vec![type_name],
+            )),
             kind: TypeKind::Struct,
             generics: self.extract_generics(&s.generics),
             methods: vec![],
@@ -370,7 +389,11 @@ impl SynQuerier {
 
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
-    pub fn extract_enum(&self, e: &syn::ItemEnum) -> Result<TypeInfo, VeltranoError> {
+    pub fn extract_enum(
+        &self,
+        e: &syn::ItemEnum,
+        crate_name: &str,
+    ) -> Result<TypeInfo, VeltranoError> {
         let variants = e
             .variants
             .iter()
@@ -400,9 +423,14 @@ impl SynQuerier {
             })
             .collect();
 
+        let type_name = e.ident.to_string();
         Ok(TypeInfo {
-            name: e.ident.to_string(),
-            full_path: e.ident.to_string(), // TODO: Get full path
+            name: type_name.clone(),
+            full_path: type_name.clone(), // TODO: Get full path
+            path: RustPath::Type(RustTypePath(
+                RustModulePath(crate_name.into(), vec![]),
+                vec![type_name],
+            )),
             kind: TypeKind::Enum,
             generics: self.extract_generics(&e.generics),
             methods: vec![],
@@ -413,7 +441,11 @@ impl SynQuerier {
 
     /// Exposed for testing only. Not part of the stable public API.
     #[doc(hidden)]
-    pub fn extract_trait(&self, t: &syn::ItemTrait) -> Result<TraitInfo, VeltranoError> {
+    pub fn extract_trait(
+        &self,
+        t: &syn::ItemTrait,
+        crate_name: &str,
+    ) -> Result<TraitInfo, VeltranoError> {
         let methods = t
             .items
             .iter()
@@ -434,9 +466,14 @@ impl SynQuerier {
             })
             .collect();
 
+        let trait_name = t.ident.to_string();
         Ok(TraitInfo {
-            name: t.ident.to_string(),
-            full_path: t.ident.to_string(), // TODO: Get full path
+            name: trait_name.clone(),
+            full_path: trait_name.clone(), // TODO: Get full path
+            path: RustPath::Type(RustTypePath(
+                RustModulePath(crate_name.into(), vec![]),
+                vec![trait_name],
+            )),
             methods,
             associated_types: vec![], // TODO: Extract associated types
         })

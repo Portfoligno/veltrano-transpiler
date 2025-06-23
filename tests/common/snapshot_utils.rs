@@ -42,19 +42,11 @@ pub fn assert_config_snapshot(base_name: &str, config_name: &str, content: &str)
 }
 
 /// Create a snapshot with source location info
-pub fn assert_snapshot_with_source(
-    name: &str,
-    content: &str,
-    source_file: &str,
-    line: u32,
-) {
+pub fn assert_snapshot_with_source(name: &str, content: &str, source_file: &str, line: u32) {
     with_settings(|| {
         assert_snapshot!(
             name,
-            format!(
-                "Source: {}:{}\n---\n{}",
-                source_file, line, content
-            )
+            format!("Source: {}:{}\n---\n{}", source_file, line, content)
         );
     });
 }

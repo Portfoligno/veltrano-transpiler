@@ -10,8 +10,8 @@ mod types;
 mod utils;
 
 use crate::ast::query::AstQuery;
-use crate::ast::*;
 use crate::ast::StmtExt;
+use crate::ast::*;
 use crate::config::Config;
 use crate::error::{SourceLocation, VeltranoError};
 use crate::rust_interop::RustInteropRegistry;

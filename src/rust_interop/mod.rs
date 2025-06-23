@@ -19,7 +19,9 @@ pub use cache::{CrateInfo, TypeInfo};
 // Re-export for tests only. Not part of the stable public API.
 #[doc(hidden)]
 #[allow(unused_imports)]
-pub use cache::{MethodInfo, RustTypeSignature, TypeKind};
+pub use cache::{
+    MethodInfo, RustModulePath, RustPath, RustTypePath, RustTypeSignature, TraitInfo, TypeKind,
+};
 pub use parser::RustTypeParser;
 /// Exposed for testing only. Not part of the stable public API.
 #[doc(hidden)]

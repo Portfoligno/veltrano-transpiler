@@ -10,11 +10,13 @@ use veltrano::parser::Parser;
 
 /// Helper to capture parse errors
 fn get_parse_error(code: &str) -> String {
-    let config = Config { preserve_comments: false };
+    let config = Config {
+        preserve_comments: false,
+    };
     let mut lexer = Lexer::with_config(code.to_string(), config);
     let tokens = lexer.tokenize();
     let mut parser = Parser::new(tokens);
-    
+
     match parser.parse() {
         Ok(_) => panic!("Expected parse error but parsing succeeded"),
         Err(e) => format!("{}", e),
@@ -23,8 +25,10 @@ fn get_parse_error(code: &str) -> String {
 
 /// Helper to capture type check errors
 fn get_type_error(code: &str) -> String {
-    let config = Config { preserve_comments: false };
-    
+    let config = Config {
+        preserve_comments: false,
+    };
+
     match parse_and_type_check(code, config) {
         Ok(_) => panic!("Expected type error but type checking succeeded"),
         Err(e) => format!("{}", e),
@@ -76,9 +80,11 @@ fn test_type_error_undefined_variable() {
 
 #[test]
 fn test_type_error_type_mismatch() {
-    let error = get_type_error(r#"
+    let error = get_type_error(
+        r#"
         val x: String = 42
-    "#);
+    "#,
+    );
     assert_error_snapshot("type_error_type_mismatch", &error);
 }
 
@@ -102,19 +108,23 @@ fn test_type_error_own_mutref() {
 
 #[test]
 fn test_type_error_invalid_method_call() {
-    let error = get_type_error(r#"
+    let error = get_type_error(
+        r#"
         val x = 42
         val y = x.undefined_method()
-    "#);
+    "#,
+    );
     assert_error_snapshot("type_error_invalid_method_call", &error);
 }
 
 #[test]
 fn test_type_error_wrong_number_of_arguments() {
-    let error = get_type_error(r#"
+    let error = get_type_error(
+        r#"
         fun add(a: I64, b: I64) -> I64 { a + b }
         val result = add(1)
-    "#);
+    "#,
+    );
     assert_error_snapshot("type_error_wrong_number_of_arguments", &error);
 }
 
@@ -126,10 +136,12 @@ fn test_parse_error_double_minus() {
 
 #[test]
 fn test_parse_error_invalid_match() {
-    let error = get_parse_error(r#"
+    let error = get_parse_error(
+        r#"
         match x {
             Some(value) =>
         }
-    "#);
+    "#,
+    );
     assert_error_snapshot("parse_error_invalid_match", &error);
 }

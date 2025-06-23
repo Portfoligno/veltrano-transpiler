@@ -85,8 +85,10 @@ impl CodeGenerator {
         }
 
         // For all other types, use the standard conversion with lifetime
-        let rust_type = type_annotation
-            .to_rust_type_with_lifetime(&mut self.trait_checker, Some(DEFAULT_LIFETIME.to_string()));
+        let rust_type = type_annotation.to_rust_type_with_lifetime(
+            &mut self.trait_checker,
+            Some(DEFAULT_LIFETIME.to_string()),
+        );
         self.output.push_str(&rust_type.to_rust_syntax());
     }
 }

@@ -37,6 +37,10 @@ fn test_error_handling_and_fallback() {
                 TypeInfo {
                     name: "TestType".to_string(),
                     full_path: "test::TestType".to_string(),
+                    path: RustPath::Type(RustTypePath(
+                        RustModulePath("test".into(), vec![]),
+                        vec!["TestType".to_string()],
+                    )),
                     kind: TypeKind::Struct,
                     generics: vec![],
                     methods: vec![MethodInfo {
@@ -176,6 +180,10 @@ fn test_registry_caching() {
                 TypeInfo {
                     name: "CachedType".to_string(),
                     full_path: "test::CachedType".to_string(),
+                    path: RustPath::Type(RustTypePath(
+                        RustModulePath("test".into(), vec![]),
+                        vec!["CachedType".to_string()],
+                    )),
                     kind: TypeKind::Struct,
                     generics: vec![],
                     methods: vec![],

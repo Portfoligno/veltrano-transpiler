@@ -3,8 +3,8 @@
 //! Provides hardcoded knowledge of common std types and traits.
 
 use super::cache::{
-    CrateInfo, GenericParam, MethodInfo, Parameter, RustTypeSignature, TraitInfo, TypeInfo,
-    TypeKind,
+    CrateInfo, GenericParam, MethodInfo, Parameter, RustModulePath, RustPath, RustTypePath,
+    RustTypeSignature, TraitInfo, TypeInfo, TypeKind,
 };
 use super::types::{RustType, SelfKind};
 use super::{RustInteropError, RustQuerier};
@@ -43,6 +43,10 @@ impl StdLibQuerier {
         let clone_trait = TraitInfo {
             name: "Clone".to_string(),
             full_path: "std::clone::Clone".to_string(),
+            path: RustPath::Type(RustTypePath(
+                RustModulePath("std".into(), vec!["clone".to_string()]),
+                vec!["Clone".to_string()],
+            )),
             methods: vec![MethodInfo {
                 name: "clone".to_string(),
                 self_kind: SelfKind::Ref,
@@ -66,6 +70,10 @@ impl StdLibQuerier {
         let to_string_trait = TraitInfo {
             name: "ToString".to_string(),
             full_path: "std::string::ToString".to_string(),
+            path: RustPath::Type(RustTypePath(
+                RustModulePath("std".into(), vec!["string".to_string()]),
+                vec!["ToString".to_string()],
+            )),
             methods: vec![MethodInfo {
                 name: "to_string".to_string(),
                 self_kind: SelfKind::Ref,
@@ -91,6 +99,10 @@ impl StdLibQuerier {
         let into_trait = TraitInfo {
             name: "Into".to_string(),
             full_path: "std::convert::Into".to_string(),
+            path: RustPath::Type(RustTypePath(
+                RustModulePath("std".into(), vec!["convert".to_string()]),
+                vec!["Into".to_string()],
+            )),
             methods: vec![MethodInfo {
                 name: "into".to_string(),
                 self_kind: SelfKind::Value,
@@ -147,6 +159,10 @@ impl StdLibQuerier {
         let vec_type = TypeInfo {
             name: "Vec".to_string(),
             full_path: "std::vec::Vec".to_string(),
+            path: RustPath::Type(RustTypePath(
+                RustModulePath("std".into(), vec!["vec".to_string()]),
+                vec!["Vec".to_string()],
+            )),
             kind: TypeKind::Struct,
             generics: vec![GenericParam {
                 name: "T".to_string(),
@@ -221,6 +237,10 @@ impl StdLibQuerier {
         let i64_type = TypeInfo {
             name: "i64".to_string(),
             full_path: "i64".to_string(),
+            path: RustPath::Type(RustTypePath(
+                RustModulePath("std".into(), vec![]),
+                vec!["i64".to_string()],
+            )),
             kind: TypeKind::Struct, // Primitive types are treated as structs
             generics: vec![],
             methods: vec![MethodInfo {
@@ -246,6 +266,10 @@ impl StdLibQuerier {
         let string_type = TypeInfo {
             name: "String".to_string(),
             full_path: "std::string::String".to_string(),
+            path: RustPath::Type(RustTypePath(
+                RustModulePath("std".into(), vec!["string".to_string()]),
+                vec!["String".to_string()],
+            )),
             kind: TypeKind::Struct,
             generics: vec![],
             methods: vec![
@@ -304,6 +328,10 @@ impl StdLibQuerier {
         let str_type = TypeInfo {
             name: "str".to_string(),
             full_path: "str".to_string(),
+            path: RustPath::Type(RustTypePath(
+                RustModulePath("std".into(), vec![]),
+                vec!["str".to_string()],
+            )),
             kind: TypeKind::Struct, // Primitive types are treated as structs
             generics: vec![],
             methods: vec![

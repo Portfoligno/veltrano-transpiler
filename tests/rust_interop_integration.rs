@@ -793,6 +793,10 @@ fn test_trait_and_impl_extraction() {
                     TypeInfo {
                         name: "Point".to_string(),
                         full_path: "Point".to_string(),
+                        path: RustPath::Type(RustTypePath(
+                            RustModulePath("test".into(), vec![]),
+                            vec!["Point".to_string()],
+                        )),
                         kind: TypeKind::Struct,
                         generics: vec![],
                         methods: vec![],

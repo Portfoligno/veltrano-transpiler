@@ -3,39 +3,38 @@
 mod common;
 mod test_configs;
 
-use common::{transpile, TestContext};
 use common::snapshot_utils::assert_config_snapshot;
-use test_configs::test_configs;
+use common::{transpile, TestContext};
 use std::fs;
 use std::path::Path;
+use test_configs::test_configs;
 
 /// Migrate a single example file to snapshots
 fn migrate_example_to_snapshot(example_name: &str) {
     let vl_path = format!("examples/{}.vl", example_name);
-    
+
     // Skip if source doesn't exist
     if !Path::new(&vl_path).exists() {
         println!("Skipping {} - source file not found", example_name);
         return;
     }
-    
-    let veltrano_code = fs::read_to_string(&vl_path)
-        .expect("Failed to read source file");
-    
+
+    let veltrano_code = fs::read_to_string(&vl_path).expect("Failed to read source file");
+
     let configs = test_configs();
-    
+
     for (config_key, config) in configs {
         let ctx = TestContext::with_config(config);
-        
+
         match transpile(&veltrano_code, &ctx) {
             Ok(rust_output) => {
                 // Create snapshot
                 assert_config_snapshot(
                     &format!("example_{}", example_name),
                     config_key,
-                    &rust_output
+                    &rust_output,
                 );
-                
+
                 // Optional: Compare with expected file during migration
                 let expected_path = format!("examples/{}.{}.expected.rs", example_name, config_key);
                 if let Ok(expected) = fs::read_to_string(&expected_path) {
@@ -50,7 +49,10 @@ fn migrate_example_to_snapshot(example_name: &str) {
             Err(e) => {
                 // Some examples might be fail tests
                 if !example_name.contains("fail") {
-                    panic!("Unexpected transpilation failure for {}: {}", example_name, e);
+                    panic!(
+                        "Unexpected transpilation failure for {}: {}",
+                        example_name, e
+                    );
                 }
             }
         }
@@ -96,7 +98,7 @@ fn test_migrate_all_examples() {
         "pattern_matching",
         "type_inference",
     ];
-    
+
     for example in examples {
         println!("Migrating {}...", example);
         migrate_example_to_snapshot(example);

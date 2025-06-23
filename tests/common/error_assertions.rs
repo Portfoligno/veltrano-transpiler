@@ -1,8 +1,8 @@
 //! Error assertion utilities for more precise error testing
 
-use veltrano::error::{ErrorKind, VeltranoError};
-use veltrano::config::Config;
 use super::{parse_and_type_check, parse_veltrano_code};
+use veltrano::config::Config;
+use veltrano::error::{ErrorKind, VeltranoError};
 
 /// Assert that an error has a specific kind
 pub fn assert_error_kind(error: &VeltranoError, expected_kind: ErrorKind) {
@@ -34,16 +34,15 @@ pub fn assert_error_location(error: &VeltranoError, line: usize, column: usize) 
             );
         }
     } else {
-        panic!("Expected error to have location {}:{}, but it has no span", line, column);
+        panic!(
+            "Expected error to have location {}:{}, but it has no span",
+            line, column
+        );
     }
 }
 
 /// Assert that an error spans specific locations
-pub fn assert_error_span(
-    error: &VeltranoError,
-    start: (usize, usize),
-    end: (usize, usize),
-) {
+pub fn assert_error_span(error: &VeltranoError, start: (usize, usize), end: (usize, usize)) {
     if let Some(span) = &error.context.span {
         if span.start.line != start.0 || span.start.column != start.1 {
             panic!(
@@ -64,8 +63,10 @@ pub fn assert_error_span(
 
 /// Assert that parsing fails with specific error properties
 pub fn assert_parse_fails(code: &str, expected_kind: ErrorKind, message_contains: &str) {
-    let config = Config { preserve_comments: false };
-    
+    let config = Config {
+        preserve_comments: false,
+    };
+
     match parse_veltrano_code(code, config) {
         Ok(_) => panic!("Expected parsing to fail, but it succeeded"),
         Err(error) => {
@@ -76,14 +77,11 @@ pub fn assert_parse_fails(code: &str, expected_kind: ErrorKind, message_contains
 }
 
 /// Assert that parsing fails at a specific location
-pub fn assert_parse_fails_at(
-    code: &str,
-    expected_kind: ErrorKind,
-    line: usize,
-    column: usize,
-) {
-    let config = Config { preserve_comments: false };
-    
+pub fn assert_parse_fails_at(code: &str, expected_kind: ErrorKind, line: usize, column: usize) {
+    let config = Config {
+        preserve_comments: false,
+    };
+
     match parse_veltrano_code(code, config) {
         Ok(_) => panic!("Expected parsing to fail, but it succeeded"),
         Err(error) => {
@@ -95,8 +93,10 @@ pub fn assert_parse_fails_at(
 
 /// Assert that type checking fails with specific error properties
 pub fn assert_type_check_fails(code: &str, expected_kind: ErrorKind, message_contains: &str) {
-    let config = Config { preserve_comments: false };
-    
+    let config = Config {
+        preserve_comments: false,
+    };
+
     match parse_and_type_check(code, config) {
         Ok(_) => panic!("Expected type checking to fail, but it succeeded"),
         Err(error) => {
@@ -191,7 +191,8 @@ impl<'a> ErrorAssertion<'a> {
             }
         } else {
             self.failed = true;
-            self.failures.push(format!("Expected line {}, but error has no span", line));
+            self.failures
+                .push(format!("Expected line {}, but error has no span", line));
         }
         self
     }
@@ -208,7 +209,8 @@ impl<'a> ErrorAssertion<'a> {
             }
         } else {
             self.failed = true;
-            self.failures.push(format!("Expected column {}, but error has no span", column));
+            self.failures
+                .push(format!("Expected column {}, but error has no span", column));
         }
         self
     }
@@ -225,7 +227,8 @@ impl<'a> ErrorAssertion<'a> {
             }
         } else {
             self.failed = true;
-            self.failures.push("Expected help text, but error has none".to_string());
+            self.failures
+                .push("Expected help text, but error has none".to_string());
         }
         self
     }
@@ -242,7 +245,8 @@ impl<'a> ErrorAssertion<'a> {
             }
         } else {
             self.failed = true;
-            self.failures.push("Expected note text, but error has none".to_string());
+            self.failures
+                .push("Expected note text, but error has none".to_string());
         }
         self
     }
@@ -250,8 +254,10 @@ impl<'a> ErrorAssertion<'a> {
     /// Check if the error is a parse error
     pub fn is_parse_error(mut self) -> Self {
         match self.error.kind {
-            ErrorKind::ParseError | ErrorKind::UnexpectedToken | 
-            ErrorKind::UnexpectedEof | ErrorKind::SyntaxError => {},
+            ErrorKind::ParseError
+            | ErrorKind::UnexpectedToken
+            | ErrorKind::UnexpectedEof
+            | ErrorKind::SyntaxError => {}
             _ => {
                 self.failed = true;
                 self.failures.push(format!(
@@ -266,9 +272,11 @@ impl<'a> ErrorAssertion<'a> {
     /// Check if the error is a type error
     pub fn is_type_error(mut self) -> Self {
         match self.error.kind {
-            ErrorKind::TypeError | ErrorKind::TypeMismatch | 
-            ErrorKind::InvalidMethodCall | ErrorKind::UndefinedVariable |
-            ErrorKind::UndefinedFunction => {},
+            ErrorKind::TypeError
+            | ErrorKind::TypeMismatch
+            | ErrorKind::InvalidMethodCall
+            | ErrorKind::UndefinedVariable
+            | ErrorKind::UndefinedFunction => {}
             _ => {
                 self.failed = true;
                 self.failures.push(format!(
@@ -284,10 +292,7 @@ impl<'a> ErrorAssertion<'a> {
 impl<'a> Drop for ErrorAssertion<'a> {
     fn drop(&mut self) {
         if self.failed && !std::thread::panicking() {
-            panic!(
-                "Error assertion failed:\n{}",
-                self.failures.join("\n")
-            );
+            panic!("Error assertion failed:\n{}", self.failures.join("\n"));
         }
     }
 }
@@ -302,7 +307,7 @@ macro_rules! assert_error {
             Err(ref e) => $crate::common::error_assertions::assert_error_kind(e, $kind),
         }
     };
-    
+
     // Kind with message pattern
     ($result:expr, $kind:expr, $msg:expr) => {
         match $result {
@@ -313,7 +318,7 @@ macro_rules! assert_error {
             }
         }
     };
-    
+
     // Kind with message and location
     ($result:expr, $kind:expr, $msg:expr, at: ($line:expr, $col:expr)) => {
         match $result {
@@ -330,16 +335,21 @@ macro_rules! assert_error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_assert_parse_fails() {
         assert_parse_fails("val x =", ErrorKind::UnexpectedEof, "expression");
     }
-    
+
     #[test]
     fn test_fluent_assertions() {
         let code = "val x: String = 42";
-        match parse_and_type_check(code, Config { preserve_comments: false }) {
+        match parse_and_type_check(
+            code,
+            Config {
+                preserve_comments: false,
+            },
+        ) {
             Ok(_) => panic!("Expected error"),
             Err(error) => {
                 ErrorAssertion::assert_that(&error)

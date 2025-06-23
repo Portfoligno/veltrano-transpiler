@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-pub mod snapshot_utils;
 pub mod error_assertions;
+pub mod snapshot_utils;
 
 use std::fs;
 use std::process::Command;
@@ -148,8 +148,7 @@ pub fn transpile(code: &str, ctx: &TestContext) -> Result<String, String> {
             std::collections::HashMap::new(),
         )
     } else {
-        parse_and_type_check(code, ctx.config.clone())
-            .map_err(|e| e.to_string())?
+        parse_and_type_check(code, ctx.config.clone()).map_err(|e| e.to_string())?
     };
 
     Ok(generate_rust_code(
@@ -357,11 +356,7 @@ pub fn assert_parse_error(code: &str, ctx: &TestContext) -> VeltranoError {
 }
 
 /// Helper to assert transpilation output matches expected result
-pub fn assert_transpilation_match(
-    veltrano_code: &str,
-    expected_rust: &str,
-    ctx: &TestContext,
-) {
+pub fn assert_transpilation_match(veltrano_code: &str, expected_rust: &str, ctx: &TestContext) {
     let actual_rust = match transpile(veltrano_code, ctx) {
         Ok(rust) => rust,
         Err(e) => panic!("Transpilation failed: {}", e),
@@ -390,11 +385,10 @@ pub fn assert_transpilation_output(
 
     // Compare output (trim to handle trailing newlines)
     if actual_rust.trim() != expected_rust.trim() {
-        panic!("{}", build_diff_error_message(
-            context,
-            expected_rust,
-            &actual_rust,
-        ));
+        panic!(
+            "{}",
+            build_diff_error_message(context, expected_rust, &actual_rust,)
+        );
     }
 }
 
