@@ -494,3 +494,73 @@ fn test_associated_type_extraction() {
         panic!("Expected trait item");
     }
 }
+
+#[test]
+fn test_generic_parameter_defaults() {
+    // Create test structures with generic defaults
+    let code = r#"
+        pub struct Container<T = String> {
+            value: T,
+        }
+        
+        pub struct MultiParam<T = i32, U = Vec<String>, V: Clone = HashMap<String, i32>> {
+            first: T,
+            second: U,
+            third: V,
+        }
+        
+        pub fn with_default<T = bool>() -> T {
+            unimplemented!()
+        }
+    "#;
+
+    let file = syn::parse_file(code).unwrap();
+    let syn_querier = SynQuerier::new(None).unwrap();
+
+    // Test struct with single default
+    if let syn::Item::Struct(struct_item) = &file.items[0] {
+        let type_info = syn_querier.extract_struct(struct_item, "test").unwrap();
+        assert_eq!(type_info.generics.len(), 1);
+        assert_eq!(type_info.generics[0].name, "T");
+        assert_eq!(type_info.generics[0].default, Some("String".to_string()));
+    } else {
+        panic!("Expected struct item");
+    }
+
+    // Test struct with multiple defaults and bounds
+    if let syn::Item::Struct(struct_item) = &file.items[1] {
+        let type_info = syn_querier.extract_struct(struct_item, "test").unwrap();
+        assert_eq!(type_info.generics.len(), 3);
+
+        assert_eq!(type_info.generics[0].name, "T");
+        assert_eq!(type_info.generics[0].default, Some("i32".to_string()));
+        assert_eq!(type_info.generics[0].bounds.len(), 0);
+
+        assert_eq!(type_info.generics[1].name, "U");
+        assert_eq!(
+            type_info.generics[1].default,
+            Some("Vec < String >".to_string())
+        );
+        assert_eq!(type_info.generics[1].bounds.len(), 0);
+
+        assert_eq!(type_info.generics[2].name, "V");
+        assert_eq!(
+            type_info.generics[2].default,
+            Some("HashMap < String , i32 >".to_string())
+        );
+        assert_eq!(type_info.generics[2].bounds.len(), 1);
+        assert_eq!(type_info.generics[2].bounds[0], "Clone");
+    } else {
+        panic!("Expected struct item");
+    }
+
+    // Test function with default
+    if let syn::Item::Fn(fn_item) = &file.items[2] {
+        let fn_info = syn_querier.extract_function(fn_item, "test").unwrap();
+        assert_eq!(fn_info.generics.len(), 1);
+        assert_eq!(fn_info.generics[0].name, "T");
+        assert_eq!(fn_info.generics[0].default, Some("bool".to_string()));
+    } else {
+        panic!("Expected function item");
+    }
+}

@@ -565,7 +565,10 @@ impl SynQuerier {
                     Some(GenericParam {
                         name: type_param.ident.to_string(),
                         bounds,
-                        default: None, // TODO: Extract default
+                        default: type_param
+                            .default
+                            .as_ref()
+                            .map(|ty| self.syn_type_to_signature(ty).raw),
                     })
                 } else {
                     None
