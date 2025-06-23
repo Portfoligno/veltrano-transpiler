@@ -87,6 +87,9 @@ When WORKSPACE.md doesn't exist, create it immediately with:
 - Session summaries or recaps
 - "We discovered", "We implemented", "We fixed" statements
 - Any form of progress tracking
+- **Words like "implemented", "added", "updated", "extracted"** - these describe actions, not state
+- **Temporal references** like "now", "recently", "after X"
+- **Achievement language** like "successfully", "completed", "working"
 
 ### TODO Management
 - State what needs to be done (facts about requirements)
@@ -94,6 +97,23 @@ When WORKSPACE.md doesn't exist, create it immediately with:
 - Group by category with factual context
 - Add "CRITICAL:" for blockers
 - Keep actionable and specific
+
+### The Anti-Journal Mindset
+**WORKSPACE.md is NOT a diary, changelog, or progress report.** It's a reference card for your next Claude Code session.
+
+**Mental Exercise:** Imagine you're starting a fresh session tomorrow. WORKSPACE.md should tell you:
+- What unusual patterns exist in the code
+- What non-obvious design decisions were made
+- What active work is pending
+- What gotchas you might encounter
+
+It should NOT tell you:
+- What was done in previous sessions
+- How the code evolved
+- What problems were solved
+- The implementation journey
+
+**Why this matters:** Every word wasted on progress tracking is a word stolen from useful facts. With only 800 tokens, choose facts over stories.
 
 ### Psychological Traps to Avoid
 1. **"But I might need this later"** → You won't. Delete it.
@@ -109,6 +129,11 @@ When WORKSPACE.md doesn't exist, create it immediately with:
 - No narrative words ("we", "discovered", "implemented")
 - State facts: "X does Y" not "We made X do Y"
 - Focus on "what is" not "what was done"
+- **Verb choice matters:**
+  - ✅ "has", "contains", "uses", "returns", "accepts"
+  - ❌ "added", "implemented", "updated", "fixed", "extracted"
+- **Write as if describing an existing system to someone who's never seen it**
+- **Test: Could this line be true if written 6 months ago? If no, it's probably progress tracking**
 
 ### Example: Facts vs Progress
 **❌ WRONG (Progress Tracking):**
@@ -119,14 +144,29 @@ When WORKSPACE.md doesn't exist, create it immediately with:
   - All tests passing
 ```
 
+**❌ ALSO WRONG (Subtle Progress Tracking):**
+```
+- rustdoc_querier convert_function implemented for functions, constants, statics
+- Function extraction includes generics, parameters, return type, safety flags
+- ItemKind properly set based on rustdoc item type
+```
+
 **✅ RIGHT (Stating Facts):**
 ```
-- SelfKind enum includes optional lifetime parameter
+- SelfKind enum has optional lifetime parameter
 - extract_self_kind captures lifetimes from reference types
-- Current version: 0.2.3-dev
+- convert_function handles functions, constants, and statics
+- ItemKind derives from rustdoc item.kind field
 ```
 
 **Key Difference:** Facts describe the current state of the codebase. Progress describes what was done to reach that state.
+
+### Quick Self-Check for WORKSPACE.md Entries
+Before writing any line in WORKSPACE.md, ask:
+1. **Is this describing what IS or what WAS DONE?** → Only "what is" belongs
+2. **Could a new developer understand this without knowing history?** → If no, rewrite
+3. **Am I using past-tense or action verbs?** → Red flag, rewrite with present-tense state verbs
+4. **Would this still be true if I hadn't worked on it?** → Focus on the system, not your actions
 
 ### Pruning Priority
 When over token limit, remove in order:
