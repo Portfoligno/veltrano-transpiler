@@ -44,6 +44,11 @@ pub enum RustType {
         err: Box<RustType>,
     },
 
+    // Slice type
+    Slice {
+        inner: Box<RustType>,
+    },
+
     // Custom types
     Custom {
         name: String,
@@ -127,6 +132,9 @@ impl RustType {
                 }
             }
             RustType::Generic(name) => name.clone(),
+            RustType::Slice { inner } => {
+                format!("[{}]", inner.to_rust_syntax())
+            }
         }
     }
 
@@ -205,6 +213,12 @@ impl RustType {
 
             // Generic parameters
             RustType::Generic(name) => Ok(VeltranoType::custom(format!("${}", name))), // Prefix with $ to indicate generic
+
+            // Slice type
+            RustType::Slice { inner } => {
+                let inner_type = inner.to_veltrano_type()?;
+                Ok(VeltranoType::slice(inner_type))
+            }
 
             _ => Err(format!("Unsupported Rust type for conversion: {:?}", self)),
         }

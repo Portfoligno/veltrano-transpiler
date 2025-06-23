@@ -73,6 +73,8 @@ pub enum TypeConstructor {
     // Special cases
     /// Array<T, N> - fixed-size array (size is part of type)
     Array(usize),
+    /// Slice<T> - dynamically sized slice type (&[T] in Rust)
+    Slice,
 }
 
 impl VeltranoType {
@@ -219,6 +221,13 @@ impl VeltranoType {
     pub fn array(inner: VeltranoType, size: usize) -> Self {
         Self {
             constructor: TypeConstructor::Array(size),
+            args: vec![inner],
+        }
+    }
+
+    pub fn slice(inner: VeltranoType) -> Self {
+        Self {
+            constructor: TypeConstructor::Slice,
             args: vec![inner],
         }
     }
@@ -399,6 +408,21 @@ impl VeltranoType {
                     RustType::Never // Error case
                 }
             }
+            TypeConstructor::Slice => {
+                // Slice<T> maps to &[T] in Rust
+                if let Some(inner) = self.inner() {
+                    RustType::Ref {
+                        lifetime: lifetime.clone(),
+                        inner: Box::new(RustType::Slice {
+                            inner: Box::new(
+                                inner.to_rust_type_with_lifetime(trait_checker, lifetime),
+                            ),
+                        }),
+                    }
+                } else {
+                    RustType::Never // Error case
+                }
+            }
         }
     }
 
@@ -477,9 +501,13 @@ impl VeltranoType {
             // Generic types - we can't know if they implement Copy without constraints
             // For now, assume they don't unless explicitly constrained
             TypeConstructor::Generic(_, constraints) => constraints.contains(&"Copy".to_string()),
+
+            // Slices don't implement Copy (they're DSTs)
+            TypeConstructor::Slice => false,
         }
     }
 }
+
 
 /// Function signature for type checking
 #[derive(Debug, Clone)]
