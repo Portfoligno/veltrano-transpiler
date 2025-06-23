@@ -333,7 +333,6 @@ impl SynQuerier {
         let func_name = func.sig.ident.to_string();
         Ok(FunctionInfo {
             name: func_name.clone(),
-            full_path: func_name.clone(), // TODO: Get full path
             path: RustPath::ModuleItem(
                 RustModulePath(crate_name.into(), vec![]),
                 func_name,
@@ -374,7 +373,6 @@ impl SynQuerier {
         let type_name = s.ident.to_string();
         Ok(TypeInfo {
             name: type_name.clone(),
-            full_path: type_name.clone(), // TODO: Get full path
             path: RustPath::Type(RustTypePath(
                 RustModulePath(crate_name.into(), vec![]),
                 vec![type_name],
@@ -426,7 +424,6 @@ impl SynQuerier {
         let type_name = e.ident.to_string();
         Ok(TypeInfo {
             name: type_name.clone(),
-            full_path: type_name.clone(), // TODO: Get full path
             path: RustPath::Type(RustTypePath(
                 RustModulePath(crate_name.into(), vec![]),
                 vec![type_name],
@@ -469,7 +466,6 @@ impl SynQuerier {
         let trait_name = t.ident.to_string();
         Ok(TraitInfo {
             name: trait_name.clone(),
-            full_path: trait_name.clone(), // TODO: Get full path
             path: RustPath::Type(RustTypePath(
                 RustModulePath(crate_name.into(), vec![]),
                 vec![trait_name],

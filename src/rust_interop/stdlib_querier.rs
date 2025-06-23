@@ -42,7 +42,6 @@ impl StdLibQuerier {
         // Add Clone trait
         let clone_trait = TraitInfo {
             name: "Clone".to_string(),
-            full_path: "std::clone::Clone".to_string(),
             path: RustPath::Type(RustTypePath(
                 RustModulePath("std".into(), vec!["clone".to_string()]),
                 vec!["Clone".to_string()],
@@ -69,7 +68,6 @@ impl StdLibQuerier {
         // Add ToString trait
         let to_string_trait = TraitInfo {
             name: "ToString".to_string(),
-            full_path: "std::string::ToString".to_string(),
             path: RustPath::Type(RustTypePath(
                 RustModulePath("std".into(), vec!["string".to_string()]),
                 vec!["ToString".to_string()],
@@ -98,7 +96,6 @@ impl StdLibQuerier {
         // Add Into trait
         let into_trait = TraitInfo {
             name: "Into".to_string(),
-            full_path: "std::convert::Into".to_string(),
             path: RustPath::Type(RustTypePath(
                 RustModulePath("std".into(), vec!["convert".to_string()]),
                 vec!["Into".to_string()],
@@ -158,7 +155,6 @@ impl StdLibQuerier {
         // Add Vec type with methods
         let vec_type = TypeInfo {
             name: "Vec".to_string(),
-            full_path: "std::vec::Vec".to_string(),
             path: RustPath::Type(RustTypePath(
                 RustModulePath("std".into(), vec!["vec".to_string()]),
                 vec!["Vec".to_string()],
@@ -236,7 +232,6 @@ impl StdLibQuerier {
         // Add numeric type methods (i64 as example)
         let i64_type = TypeInfo {
             name: "i64".to_string(),
-            full_path: "i64".to_string(),
             path: RustPath::Type(RustTypePath(
                 RustModulePath("std".into(), vec![]),
                 vec!["i64".to_string()],
@@ -265,7 +260,6 @@ impl StdLibQuerier {
         // Add String methods
         let string_type = TypeInfo {
             name: "String".to_string(),
-            full_path: "std::string::String".to_string(),
             path: RustPath::Type(RustTypePath(
                 RustModulePath("std".into(), vec!["string".to_string()]),
                 vec!["String".to_string()],
@@ -327,7 +321,6 @@ impl StdLibQuerier {
         // Add str type with methods
         let str_type = TypeInfo {
             name: "str".to_string(),
-            full_path: "str".to_string(),
             path: RustPath::Type(RustTypePath(
                 RustModulePath("std".into(), vec![]),
                 vec!["str".to_string()],

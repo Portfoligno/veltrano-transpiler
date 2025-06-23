@@ -152,7 +152,6 @@ pub struct CrateInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionInfo {
     pub name: String,
-    pub full_path: String,
     pub path: RustPath,
     pub generics: Vec<GenericParam>,
     pub parameters: Vec<Parameter>,
@@ -166,7 +165,6 @@ pub struct FunctionInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TypeInfo {
     pub name: String,
-    pub full_path: String,
     pub path: RustPath,
     pub kind: TypeKind,
     pub generics: Vec<GenericParam>,
@@ -179,7 +177,6 @@ pub struct TypeInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TraitInfo {
     pub name: String,
-    pub full_path: String,
     pub path: RustPath,
     pub methods: Vec<MethodInfo>,
     pub associated_types: Vec<String>,

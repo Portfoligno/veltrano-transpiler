@@ -25,16 +25,14 @@ fn test_syn_querier_against_veltrano_crate() {
 
                 // Check for specific functions we know exist
                 for (name, func) in &crate_info.functions {
-                    println!("Function: {} ({})", name, func.full_path);
+                    println!("Function: {} (path: {:?})", name, func.path);
                     assert!(!func.name.is_empty());
-                    assert!(!func.full_path.is_empty());
                 }
 
                 // Check for specific types we know exist
                 for (name, type_info) in &crate_info.types {
                     println!("Type: {} (kind: {:?})", name, type_info.kind);
                     assert!(!type_info.name.is_empty());
-                    assert!(!type_info.full_path.is_empty());
                 }
             }
             Err(e) => {
@@ -792,7 +790,6 @@ fn test_trait_and_impl_extraction() {
                     "Point".to_string(),
                     TypeInfo {
                         name: "Point".to_string(),
-                        full_path: "Point".to_string(),
                         path: RustPath::Type(RustTypePath(
                             RustModulePath("test".into(), vec![]),
                             vec!["Point".to_string()],
