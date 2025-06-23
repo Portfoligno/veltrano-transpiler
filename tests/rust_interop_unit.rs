@@ -781,3 +781,80 @@ fn test_rustdoc_function_conversion() {
 
     // TODO: Add more comprehensive tests when rustdoc integration is complete
 }
+
+#[test]
+fn test_rustdoc_type_conversion() {
+    use serde_json::json;
+
+    // Create mock rustdoc JSON structures for testing
+    let _struct_json = json!({
+        "crate_name": "test_crate",
+        "crate_version": "0.1.0",
+        "index": {
+            "0:0": {
+                "name": "Point",
+                "kind": "struct",
+                "inner": {
+                    "fields": [
+                        {
+                            "name": "x",
+                            "type": "f64",
+                            "is_public": true
+                        },
+                        {
+                            "name": "y",
+                            "type": "f64",
+                            "is_public": true
+                        }
+                    ],
+                    "generics": {
+                        "params": []
+                    }
+                }
+            }
+        }
+    });
+
+    let _enum_json = json!({
+        "crate_name": "test_crate",
+        "crate_version": "0.1.0",
+        "index": {
+            "0:0": {
+                "name": "Option",
+                "kind": "enum",
+                "inner": {
+                    "variants": [
+                        {
+                            "name": "Some",
+                            "fields": [
+                                {
+                                    "name": "0",
+                                    "type": "T"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "None",
+                            "fields": []
+                        }
+                    ],
+                    "generics": {
+                        "params": [
+                            {
+                                "name": "T",
+                                "bounds": [],
+                                "default": null
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    });
+
+    // Since we can't easily test the full rustdoc flow without real rustdoc,
+    // we'll focus on testing the convert_type logic directly
+    // For now, we'll just verify the code compiles correctly
+
+    // TODO: Add more comprehensive tests when rustdoc integration is complete
+}

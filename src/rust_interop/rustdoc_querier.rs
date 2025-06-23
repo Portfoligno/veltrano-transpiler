@@ -208,9 +208,101 @@ impl RustdocQuerier {
         })
     }
 
-    fn convert_type(&self, _item: &RustdocItem) -> Option<TypeInfo> {
-        // TODO: Implement proper rustdoc type parsing
-        None
+    fn convert_type(&self, item: &RustdocItem) -> Option<TypeInfo> {
+        // Extract type details from rustdoc JSON
+        let inner = item.inner.as_ref()?;
+
+        // Determine TypeKind from item.kind
+        let type_kind = match item.kind.as_str() {
+            "struct" => TypeKind::Struct,
+            "enum" => TypeKind::Enum,
+            "union" => TypeKind::Union,
+            _ => return None, // Not a type we handle here
+        };
+
+        // Parse the inner structure based on type kind
+        let (fields, variants, generics) = match item.kind.as_str() {
+            "struct" => {
+                let struct_data: RustdocStruct = serde_json::from_value(inner.clone()).ok()?;
+                (struct_data.fields, vec![], struct_data.generics)
+            }
+            "enum" => {
+                let enum_data: RustdocEnum = serde_json::from_value(inner.clone()).ok()?;
+                (vec![], enum_data.variants, enum_data.generics)
+            }
+            "union" => {
+                let union_data: RustdocUnion = serde_json::from_value(inner.clone()).ok()?;
+                (union_data.fields, vec![], union_data.generics)
+            }
+            _ => return None,
+        };
+
+        // Build the path for this type
+        let path = RustPath::Type(RustTypePath(
+            RustModulePath(
+                CrateName("std".to_string()), // TODO: Get actual crate name
+                vec![],                       // TODO: Extract module path from item
+            ),
+            vec![item.name.clone()],
+        ));
+
+        // Convert fields
+        let fields = fields
+            .into_iter()
+            .map(|field| FieldInfo {
+                name: field.name,
+                field_type: RustTypeSignature {
+                    raw: field.type_str,
+                    parsed: None,
+                    lifetimes: vec![],
+                    bounds: vec![],
+                },
+                is_public: field.is_public,
+            })
+            .collect();
+
+        // Convert variants
+        let variants = variants
+            .into_iter()
+            .map(|variant| VariantInfo {
+                name: variant.name,
+                fields: variant
+                    .fields
+                    .into_iter()
+                    .map(|field| FieldInfo {
+                        name: field.name,
+                        field_type: RustTypeSignature {
+                            raw: field.type_str,
+                            parsed: None,
+                            lifetimes: vec![],
+                            bounds: vec![],
+                        },
+                        is_public: true, // Enum variant fields are always accessible
+                    })
+                    .collect(),
+            })
+            .collect();
+
+        // Convert generics
+        let generics = generics
+            .params
+            .into_iter()
+            .map(|param| GenericParam {
+                name: param.name,
+                bounds: param.bounds,
+                default: param.default,
+            })
+            .collect();
+
+        Some(TypeInfo {
+            name: item.name.clone(),
+            path,
+            kind: type_kind,
+            generics,
+            methods: vec![], // TODO: Extract methods when available
+            fields,
+            variants,
+        })
     }
 
     fn convert_trait(&self, _item: &RustdocItem) -> Option<TraitInfo> {
@@ -290,4 +382,40 @@ struct RustdocGenericParam {
     name: String,
     bounds: Vec<String>,
     default: Option<String>,
+}
+
+// Rustdoc struct representation
+#[derive(Debug, Deserialize)]
+struct RustdocStruct {
+    fields: Vec<RustdocField>,
+    generics: RustdocGenerics,
+}
+
+// Rustdoc enum representation
+#[derive(Debug, Deserialize)]
+struct RustdocEnum {
+    variants: Vec<RustdocVariant>,
+    generics: RustdocGenerics,
+}
+
+// Rustdoc union representation
+#[derive(Debug, Deserialize)]
+struct RustdocUnion {
+    fields: Vec<RustdocField>,
+    generics: RustdocGenerics,
+}
+
+#[derive(Debug, Deserialize)]
+struct RustdocField {
+    name: String,
+    #[serde(rename = "type")]
+    type_str: String,
+    #[serde(default)]
+    is_public: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct RustdocVariant {
+    name: String,
+    fields: Vec<RustdocField>,
 }
