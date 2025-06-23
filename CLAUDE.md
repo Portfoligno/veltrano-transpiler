@@ -349,7 +349,7 @@ git checkout original-branch
 
 #### Push Behavior
 - **Push when explicitly requested** by user (e.g., "push", "commit and push")
-- **Push when it makes sense** - after completing features, fixing bugs, or making significant improvements
+- **Push after completing each significant task** - features, bug fixes, sub-checkpoints, or any meaningful progress
 - **When pushing:** Always integrate with commit command chain for efficiency
 - Use `git push --no-progress` to suppress progress indicators while keeping push summary
 - Alternative: `git push --quiet` for minimal output (errors only)
