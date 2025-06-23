@@ -646,3 +646,74 @@ fn test_self_parameter_lifetime_extraction() {
         panic!("Expected impl item");
     }
 }
+
+#[test]
+fn test_where_clause_extraction() {
+    // Test various where clause patterns
+    let trait_code = r#"
+        pub trait MyTrait<T, U> 
+        where 
+            T: Clone + Send,
+            U: Into<String> + Default,
+            Self: Sized,
+        {
+            fn process(&self, value: T) -> U;
+        }
+        
+        pub trait ComplexTrait<'a, T: 'a> 
+        where 
+            T: Iterator<Item = &'a str>,
+            T::Item: AsRef<str>,
+            for<'b> &'b T: IntoIterator,
+        {
+            fn iterate(&self, iter: T);
+        }
+        
+        pub trait SimpleTraitNoWhere {
+            fn simple(&self);
+        }
+    "#;
+
+    let file = syn::parse_file(trait_code).unwrap();
+    let syn_querier = SynQuerier::new(None).unwrap();
+
+    // Test MyTrait with simple where clauses
+    if let syn::Item::Trait(trait_item) = &file.items[0] {
+        let trait_info = syn_querier.extract_trait(trait_item, "test").unwrap();
+
+        assert_eq!(trait_info.name, "MyTrait");
+        assert!(trait_info.where_clause.is_some());
+
+        let where_predicates = trait_info.where_clause.unwrap();
+        assert_eq!(where_predicates.len(), 3);
+
+        // Check that predicates are captured (exact format may vary)
+        assert!(where_predicates[0].contains("T") && where_predicates[0].contains("Clone"));
+        assert!(where_predicates[1].contains("U") && where_predicates[1].contains("Into"));
+        assert!(where_predicates[2].contains("Self") && where_predicates[2].contains("Sized"));
+    }
+
+    // Test ComplexTrait with lifetime bounds and HRTB
+    if let syn::Item::Trait(trait_item) = &file.items[1] {
+        let trait_info = syn_querier.extract_trait(trait_item, "test").unwrap();
+
+        assert_eq!(trait_info.name, "ComplexTrait");
+        assert!(trait_info.where_clause.is_some());
+
+        let where_predicates = trait_info.where_clause.unwrap();
+        assert_eq!(where_predicates.len(), 3);
+
+        // Verify complex bounds are captured
+        assert!(where_predicates[0].contains("Iterator"));
+        assert!(where_predicates[1].contains("Item"));
+        assert!(where_predicates[2].contains("for"));
+    }
+
+    // Test SimpleTraitNoWhere without where clause
+    if let syn::Item::Trait(trait_item) = &file.items[2] {
+        let trait_info = syn_querier.extract_trait(trait_item, "test").unwrap();
+
+        assert_eq!(trait_info.name, "SimpleTraitNoWhere");
+        assert!(trait_info.where_clause.is_none());
+    }
+}

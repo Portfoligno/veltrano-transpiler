@@ -61,6 +61,7 @@ impl StdLibQuerier {
                 is_const: false,
             }],
             associated_types: vec![],
+            where_clause: None,
         };
         // Store with just "Clone" since that's what will be looked up after parse_path("std::Clone")
         crate_info.traits.insert("Clone".to_string(), clone_trait);
@@ -87,6 +88,7 @@ impl StdLibQuerier {
                 is_const: false,
             }],
             associated_types: vec![],
+            where_clause: None,
         };
         // Store with just "ToString" since that's what will be looked up after parse_path("std::ToString")
         crate_info
@@ -119,6 +121,7 @@ impl StdLibQuerier {
                 is_const: false,
             }],
             associated_types: vec![],
+            where_clause: None,
         };
         crate_info.traits.insert("Into".to_string(), into_trait);
 

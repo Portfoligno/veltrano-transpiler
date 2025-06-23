@@ -468,6 +468,20 @@ impl SynQuerier {
         }
 
         let trait_name = t.ident.to_string();
+
+        // Extract where clause predicates
+        let where_clause = t.generics.where_clause.as_ref().map(|wc| {
+            wc.predicates
+                .iter()
+                .map(|pred| {
+                    // Convert the predicate to a string representation
+                    // This is a simplified approach - in production code you might want
+                    // to parse these more thoroughly
+                    quote::quote!(#pred).to_string()
+                })
+                .collect()
+        });
+
         Ok(TraitInfo {
             name: trait_name.clone(),
             path: RustPath::Type(RustTypePath(
@@ -476,6 +490,7 @@ impl SynQuerier {
             )),
             methods,
             associated_types,
+            where_clause,
         })
     }
 

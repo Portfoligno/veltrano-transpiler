@@ -153,6 +153,7 @@ pub struct TraitInfo {
     pub path: RustPath,
     pub methods: Vec<MethodInfo>,
     pub associated_types: Vec<String>,
+    pub where_clause: Option<Vec<String>>, // Where predicates as strings
 }
 
 /// Kind of Rust type
