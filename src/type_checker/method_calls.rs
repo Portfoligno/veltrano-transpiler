@@ -95,15 +95,36 @@ impl VeltranoTypeChecker {
                         let receiver_rust_type =
                             receiver_type.to_rust_type(&mut self.trait_checker);
 
-                        // Check if the receiver type implements the trait
-                        if let Ok(true) = self
+                        // Get the trait method signature directly using the new interface
+                        if let Ok(Some(method_info)) = self
                             .trait_checker
-                            .type_implements_trait(&receiver_rust_type, trait_name)
+                            .query_trait_method_directly(trait_name, method_name)
                         {
-                            // Get the method signature from the trait
-                            if let Ok(Some(method_info)) = self
+                            // For methods that take &self, we need to check if the inner type implements the trait
+                            let type_to_check = if matches!(method_info.self_kind, SelfKind::Ref(_)) {
+                                // The receiver_rust_type is already a reference (e.g., &String, &i64, &&String)
+                                // We need to check if the inner type implements the trait
+                                let current_type = &receiver_rust_type;
+                                
+                                // Unwrap one layer of reference since the method takes &self
+                                if let RustType::Ref { inner, .. } = current_type {
+                                    (**inner).clone()
+                                } else {
+                                    receiver_rust_type.clone() // Shouldn't happen for &self methods
+                                }
+                            } else {
+                                receiver_rust_type.clone()
+                            };
+
+                            crate::debug_println!(
+                                "DEBUG: Checking if {:?} implements trait {}",
+                                type_to_check, trait_name
+                            );
+
+                            // Check if the appropriate type implements the trait
+                            if let Ok(true) = self
                                 .trait_checker
-                                .query_method_signature(&receiver_rust_type, method_name)
+                                .type_implements_trait(&type_to_check, trait_name)
                             {
                                 // Check if the receiver can provide the required access
                                 if self
@@ -127,11 +148,38 @@ impl VeltranoTypeChecker {
                                             // Use the expected type as the inferred type for the generic parameter
                                             expected.clone()
                                         } else {
-                                            // No expected type, can't infer
+                                            // No expected type for inference
                                             crate::debug_println!("DEBUG: Cannot infer generic parameter {} without expected type", param_name);
-                                            match method_info.return_type.to_veltrano_type() {
-                                                Ok(t) => t,
-                                                Err(_) => continue, // Skip this method if we can't convert the type
+                                            
+                                            // For "Self", we need proper substitution
+                                            if param_name == "Self" {
+                                                // For Clone returning Self:
+                                                // - In Rust: the return type is the dereferenced type (e.g., &T -> T)
+                                                // - In Veltrano: we need to map this correctly
+                                                
+                                                // Get the Rust return type by dereferencing if needed
+                                                let rust_return_type = match &receiver_rust_type {
+                                                    RustType::Ref { inner, .. } => {
+                                                        // &T.clone() returns T in Rust
+                                                        (**inner).clone()
+                                                    }
+                                                    _ => {
+                                                        // T.clone() returns T in Rust
+                                                        receiver_rust_type.clone()
+                                                    }
+                                                };
+                                                
+                                                // Convert the Rust return type to Veltrano type
+                                                rust_return_type.to_veltrano_type().unwrap_or_else(|_| {
+                                                    // Fallback if conversion fails
+                                                    receiver_type.clone()
+                                                })
+                                            } else {
+                                                // For other generics, try to convert
+                                                match method_info.return_type.to_veltrano_type() {
+                                                    Ok(t) => t,
+                                                    Err(_) => continue, // Skip this method if we can't convert the type
+                                                }
                                             }
                                         }
                                     } else {

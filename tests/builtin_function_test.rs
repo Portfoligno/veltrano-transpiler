@@ -29,7 +29,7 @@ fn test_clone_builtin_method_type_checking() {
     let code = r#"
 fun main() {
     val x = 42
-    val y = x.clone()
+    val y = x.ref().clone()
 }
 "#;
 
@@ -53,7 +53,7 @@ fn test_tostring_builtin_method_type_checking() {
     let code = r#"
 fun main() {
     val x = 42
-    val s = x.toString()
+    val s = x.ref().toString()
 }
 "#;
 

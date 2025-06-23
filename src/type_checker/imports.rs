@@ -295,3 +295,95 @@ impl ImportHandler {
         }
     }
 }
+
+/// Register built-in imports at type checker initialization
+pub fn register_builtin_imports(
+    handler: &mut ImportHandler,
+    trait_checker: &mut RustInteropRegistry,
+) {
+    crate::debug_println!("DEBUG: Registering built-in imports");
+    
+    // Clone trait
+    register_trait_method(handler, "Clone", "clone", "clone", trait_checker);
+    
+    // ToString trait (register with camelCase so it converts properly to snake_case)
+    register_trait_method(handler, "ToString", "toString", "toString", trait_checker);
+    
+    // Length methods (multiple registrations with aliasing)
+    register_type_method(handler, "Vec", "len", "length", trait_checker);
+    register_type_method(handler, "String", "len", "length", trait_checker);
+    register_type_method(handler, "str", "len", "length", trait_checker);
+    
+    // Note: toSlice will be added after we have more complete Slice type support
+    
+    crate::debug_println!(
+        "DEBUG: Built-in imports registered. Has clone: {}, Has toString: {}, Has length: {}",
+        handler.has_imports("clone"),
+        handler.has_imports("toString"),
+        handler.has_imports("length")
+    );
+}
+
+/// Helper to register a type method as a built-in import
+fn register_type_method(
+    handler: &mut ImportHandler,
+    type_name: &str,
+    rust_method: &str,
+    veltrano_name: &str,
+    trait_checker: &mut RustInteropRegistry,
+) {
+    let import = ImportStmt {
+        type_name: type_name.to_string(),
+        method_name: rust_method.to_string(),
+        alias: if rust_method != veltrano_name {
+            Some(veltrano_name.to_string())
+        } else {
+            None
+        },
+    };
+    
+    // Register as built-in
+    if let Err(e) = handler.register_builtin(&import, trait_checker) {
+        eprintln!(
+            "Warning: Failed to register built-in import {}.{}: {:?}",
+            type_name, rust_method, e
+        );
+    } else {
+        crate::debug_println!(
+            "DEBUG: Registered built-in type method {}.{} as {}",
+            type_name, rust_method, veltrano_name
+        );
+    }
+}
+
+/// Helper to register a trait method as a built-in import
+fn register_trait_method(
+    handler: &mut ImportHandler,
+    trait_name: &str,
+    rust_method: &str,
+    veltrano_name: &str,
+    trait_checker: &mut RustInteropRegistry,
+) {
+    let import = ImportStmt {
+        type_name: trait_name.to_string(),
+        method_name: rust_method.to_string(),
+        alias: if rust_method != veltrano_name {
+            Some(veltrano_name.to_string())
+        } else {
+            None
+        },
+    };
+    
+    // Register as built-in
+    if let Err(e) = handler.register_builtin(&import, trait_checker) {
+        eprintln!(
+            "Warning: Failed to register built-in import {}.{}: {:?}",
+            trait_name, rust_method, e
+        );
+    } else {
+        crate::debug_println!(
+            "DEBUG: Registered built-in trait method {}.{} as {}",
+            trait_name, rust_method, veltrano_name
+        );
+    }
+}

@@ -3,7 +3,7 @@
 //! This module handles registration of builtin methods.
 
 use super::types::{BuiltinMethodKind, MethodReturnTypeStrategy, TypeFilter};
-use crate::types::{TypeConstructor, VeltranoType};
+use crate::types::TypeConstructor;
 use std::collections::HashMap;
 
 /// Register all built-in methods
@@ -18,22 +18,8 @@ pub fn register_builtin_methods() -> HashMap<String, Vec<BuiltinMethodKind>> {
             .push(method_kind);
     };
 
-    // Universal trait methods - signature information will be looked up dynamically
-    register(
-        "clone",
-        BuiltinMethodKind::TraitMethod {
-            method_name: "clone".to_string(),
-            required_trait: "Clone".to_string(),
-        },
-    );
-
-    register(
-        "toString",
-        BuiltinMethodKind::TraitMethod {
-            method_name: "toString".to_string(),
-            required_trait: "ToString".to_string(),
-        },
-    );
+    // Universal trait methods have been migrated to the import system
+    // clone, toString are now handled as built-in imports
 
     // Reference creation methods (available on all appropriate types)
     register(
@@ -67,16 +53,7 @@ pub fn register_builtin_methods() -> HashMap<String, Vec<BuiltinMethodKind>> {
         },
     );
 
-    // Other common methods
-    register(
-        "length",
-        BuiltinMethodKind::SpecialMethod {
-            method_name: "length".to_string(),
-            receiver_type_filter: TypeFilter::All, // Available on all types for now
-            parameters: vec![],
-            return_type_strategy: MethodReturnTypeStrategy::FixedType(VeltranoType::i64()),
-        },
-    );
+    // length has been migrated to the import system as an alias for various .len() methods
 
     // Bump allocation methods (available on all types)
     register(

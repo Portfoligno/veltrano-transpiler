@@ -12,7 +12,7 @@ use crate::rust_interop::RustInteropRegistry;
 use crate::types::*;
 
 pub use error::{MethodResolution, TypeCheckError};
-use imports::ImportHandler;
+use imports::{ImportHandler, register_builtin_imports};
 
 /// Main type checker with strict type checking (no implicit conversions)
 pub struct VeltranoTypeChecker {
@@ -25,11 +25,17 @@ pub struct VeltranoTypeChecker {
 
 impl VeltranoTypeChecker {
     pub fn new() -> Self {
+        let mut trait_checker = RustInteropRegistry::new();
+        let mut import_handler = ImportHandler::new();
+        
+        // Register built-in imports before any user code
+        register_builtin_imports(&mut import_handler, &mut trait_checker);
+        
         let mut checker = Self {
             env: TypeEnvironment::new(),
-            trait_checker: RustInteropRegistry::new(),
+            trait_checker,
             builtin_registry: BuiltinRegistry::new(),
-            import_handler: ImportHandler::new(),
+            import_handler,
             method_resolutions: std::collections::HashMap::new(),
         };
 

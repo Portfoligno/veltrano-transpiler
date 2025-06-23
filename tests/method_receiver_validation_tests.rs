@@ -74,10 +74,10 @@ fn test_tostring_on_display_types() {
     let code = r#"
     fun main() {
         val x: I64 = 42
-        val s1: Own<String> = x.toString()     // I64 implements Display
+        val s1: Own<String> = x.ref().toString()     // I64 implements Display
         
         val b: Bool = true
-        val s2: Own<String> = b.toString()     // Bool implements Display
+        val s2: Own<String> = b.ref().toString()     // Bool implements Display
     }
     "#;
 
@@ -143,7 +143,7 @@ fn test_tostring_fails_on_owned_display_types() {
         if let Err(error) = result {
             // If it fails, it should be due to method not found, not other reasons
             if matches!(error.kind, veltrano::error::ErrorKind::InvalidMethodCall) {
-                println!("Correctly rejected Own<I64>.toString() - explicit conversion required");
+                println!("Correctly rejected I64.toString() - needs .ref() first");
             }
         }
     }
@@ -254,11 +254,11 @@ fn test_correct_behavior_with_explicit_conversion() {
 
 #[test]
 fn test_i64_clone_naturally_owned() {
-    // I64 is naturally owned (implements Copy), so it can call clone directly
+    // I64 is naturally owned (implements Copy), but Veltrano requires explicit .ref()
     let code = r#"
     fun main() {
         val x: I64 = 42
-        val cloned: I64 = x.clone()  // I64 can call clone directly
+        val cloned: I64 = x.ref().clone()  // I64 needs .ref() before clone
     }
     "#;
 
@@ -267,7 +267,7 @@ fn test_i64_clone_naturally_owned() {
     };
     let result = parse_and_type_check(code, config).map(|_| ());
 
-    assert!(result.is_ok(), "I64 should be able to call clone directly");
+    assert!(result.is_ok(), "I64 should be able to call clone with .ref()");
 }
 
 #[test]
@@ -319,8 +319,8 @@ fn test_i64_clone_chaining() {
     let code = r#"
     fun main() {
         val x: I64 = 42
-        val cloned1: I64 = x.clone()
-        val cloned2: I64 = cloned1.clone()
+        val cloned1: I64 = x.ref().clone()
+        val cloned2: I64 = cloned1.ref().clone()
         val ref_cloned: Ref<I64> = cloned2.ref()
         val cloned3: I64 = ref_cloned.clone()
     }
@@ -339,9 +339,9 @@ fn test_i64_vs_string_clone_comparison() {
     // Compare I64 (Copy type) vs String (non-Copy type) clone behavior
     let code = r#"
     fun main() {
-        // I64 - naturally owned, can clone directly
+        // I64 - naturally owned, needs ref() before clone
         val num: I64 = 42
-        val num_cloned: I64 = num.clone()
+        val num_cloned: I64 = num.ref().clone()
         
         // String - naturally referenced, can clone directly  
         val str: Own<String> = "hello".toString()
@@ -377,8 +377,8 @@ fn test_i64_method_chaining_with_clone() {
     fun main() {
         val x: I64 = 42
         
-        // Chain: I64 -> I64 (clone) -> Ref<I64> -> I64 (clone)
-        val result: I64 = x.clone().ref().clone()
+        // Chain: I64 -> Ref<I64> -> I64 (clone) -> Ref<I64> -> I64 (clone)
+        val result: I64 = x.ref().clone().ref().clone()
     }
     "#;
 

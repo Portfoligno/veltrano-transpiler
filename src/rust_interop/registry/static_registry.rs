@@ -5,7 +5,7 @@
 use super::dynamic_registry::DynamicRustRegistry;
 use crate::error::VeltranoError;
 use crate::rust_interop::{
-    cache::*, parser::RustTypeParser, types::*, utils::camel_to_snake_case, ExternItem,
+    cache::*, types::*, utils::camel_to_snake_case, ExternItem,
 };
 use std::collections::HashMap;
 
@@ -224,6 +224,12 @@ impl RustInteropRegistry {
         rust_type: &RustType,
         trait_name: &str,
     ) -> Result<bool, VeltranoError> {
+        // Blanket implementation: impl<T: ?Sized> Clone for &T
+        // This means ALL reference types implement Clone
+        if matches!(rust_type, RustType::Ref { .. }) && trait_name == "Clone" {
+            return Ok(true);
+        }
+        
         // Convert to string only at the lowest level
         let type_path = rust_type.to_rust_syntax();
 
@@ -413,6 +419,49 @@ impl RustInteropRegistry {
         return_type.parsed.clone().unwrap_or(RustType::Unit)
     }
 
+    /// Query trait method directly by trait name and method name
+    /// This is used when we know we want a specific trait's method signature
+    pub fn query_trait_method_directly(
+        &mut self,
+        trait_name: &str,
+        method_name: &str,
+    ) -> Result<Option<ImportedMethodInfo>, VeltranoError> {
+        // Convert Veltrano method name (camelCase) to Rust method name (snake_case)
+        let rust_method_name = camel_to_snake_case(method_name);
+        crate::debug_println!("DEBUG: query_trait_method_directly - trait_name: {}, method_name: {} -> rust_method_name: {}", trait_name, method_name, rust_method_name);
+        
+        // Try to find the trait in std library first
+        let trait_path = if trait_name.contains("::") {
+            trait_name.to_string()
+        } else {
+            format!("std::{}", trait_name)
+        };
+        
+        if let Ok(Some(trait_info)) = self.dynamic_registry.get_trait(&trait_path) {
+            crate::debug_println!("DEBUG: query_trait_method_directly - found trait_info for {}", trait_path);
+            for method in &trait_info.methods {
+                if method.name == rust_method_name {
+                    crate::debug_println!("DEBUG: query_trait_method_directly - FOUND method {} in trait {}!", rust_method_name, trait_name);
+                    return Ok(Some(ImportedMethodInfo {
+                        _method_name: method_name.to_string(), // Keep original Veltrano name
+                        self_kind: method.self_kind.clone(),
+                        _parameters: self.convert_parameters(&method.parameters),
+                        return_type: if method.return_type.raw == "Self" {
+                            // For trait methods returning Self, we return a generic type
+                            // The actual type will be resolved during type checking
+                            RustType::Generic("Self".to_string())
+                        } else {
+                            self.convert_rust_type_signature(&method.return_type)
+                        },
+                        _trait_name: Some(trait_name.to_string()),
+                    }));
+                }
+            }
+        }
+        
+        Ok(None)
+    }
+
     /// Query trait method signature for a type
     fn query_trait_method_signature(
         &mut self,
@@ -427,32 +476,18 @@ impl RustInteropRegistry {
         // In Rust, &T automatically has certain trait implementations based on T
         let (actual_type_path, traits) =
             if type_path.starts_with("&") && !type_path.starts_with("&&") {
-                let inner_type = &type_path[1..]; // Remove the & prefix
+                let _inner_type = &type_path[1..]; // Remove the & prefix
 
-                // For Clone trait on &T, check if T implements Clone
+                // For Clone trait on &T, we have a blanket implementation
+                // In Rust: impl<T: ?Sized> Clone for &T
+                // This means &T ALWAYS implements Clone, regardless of whether T does
                 if rust_method_name == "clone" {
-                    // Check if the inner type implements Clone
-                    if let Ok(rust_type) = RustTypeParser::parse(inner_type) {
-                        if self.type_implements_trait(&rust_type, "Clone")? {
-                            // &T implements Clone when T: Clone
-                            // Return the traits with Clone included
-                            let mut inner_traits =
-                                self.dynamic_registry.get_implemented_traits(inner_type)?;
-                            if !inner_traits.contains(&"Clone".to_string()) {
-                                inner_traits.push("Clone".to_string());
-                            }
-                            (type_path, inner_traits)
-                        } else {
-                            // T doesn't implement Clone, so &T doesn't have clone()
-                            (type_path, vec![])
-                        }
-                    } else {
-                        // Couldn't parse inner type, fall back to normal query
-                        (
-                            type_path,
-                            self.dynamic_registry.get_implemented_traits(type_path)?,
-                        )
+                    // &T always has Clone
+                    let mut traits = self.dynamic_registry.get_implemented_traits(type_path)?;
+                    if !traits.contains(&"Clone".to_string()) {
+                        traits.push("Clone".to_string());
                     }
+                    (type_path, traits)
                 } else {
                     // For other methods on &T, use normal trait lookup
                     (
