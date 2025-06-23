@@ -1108,3 +1108,198 @@ fn test_rustdoc_type_conversion() {
         _ => panic!("Expected Type path"),
     }
 }
+
+#[test]
+fn test_rustdoc_method_extraction() {
+    use serde_json::json;
+    use veltrano::rust_interop::RustdocQuerier;
+
+    // Create a comprehensive mock rustdoc JSON structure with methods
+    let rustdoc_json = json!({
+        "crate_name": "test_crate",
+        "crate_version": "0.1.0",
+        "paths": {
+            "0:0": {
+                "crate_id": 0,
+                "path": ["test_crate", "MyStruct"],
+                "kind": "struct"
+            },
+            "0:1": {
+                "crate_id": 0,
+                "path": ["test_crate", "impl"],
+                "kind": "impl"
+            },
+            "0:2": {
+                "crate_id": 0,
+                "path": ["test_crate", "MyStruct", "new"],
+                "kind": "method"
+            },
+            "0:3": {
+                "crate_id": 0,
+                "path": ["test_crate", "MyStruct", "get_value"],
+                "kind": "method"
+            },
+            "0:4": {
+                "crate_id": 0,
+                "path": ["test_crate", "MyStruct", "set_value"],
+                "kind": "method"
+            }
+        },
+        "external_crates": {},
+        "index": {
+            "0:0": {
+                "id": "0:0",
+                "crate_id": 0,
+                "name": "MyStruct",
+                "kind": "struct",
+                "inner": {
+                    "fields": [
+                        {
+                            "name": "value",
+                            "type": "T",
+                            "is_public": false
+                        }
+                    ],
+                    "generics": {
+                        "params": [
+                            {
+                                "name": "T",
+                                "bounds": ["Clone"],
+                                "default": null
+                            }
+                        ]
+                    },
+                    "impls": ["0:1"]
+                }
+            },
+            "0:1": {
+                "id": "0:1",
+                "crate_id": 0,
+                "name": "",
+                "kind": "impl",
+                "inner": {
+                    "for": {},
+                    "trait": null,
+                    "items": ["0:2", "0:3", "0:4"]
+                }
+            },
+            "0:2": {
+                "id": "0:2",
+                "crate_id": 0,
+                "name": "new",
+                "kind": "method",
+                "inner": {
+                    "name": "new",
+                    "sig": {
+                        "inputs": [
+                            ["value", "T"]
+                        ],
+                        "output": "Self"
+                    },
+                    "generics": {
+                        "params": []
+                    },
+                    "header": {
+                        "is_const": false,
+                        "is_unsafe": false,
+                        "is_async": false
+                    },
+                    "has_body": true
+                }
+            },
+            "0:3": {
+                "id": "0:3",
+                "crate_id": 0,
+                "name": "get_value",
+                "kind": "method",
+                "inner": {
+                    "name": "get_value",
+                    "sig": {
+                        "inputs": [
+                            ["&self", "&Self"]
+                        ],
+                        "output": "&T"
+                    },
+                    "generics": {
+                        "params": []
+                    },
+                    "header": {
+                        "is_const": false,
+                        "is_unsafe": false,
+                        "is_async": false
+                    },
+                    "has_body": true
+                }
+            },
+            "0:4": {
+                "id": "0:4",
+                "crate_id": 0,
+                "name": "set_value",
+                "kind": "method",
+                "inner": {
+                    "name": "set_value",
+                    "sig": {
+                        "inputs": [
+                            ["&mut self", "&mut Self"],
+                            ["value", "T"]
+                        ],
+                        "output": null
+                    },
+                    "generics": {
+                        "params": []
+                    },
+                    "header": {
+                        "is_const": false,
+                        "is_unsafe": false,
+                        "is_async": false
+                    },
+                    "has_body": true
+                }
+            }
+        }
+    });
+
+    // Test that we can parse and convert the rustdoc JSON
+    let querier = RustdocQuerier::new(None);
+    let crate_info = querier
+        .convert_rustdoc_to_crate_info(serde_json::from_value(rustdoc_json).unwrap())
+        .unwrap();
+
+    // Get the struct type
+    let my_struct = crate_info.types.get("MyStruct").unwrap();
+    assert_eq!(my_struct.name, "MyStruct");
+
+    // Verify methods were extracted
+    assert_eq!(my_struct.methods.len(), 3);
+
+    // Check static method (no self)
+    let new_method = my_struct.methods.iter().find(|m| m.name == "new").unwrap();
+    assert_eq!(new_method.name, "new");
+    assert!(matches!(new_method.self_kind, SelfKind::None));
+    assert_eq!(new_method.parameters.len(), 1);
+    assert_eq!(new_method.parameters[0].name, "value");
+    assert_eq!(new_method.return_type.raw, "Self");
+
+    // Check immutable self method
+    let get_method = my_struct
+        .methods
+        .iter()
+        .find(|m| m.name == "get_value")
+        .unwrap();
+    assert_eq!(get_method.name, "get_value");
+    assert!(matches!(get_method.self_kind, SelfKind::Ref(None)));
+    assert_eq!(get_method.parameters.len(), 0); // self is not in parameters
+    assert_eq!(get_method.return_type.raw, "&T");
+
+    // Check mutable self method
+    let set_method = my_struct
+        .methods
+        .iter()
+        .find(|m| m.name == "set_value")
+        .unwrap();
+    assert_eq!(set_method.name, "set_value");
+    assert!(matches!(set_method.self_kind, SelfKind::MutRef(None)));
+    assert_eq!(set_method.parameters.len(), 1);
+    assert_eq!(set_method.parameters[0].name, "value");
+    assert_eq!(set_method.return_type.raw, "()");
+}

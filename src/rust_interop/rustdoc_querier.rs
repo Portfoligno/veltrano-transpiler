@@ -4,6 +4,7 @@
 
 use super::cache::*;
 use super::parser::RustTypeParser;
+use super::types::SelfKind;
 use super::{RustInteropError, RustQuerier};
 use crate::error::VeltranoError;
 use serde::Deserialize;
@@ -260,18 +261,33 @@ impl RustdocQuerier {
         };
 
         // Parse the inner structure based on type kind
-        let (fields, variants, generics) = match item.kind.as_str() {
+        let (fields, variants, generics, impl_ids) = match item.kind.as_str() {
             "struct" => {
                 let struct_data: RustdocStruct = serde_json::from_value(inner.clone()).ok()?;
-                (struct_data.fields, vec![], struct_data.generics)
+                (
+                    struct_data.fields,
+                    vec![],
+                    struct_data.generics,
+                    struct_data.impls,
+                )
             }
             "enum" => {
                 let enum_data: RustdocEnum = serde_json::from_value(inner.clone()).ok()?;
-                (vec![], enum_data.variants, enum_data.generics)
+                (
+                    vec![],
+                    enum_data.variants,
+                    enum_data.generics,
+                    enum_data.impls,
+                )
             }
             "union" => {
                 let union_data: RustdocUnion = serde_json::from_value(inner.clone()).ok()?;
-                (union_data.fields, vec![], union_data.generics)
+                (
+                    union_data.fields,
+                    vec![],
+                    union_data.generics,
+                    union_data.impls,
+                )
             }
             _ => return None,
         };
@@ -364,14 +380,134 @@ impl RustdocQuerier {
             })
             .collect();
 
+        // Extract methods from impl blocks
+        let methods = self.extract_methods_from_impls(&impl_ids, doc);
+
         Some(TypeInfo {
             name: item.name.clone(),
             path,
             kind: type_kind,
             generics,
-            methods: vec![], // TODO: Extract methods when available
+            methods,
             fields,
             variants,
+        })
+    }
+
+    fn extract_methods_from_impls(
+        &self,
+        impl_ids: &[String],
+        doc: &RustdocJson,
+    ) -> Vec<MethodInfo> {
+        let mut methods = Vec::new();
+
+        for impl_id in impl_ids {
+            // Get the impl block from the index
+            let impl_item = match doc.index.get(impl_id) {
+                Some(item) if item.kind == "impl" => item,
+                _ => continue, // Skip if not found or not an impl
+            };
+
+            // Parse the impl block
+            let impl_data: RustdocImpl = match impl_item
+                .inner
+                .as_ref()
+                .and_then(|inner| serde_json::from_value(inner.clone()).ok())
+            {
+                Some(data) => data,
+                None => continue,
+            };
+
+            // Skip trait implementations for now (only extract inherent methods)
+            if impl_data.trait_.is_some() {
+                continue;
+            }
+
+            // Extract methods from this impl block
+            for method_id in &impl_data.items {
+                // Get the method item from the index
+                let method_item = match doc.index.get(method_id) {
+                    Some(item) if item.kind == "method" => item,
+                    _ => continue, // Skip if not found or not a method
+                };
+
+                // Convert the method
+                if let Some(method_info) = self.convert_method(method_item, doc) {
+                    methods.push(method_info);
+                }
+            }
+        }
+
+        methods
+    }
+
+    fn convert_method(&self, item: &RustdocItem, _doc: &RustdocJson) -> Option<MethodInfo> {
+        // Extract method details from rustdoc JSON
+        let inner = item.inner.as_ref()?;
+        let method: RustdocMethod = serde_json::from_value(inner.clone()).ok()?;
+
+        // Determine self kind from the first parameter
+        let self_kind = if let Some((param_name, _)) = method.sig.inputs.first() {
+            match param_name.as_str() {
+                "self" => SelfKind::Value,
+                "&self" => SelfKind::Ref(None),
+                "&mut self" => SelfKind::MutRef(None),
+                _ => SelfKind::None,
+            }
+        } else {
+            SelfKind::None
+        };
+
+        // Convert parameters (excluding self)
+        let parameters = method
+            .sig
+            .inputs
+            .into_iter()
+            .skip(if matches!(self_kind, SelfKind::None) {
+                0
+            } else {
+                1
+            })
+            .map(|(name, type_str)| Parameter {
+                name,
+                param_type: RustTypeSignature {
+                    raw: type_str.clone(),
+                    parsed: RustTypeParser::parse(&type_str).ok(),
+                    lifetimes: vec![],
+                    bounds: vec![],
+                },
+            })
+            .collect();
+
+        // Convert return type
+        let return_type_str = method.sig.output.unwrap_or_else(|| "()".to_string());
+        let return_type = RustTypeSignature {
+            raw: return_type_str.clone(),
+            parsed: RustTypeParser::parse(&return_type_str).ok(),
+            lifetimes: vec![],
+            bounds: vec![],
+        };
+
+        // Convert generics
+        let generics = method
+            .generics
+            .params
+            .into_iter()
+            .map(|param| GenericParam {
+                name: param.name,
+                bounds: param.bounds,
+                default: param.default,
+            })
+            .collect();
+
+        Some(MethodInfo {
+            name: item.name.clone(),
+            self_kind,
+            generics,
+            parameters,
+            return_type,
+            is_unsafe: method.header.is_unsafe,
+            is_const: method.header.is_const,
         })
     }
 
@@ -481,6 +617,8 @@ struct RustdocGenericParam {
 struct RustdocStruct {
     fields: Vec<RustdocField>,
     generics: RustdocGenerics,
+    #[serde(default)]
+    impls: Vec<String>, // IDs of impl blocks
 }
 
 // Rustdoc enum representation
@@ -488,6 +626,8 @@ struct RustdocStruct {
 struct RustdocEnum {
     variants: Vec<RustdocVariant>,
     generics: RustdocGenerics,
+    #[serde(default)]
+    impls: Vec<String>, // IDs of impl blocks
 }
 
 // Rustdoc union representation
@@ -495,6 +635,8 @@ struct RustdocEnum {
 struct RustdocUnion {
     fields: Vec<RustdocField>,
     generics: RustdocGenerics,
+    #[serde(default)]
+    impls: Vec<String>, // IDs of impl blocks
 }
 
 #[derive(Debug, Deserialize)]
@@ -510,4 +652,24 @@ struct RustdocField {
 struct RustdocVariant {
     name: String,
     fields: Vec<RustdocField>,
+}
+
+// Rustdoc impl block representation
+#[derive(Debug, Deserialize)]
+struct RustdocImpl {
+    #[serde(rename = "for")]
+    for_type: serde_json::Value, // The type this impl is for
+    #[serde(rename = "trait")]
+    trait_: Option<serde_json::Value>, // The trait being implemented (if any)
+    items: Vec<String>, // IDs of methods/associated items
+}
+
+// Rustdoc method representation
+#[derive(Debug, Deserialize)]
+struct RustdocMethod {
+    name: String,
+    sig: RustdocFunctionSignature,
+    generics: RustdocGenerics,
+    header: RustdocFunctionHeader,
+    has_body: bool,
 }
