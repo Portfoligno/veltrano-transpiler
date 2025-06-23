@@ -104,8 +104,8 @@ impl RustdocQuerier {
 
     fn convert_rustdoc_to_crate_info(&self, doc: RustdocJson) -> Result<CrateInfo, VeltranoError> {
         let mut crate_info = CrateInfo {
-            name: doc.crate_name.unwrap_or_default(),
-            version: doc.crate_version.unwrap_or_default(),
+            name: doc.crate_name.clone().unwrap_or_default(),
+            version: doc.crate_version.clone().unwrap_or_default(),
             functions: HashMap::new(),
             types: HashMap::new(),
             traits: HashMap::new(),
@@ -113,20 +113,20 @@ impl RustdocQuerier {
         };
 
         // Process all items in the index
-        for (_id, item) in doc.index {
+        for (_id, item) in &doc.index {
             match item.kind.as_str() {
                 "function" | "constant" | "static" => {
-                    if let Some(func_info) = self.convert_function(&item) {
+                    if let Some(func_info) = self.convert_function(&item, &doc) {
                         crate_info.functions.insert(item.name.clone(), func_info);
                     }
                 }
                 "struct" | "enum" | "union" => {
-                    if let Some(type_info) = self.convert_type(&item) {
+                    if let Some(type_info) = self.convert_type(&item, &doc) {
                         crate_info.types.insert(item.name.clone(), type_info);
                     }
                 }
                 "trait" => {
-                    if let Some(trait_info) = self.convert_trait(&item) {
+                    if let Some(trait_info) = self.convert_trait(&item, &doc) {
                         crate_info.traits.insert(item.name.clone(), trait_info);
                     }
                 }
@@ -137,7 +137,7 @@ impl RustdocQuerier {
         Ok(crate_info)
     }
 
-    fn convert_function(&self, item: &RustdocItem) -> Option<FunctionInfo> {
+    fn convert_function(&self, item: &RustdocItem, doc: &RustdocJson) -> Option<FunctionInfo> {
         // Extract function details from rustdoc JSON
         let inner = item.inner.as_ref()?;
         let func: RustdocFunction = serde_json::from_value(inner.clone()).ok()?;
@@ -151,11 +151,42 @@ impl RustdocQuerier {
             _ => return None, // Shouldn't happen due to match in caller
         };
 
+        // Extract the crate name and module path from paths
+        let (crate_name, module_path) = if let Some(item_summary) = doc.paths.get(&item.id) {
+            // Get crate name - either from current crate or external crates
+            let crate_name = if item.crate_id == 0 {
+                doc.crate_name
+                    .clone()
+                    .unwrap_or_else(|| "unknown".to_string())
+            } else {
+                doc.external_crates
+                    .get(&item.crate_id)
+                    .map(|ec| ec.name.clone())
+                    .unwrap_or_else(|| "unknown".to_string())
+            };
+
+            // Extract module path by removing crate name and item name from the full path
+            let mut module_path = item_summary.path.clone();
+            if !module_path.is_empty() {
+                module_path.remove(0); // Remove crate name
+            }
+            if !module_path.is_empty() && module_path.last() == Some(&item.name) {
+                module_path.pop(); // Remove item name
+            }
+
+            (crate_name, module_path)
+        } else {
+            // Fallback if paths entry is missing
+            (
+                doc.crate_name
+                    .clone()
+                    .unwrap_or_else(|| "unknown".to_string()),
+                vec![],
+            )
+        };
+
         let path = RustPath::ModuleItem(
-            RustModulePath(
-                CrateName("std".to_string()), // TODO: Get actual crate name
-                vec![],                       // TODO: Extract module path from item
-            ),
+            RustModulePath(CrateName(crate_name), module_path),
             item.name.clone(),
             item_kind,
         );
@@ -208,7 +239,7 @@ impl RustdocQuerier {
         })
     }
 
-    fn convert_type(&self, item: &RustdocItem) -> Option<TypeInfo> {
+    fn convert_type(&self, item: &RustdocItem, doc: &RustdocJson) -> Option<TypeInfo> {
         // Extract type details from rustdoc JSON
         let inner = item.inner.as_ref()?;
 
@@ -237,12 +268,43 @@ impl RustdocQuerier {
             _ => return None,
         };
 
+        // Extract the crate name and module path from paths
+        let (crate_name, module_path) = if let Some(item_summary) = doc.paths.get(&item.id) {
+            // Get crate name - either from current crate or external crates
+            let crate_name = if item.crate_id == 0 {
+                doc.crate_name
+                    .clone()
+                    .unwrap_or_else(|| "unknown".to_string())
+            } else {
+                doc.external_crates
+                    .get(&item.crate_id)
+                    .map(|ec| ec.name.clone())
+                    .unwrap_or_else(|| "unknown".to_string())
+            };
+
+            // Extract module path by removing crate name and item name from the full path
+            let mut module_path = item_summary.path.clone();
+            if !module_path.is_empty() {
+                module_path.remove(0); // Remove crate name
+            }
+            if !module_path.is_empty() && module_path.last() == Some(&item.name) {
+                module_path.pop(); // Remove item name
+            }
+
+            (crate_name, module_path)
+        } else {
+            // Fallback if paths entry is missing
+            (
+                doc.crate_name
+                    .clone()
+                    .unwrap_or_else(|| "unknown".to_string()),
+                vec![],
+            )
+        };
+
         // Build the path for this type
         let path = RustPath::Type(RustTypePath(
-            RustModulePath(
-                CrateName("std".to_string()), // TODO: Get actual crate name
-                vec![],                       // TODO: Extract module path from item
-            ),
+            RustModulePath(CrateName(crate_name), module_path),
             vec![item.name.clone()],
         ));
 
@@ -305,7 +367,7 @@ impl RustdocQuerier {
         })
     }
 
-    fn convert_trait(&self, _item: &RustdocItem) -> Option<TraitInfo> {
+    fn convert_trait(&self, _item: &RustdocItem, _doc: &RustdocJson) -> Option<TraitInfo> {
         // TODO: Implement proper rustdoc trait parsing
         None
     }
@@ -341,14 +403,31 @@ struct RustdocJson {
     crate_name: Option<String>,
     crate_version: Option<String>,
     index: HashMap<String, RustdocItem>,
+    paths: HashMap<String, RustdocItemSummary>,
+    external_crates: HashMap<u32, RustdocExternalCrate>,
 }
 
 #[derive(Debug, Deserialize)]
 struct RustdocItem {
+    id: String,
+    crate_id: u32,
     name: String,
     kind: String,
     #[allow(dead_code)]
     inner: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RustdocItemSummary {
+    crate_id: u32,
+    path: Vec<String>,
+    kind: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct RustdocExternalCrate {
+    name: String,
+    html_root_url: Option<String>,
 }
 
 // Rustdoc function representation
