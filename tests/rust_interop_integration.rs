@@ -819,14 +819,14 @@ fn test_trait_and_impl_extraction() {
                             .iter()
                             .find(|m| m.name == "distance")
                             .unwrap();
-                        assert_eq!(distance_method.self_kind, SelfKind::Ref);
+                        assert_eq!(distance_method.self_kind, SelfKind::Ref(None));
 
                         let translate_method = point_type
                             .methods
                             .iter()
                             .find(|m| m.name == "translate")
                             .unwrap();
-                        assert_eq!(translate_method.self_kind, SelfKind::MutRef);
+                        assert_eq!(translate_method.self_kind, SelfKind::MutRef(None));
                     }
                     Err(e) => {
                         println!("Failed to parse impl block: {}", e);

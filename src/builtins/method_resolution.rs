@@ -42,7 +42,7 @@ pub fn receiver_can_provide_rust_access(
     trait_checker: &mut RustInteropRegistry,
 ) -> bool {
     match rust_self_kind {
-        SelfKind::Ref => {
+        SelfKind::Ref(_) => {
             // Rust method takes &self - ONLY Ref<T> can provide this in Veltrano's explicit system
             match &receiver_type.constructor {
                 // Ref<T> can provide &T - check if T implements the trait
@@ -67,7 +67,7 @@ pub fn receiver_can_provide_rust_access(
                 }
             }
         }
-        SelfKind::MutRef => {
+        SelfKind::MutRef(_) => {
             // Rust method takes &mut self - only MutRef<T> can provide this
             match &receiver_type.constructor {
                 TypeConstructor::MutRef => {
@@ -121,7 +121,7 @@ pub fn receiver_can_provide_rust_access_for_imported(
     _trait_checker: &mut RustInteropRegistry,
 ) -> bool {
     match rust_self_kind {
-        SelfKind::Ref => {
+        SelfKind::Ref(_) => {
             // Rust method takes &self - ONLY Ref<T> and naturally referenced types can provide this
             match &receiver_type.constructor {
                 TypeConstructor::Ref => true,
@@ -129,7 +129,7 @@ pub fn receiver_can_provide_rust_access_for_imported(
                 _ => true, // Naturally referenced types (String, etc.) can provide &self
             }
         }
-        SelfKind::MutRef => {
+        SelfKind::MutRef(_) => {
             // Rust method takes &mut self - only MutRef<T> can provide this
             matches!(&receiver_type.constructor, TypeConstructor::MutRef)
         }

@@ -109,11 +109,12 @@ impl SynQuerier {
         inputs: &syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>,
     ) -> SelfKind {
         if let Some(syn::FnArg::Receiver(receiver)) = inputs.first() {
-            if receiver.reference.is_some() {
+            if let Some((_, lifetime)) = &receiver.reference {
+                let lifetime_str = lifetime.as_ref().map(|lt| lt.ident.to_string());
                 if receiver.mutability.is_some() {
-                    SelfKind::MutRef
+                    SelfKind::MutRef(lifetime_str)
                 } else {
-                    SelfKind::Ref
+                    SelfKind::Ref(lifetime_str)
                 }
             } else {
                 SelfKind::Value
@@ -599,13 +600,14 @@ impl SynQuerier {
             .collect()
     }
 
-    fn extract_self_kind(&self, sig: &syn::Signature) -> SelfKind {
+    pub fn extract_self_kind(&self, sig: &syn::Signature) -> SelfKind {
         if let Some(syn::FnArg::Receiver(receiver)) = sig.inputs.first() {
-            if receiver.reference.is_some() {
+            if let Some((_, lifetime)) = &receiver.reference {
+                let lifetime_str = lifetime.as_ref().map(|lt| lt.ident.to_string());
                 if receiver.mutability.is_some() {
-                    SelfKind::MutRef // TODO: Extract lifetime
+                    SelfKind::MutRef(lifetime_str)
                 } else {
-                    SelfKind::Ref // TODO: Extract lifetime
+                    SelfKind::Ref(lifetime_str)
                 }
             } else {
                 SelfKind::Value

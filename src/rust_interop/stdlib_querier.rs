@@ -48,7 +48,7 @@ impl StdLibQuerier {
             )),
             methods: vec![MethodInfo {
                 name: "clone".to_string(),
-                self_kind: SelfKind::Ref,
+                self_kind: SelfKind::Ref(None),
                 generics: vec![],
                 parameters: vec![],
                 return_type: RustTypeSignature {
@@ -74,7 +74,7 @@ impl StdLibQuerier {
             )),
             methods: vec![MethodInfo {
                 name: "to_string".to_string(),
-                self_kind: SelfKind::Ref,
+                self_kind: SelfKind::Ref(None),
                 generics: vec![],
                 parameters: vec![],
                 return_type: RustTypeSignature {
@@ -182,7 +182,7 @@ impl StdLibQuerier {
                 },
                 MethodInfo {
                     name: "push".to_string(),
-                    self_kind: SelfKind::MutRef,
+                    self_kind: SelfKind::MutRef(None),
                     generics: vec![],
                     parameters: vec![Parameter {
                         name: "value".to_string(),
@@ -204,7 +204,7 @@ impl StdLibQuerier {
                 },
                 MethodInfo {
                     name: "len".to_string(),
-                    self_kind: SelfKind::Ref,
+                    self_kind: SelfKind::Ref(None),
                     generics: vec![],
                     parameters: vec![],
                     return_type: RustTypeSignature {
@@ -269,7 +269,7 @@ impl StdLibQuerier {
             methods: vec![
                 MethodInfo {
                     name: "len".to_string(),
-                    self_kind: SelfKind::Ref,
+                    self_kind: SelfKind::Ref(None),
                     generics: vec![],
                     parameters: vec![],
                     return_type: RustTypeSignature {
@@ -283,7 +283,7 @@ impl StdLibQuerier {
                 },
                 MethodInfo {
                     name: "chars".to_string(),
-                    self_kind: SelfKind::Ref,
+                    self_kind: SelfKind::Ref(None),
                     generics: vec![],
                     parameters: vec![],
                     return_type: RustTypeSignature {
@@ -300,7 +300,7 @@ impl StdLibQuerier {
                 },
                 MethodInfo {
                     name: "clone".to_string(),
-                    self_kind: SelfKind::Ref,
+                    self_kind: SelfKind::Ref(None),
                     generics: vec![],
                     parameters: vec![],
                     return_type: RustTypeSignature {
@@ -330,7 +330,7 @@ impl StdLibQuerier {
             methods: vec![
                 MethodInfo {
                     name: "len".to_string(),
-                    self_kind: SelfKind::Ref,
+                    self_kind: SelfKind::Ref(None),
                     generics: vec![],
                     parameters: vec![],
                     return_type: RustTypeSignature {
@@ -344,7 +344,7 @@ impl StdLibQuerier {
                 },
                 MethodInfo {
                     name: "to_uppercase".to_string(),
-                    self_kind: SelfKind::Ref,
+                    self_kind: SelfKind::Ref(None),
                     generics: vec![],
                     parameters: vec![],
                     return_type: RustTypeSignature {

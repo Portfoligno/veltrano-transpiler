@@ -57,10 +57,10 @@ pub enum RustType {
 /// How a method takes self
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SelfKind {
-    None,   // Associated function (no self)
-    Value,  // self
-    Ref,    // &self
-    MutRef, // &mut self
+    None,                   // Associated function (no self)
+    Value,                  // self
+    Ref(Option<String>),    // &self or &'a self
+    MutRef(Option<String>), // &mut self or &'a mut self
 }
 
 /// Information about an imported method with full signature details

@@ -44,7 +44,7 @@ fn test_error_handling_and_fallback() {
                     generics: vec![],
                     methods: vec![MethodInfo {
                         name: "test_method".to_string(),
-                        self_kind: SelfKind::Ref,
+                        self_kind: SelfKind::Ref(None),
                         generics: vec![],
                         parameters: vec![],
                         return_type: RustTypeSignature {
@@ -314,13 +314,13 @@ fn test_self_kind_determination() {
         let ref_self_fn = syn::parse_str::<syn::Signature>("fn test(&self)").unwrap();
         assert_eq!(
             querier.determine_self_kind(&ref_self_fn.inputs),
-            SelfKind::Ref
+            SelfKind::Ref(None)
         );
 
         let mut_ref_self_fn = syn::parse_str::<syn::Signature>("fn test(&mut self)").unwrap();
         assert_eq!(
             querier.determine_self_kind(&mut_ref_self_fn.inputs),
-            SelfKind::MutRef
+            SelfKind::MutRef(None)
         );
 
         let no_self_fn = syn::parse_str::<syn::Signature>("fn test()").unwrap();
@@ -562,5 +562,87 @@ fn test_generic_parameter_defaults() {
         assert_eq!(fn_info.generics[0].default, Some("bool".to_string()));
     } else {
         panic!("Expected function item");
+    }
+}
+
+#[test]
+fn test_self_parameter_lifetime_extraction() {
+    // Create test code with various self parameter lifetimes
+    let code = r#"
+        impl MyStruct {
+            pub fn borrow(&self) -> &str {
+                &self.data
+            }
+            
+            pub fn borrow_with_lifetime<'a>(&'a self) -> &'a str {
+                &self.data
+            }
+            
+            pub fn borrow_mut(&mut self) -> &mut str {
+                &mut self.data
+            }
+            
+            pub fn borrow_mut_with_lifetime<'a>(&'a mut self) -> &'a mut str {
+                &mut self.data
+            }
+            
+            pub fn consume(self) -> String {
+                self.data
+            }
+            
+            pub fn static_method() -> String {
+                String::new()
+            }
+        }
+    "#;
+
+    let file = syn::parse_file(code).unwrap();
+    let syn_querier = SynQuerier::new(None).unwrap();
+
+    if let syn::Item::Impl(impl_item) = &file.items[0] {
+        // Extract methods
+        let methods: Vec<_> = impl_item
+            .items
+            .iter()
+            .filter_map(|item| {
+                if let syn::ImplItem::Fn(method) = item {
+                    Some((
+                        method.sig.ident.to_string(),
+                        syn_querier.extract_self_kind(&method.sig),
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // Check each method's self kind
+        assert_eq!(methods.len(), 6);
+
+        // &self without explicit lifetime
+        assert_eq!(methods[0].0, "borrow");
+        assert!(matches!(methods[0].1, SelfKind::Ref(None)));
+
+        // &'a self with explicit lifetime
+        assert_eq!(methods[1].0, "borrow_with_lifetime");
+        assert!(matches!(methods[1].1, SelfKind::Ref(Some(ref lt)) if lt == "a"));
+
+        // &mut self without explicit lifetime
+        assert_eq!(methods[2].0, "borrow_mut");
+        assert!(matches!(methods[2].1, SelfKind::MutRef(None)));
+
+        // &'a mut self with explicit lifetime
+        assert_eq!(methods[3].0, "borrow_mut_with_lifetime");
+        assert!(matches!(methods[3].1, SelfKind::MutRef(Some(ref lt)) if lt == "a"));
+
+        // self (by value)
+        assert_eq!(methods[4].0, "consume");
+        assert!(matches!(methods[4].1, SelfKind::Value));
+
+        // no self (static method)
+        assert_eq!(methods[5].0, "static_method");
+        assert!(matches!(methods[5].1, SelfKind::None));
+    } else {
+        panic!("Expected impl item");
     }
 }

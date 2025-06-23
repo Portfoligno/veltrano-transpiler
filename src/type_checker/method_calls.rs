@@ -297,7 +297,7 @@ impl VeltranoTypeChecker {
                         }
                     }
                 }
-                SelfKind::Ref => {
+                SelfKind::Ref(_) => {
                     // Method expects &self
                     if self
                         .trait_checker
@@ -318,7 +318,7 @@ impl VeltranoTypeChecker {
                         }
                     }
                 }
-                SelfKind::MutRef => {
+                SelfKind::MutRef(_) => {
                     // Method expects &mut self
                     if self
                         .trait_checker

@@ -71,7 +71,7 @@ impl RustInteropRegistry {
         self.register(ExternItem::Method {
             type_name: "String".to_string(),
             method_name: "push_str".to_string(),
-            _self_kind: SelfKind::MutRef,
+            _self_kind: SelfKind::MutRef(None),
             _params: vec![(
                 "s".to_string(),
                 RustType::Ref {
@@ -99,7 +99,7 @@ impl RustInteropRegistry {
         self.register(ExternItem::Method {
             type_name: "Vec".to_string(),
             method_name: "push".to_string(),
-            _self_kind: SelfKind::MutRef,
+            _self_kind: SelfKind::MutRef(None),
             _params: vec![("value".to_string(), RustType::Generic("T".to_string()))],
             _return_type: RustType::Unit,
             _is_unsafe: false,
@@ -108,7 +108,7 @@ impl RustInteropRegistry {
         self.register(ExternItem::Method {
             type_name: "Vec".to_string(),
             method_name: "len".to_string(),
-            _self_kind: SelfKind::Ref,
+            _self_kind: SelfKind::Ref(None),
             _params: vec![],
             _return_type: RustType::USize,
             _is_unsafe: false,
@@ -118,7 +118,7 @@ impl RustInteropRegistry {
         self.register(ExternItem::Method {
             type_name: "Option".to_string(),
             method_name: "is_some".to_string(),
-            _self_kind: SelfKind::Ref,
+            _self_kind: SelfKind::Ref(None),
             _params: vec![],
             _return_type: RustType::Bool,
             _is_unsafe: false,
@@ -137,7 +137,7 @@ impl RustInteropRegistry {
         self.register(ExternItem::Method {
             type_name: "Result".to_string(),
             method_name: "is_ok".to_string(),
-            _self_kind: SelfKind::Ref,
+            _self_kind: SelfKind::Ref(None),
             _params: vec![],
             _return_type: RustType::Bool,
             _is_unsafe: false,
