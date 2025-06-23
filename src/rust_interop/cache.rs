@@ -16,6 +16,7 @@ pub enum ItemKind {
 pub struct CrateName(pub String);
 
 impl CrateName {
+    #[allow(dead_code)]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -39,10 +40,12 @@ impl From<String> for CrateName {
 pub struct RustModulePath(pub CrateName, pub Vec<String>);
 
 impl RustModulePath {
+    #[allow(dead_code)]
     pub fn crate_name(&self) -> &CrateName {
         &self.0
     }
 
+    #[allow(dead_code)]
     pub fn module_path(&self) -> &[String] {
         &self.1
     }
@@ -55,15 +58,18 @@ pub struct RustTypePath(pub RustModulePath, pub Vec<String>);
 
 impl RustTypePath {
     /// Add a nested type component (e.g., HashMap -> HashMap::Entry)
+    #[allow(dead_code)]
     pub fn with_nested(mut self, name: String) -> Self {
         self.1.push(name);
         self
     }
 
+    #[allow(dead_code)]
     pub fn module_path(&self) -> &RustModulePath {
         &self.0
     }
 
+    #[allow(dead_code)]
     pub fn type_path(&self) -> &[String] {
         &self.1
     }
@@ -90,6 +96,7 @@ pub enum RustPath {
 
 impl RustPath {
     /// Get the module path (crate + modules)
+    #[allow(dead_code)]
     pub fn module_path(&self) -> &RustModulePath {
         match self {
             RustPath::ModuleItem(module_path, _, _) => module_path,
@@ -100,6 +107,7 @@ impl RustPath {
     }
 
     /// Check if case conversion should be applied (snake_case to camelCase)
+    #[allow(dead_code)]
     pub fn should_convert_case(&self) -> bool {
         match self {
             RustPath::ModuleItem(_, _, kind) => matches!(kind, ItemKind::Function),

@@ -567,8 +567,10 @@ pub struct RustdocItem {
 #[doc(hidden)]
 #[derive(Debug, Deserialize)]
 pub struct RustdocItemSummary {
+    #[allow(dead_code)]
     pub crate_id: u32,
     pub path: Vec<String>,
+    #[allow(dead_code)]
     pub kind: String,
 }
 
@@ -576,6 +578,7 @@ pub struct RustdocItemSummary {
 #[derive(Debug, Deserialize)]
 pub struct RustdocExternalCrate {
     pub name: String,
+    #[allow(dead_code)]
     pub html_root_url: Option<String>,
 }
 
@@ -597,6 +600,7 @@ struct RustdocFunctionSignature {
 struct RustdocFunctionHeader {
     is_const: bool,
     is_unsafe: bool,
+    #[allow(dead_code)]
     is_async: bool,
 }
 
@@ -658,6 +662,7 @@ struct RustdocVariant {
 #[derive(Debug, Deserialize)]
 struct RustdocImpl {
     #[serde(rename = "for")]
+    #[allow(dead_code)]
     for_type: serde_json::Value, // The type this impl is for
     #[serde(rename = "trait")]
     trait_: Option<serde_json::Value>, // The trait being implemented (if any)
@@ -667,9 +672,11 @@ struct RustdocImpl {
 // Rustdoc method representation
 #[derive(Debug, Deserialize)]
 struct RustdocMethod {
+    #[allow(dead_code)]
     name: String,
     sig: RustdocFunctionSignature,
     generics: RustdocGenerics,
     header: RustdocFunctionHeader,
+    #[allow(dead_code)]
     has_body: bool,
 }
