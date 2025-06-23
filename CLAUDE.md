@@ -182,6 +182,12 @@ When over token limit, remove in order:
 
 ### Code Quality Principles
 
+#### Git History as Context
+- **Documentation can lag behind implementation** - Task lists and plans may be out of date
+- **Git commits tell the real story** - `git log --oneline` quickly shows what's been done
+- **Common scenario:** Working on "pending" tasks that are already complete
+- **Helpful when:** Resuming work, seeing "TODO" comments, or following batch plans
+
 #### Embrace Complexity as Value
 - **Complexity in well-organized code is not a burden - it's accumulated value**
 - **Each layer of complexity represents features that users need:**
