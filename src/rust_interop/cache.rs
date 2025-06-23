@@ -60,14 +60,6 @@ impl RustTypePath {
         self
     }
 
-    /// Convert to full Rust path syntax
-    pub fn to_rust_syntax(&self) -> String {
-        let mut parts = vec![self.0.crate_name().as_str().to_string()];
-        parts.extend(self.0.module_path().iter().cloned());
-        parts.extend(self.1.clone());
-        parts.join("::")
-    }
-
     pub fn module_path(&self) -> &RustModulePath {
         &self.0
     }
@@ -97,25 +89,6 @@ pub enum RustPath {
 }
 
 impl RustPath {
-    /// Convert to Rust syntax when needed (e.g., for code generation)
-    pub fn to_rust_syntax(&self) -> String {
-        match self {
-            RustPath::ModuleItem(module_path, name, _) => {
-                let mut parts = vec![module_path.crate_name().as_str().to_string()];
-                parts.extend(module_path.module_path().iter().cloned());
-                parts.push(name.clone());
-                parts.join("::")
-            }
-            RustPath::Type(type_path) => type_path.to_rust_syntax(),
-            RustPath::EnumVariant(enum_type, variant_name) => {
-                format!("{}::{}", enum_type.to_rust_syntax(), variant_name)
-            }
-            RustPath::TypeItem(parent_type, item_name, _) => {
-                format!("{}::{}", parent_type.to_rust_syntax(), item_name)
-            }
-        }
-    }
-
     /// Get the module path (crate + modules)
     pub fn module_path(&self) -> &RustModulePath {
         match self {
