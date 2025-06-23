@@ -461,3 +461,36 @@ fn test_integration_with_existing_registry() {
     // The static registry should be initialized (though we can't test private fields directly)
     drop(static_registry); // Just to use it
 }
+
+#[test]
+fn test_associated_type_extraction() {
+    // Create a test trait with associated types
+    let trait_code = r#"
+        pub trait MyIterator {
+            type Item;
+            type Error;
+            
+            fn next(&mut self) -> Option<Self::Item>;
+            fn error(&self) -> Option<Self::Error>;
+        }
+    "#;
+
+    // Parse the trait
+    let file = syn::parse_file(trait_code).unwrap();
+    if let syn::Item::Trait(trait_item) = &file.items[0] {
+        let syn_querier = SynQuerier::new(None).unwrap();
+        let trait_info = syn_querier.extract_trait(trait_item, "test").unwrap();
+
+        // Check that associated types were extracted
+        assert_eq!(trait_info.associated_types.len(), 2);
+        assert!(trait_info.associated_types.contains(&"Item".to_string()));
+        assert!(trait_info.associated_types.contains(&"Error".to_string()));
+
+        // Check that methods were also extracted
+        assert_eq!(trait_info.methods.len(), 2);
+        assert_eq!(trait_info.methods[0].name, "next");
+        assert_eq!(trait_info.methods[1].name, "error");
+    } else {
+        panic!("Expected trait item");
+    }
+}

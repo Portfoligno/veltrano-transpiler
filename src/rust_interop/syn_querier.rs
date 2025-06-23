@@ -443,12 +443,13 @@ impl SynQuerier {
         t: &syn::ItemTrait,
         crate_name: &str,
     ) -> Result<TraitInfo, VeltranoError> {
-        let methods = t
-            .items
-            .iter()
-            .filter_map(|item| {
-                if let syn::TraitItem::Fn(method) = item {
-                    Some(MethodInfo {
+        let mut methods = Vec::new();
+        let mut associated_types = Vec::new();
+
+        for item in &t.items {
+            match item {
+                syn::TraitItem::Fn(method) => {
+                    methods.push(MethodInfo {
                         name: method.sig.ident.to_string(),
                         self_kind: self.extract_self_kind(&method.sig),
                         generics: self.extract_generics(&method.sig.generics),
@@ -456,12 +457,14 @@ impl SynQuerier {
                         return_type: self.extract_return_type(&method.sig.output),
                         is_unsafe: method.sig.unsafety.is_some(),
                         is_const: method.sig.constness.is_some(),
-                    })
-                } else {
-                    None
+                    });
                 }
-            })
-            .collect();
+                syn::TraitItem::Type(assoc_type) => {
+                    associated_types.push(assoc_type.ident.to_string());
+                }
+                _ => {} // Ignore other trait items (const, macro, etc.)
+            }
+        }
 
         let trait_name = t.ident.to_string();
         Ok(TraitInfo {
@@ -471,7 +474,7 @@ impl SynQuerier {
                 vec![trait_name],
             )),
             methods,
-            associated_types: vec![], // TODO: Extract associated types
+            associated_types,
         })
     }
 
