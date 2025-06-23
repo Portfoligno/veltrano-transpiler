@@ -3,6 +3,7 @@
 //! Uses rustdoc JSON output to extract type information from crates.
 
 use super::cache::*;
+use super::parser::RustTypeParser;
 use super::{RustInteropError, RustQuerier};
 use crate::error::VeltranoError;
 use serde::Deserialize;
@@ -199,8 +200,8 @@ impl RustdocQuerier {
             .map(|(name, type_str)| Parameter {
                 name,
                 param_type: RustTypeSignature {
-                    raw: type_str,
-                    parsed: None, // TODO: Parse the type
+                    raw: type_str.clone(),
+                    parsed: RustTypeParser::parse(&type_str).ok(),
                     lifetimes: vec![],
                     bounds: vec![],
                 },
@@ -208,9 +209,10 @@ impl RustdocQuerier {
             .collect();
 
         // Convert return type
+        let return_type_str = func.sig.output.unwrap_or_else(|| "()".to_string());
         let return_type = RustTypeSignature {
-            raw: func.sig.output.unwrap_or_else(|| "()".to_string()),
-            parsed: None, // TODO: Parse the type
+            raw: return_type_str.clone(),
+            parsed: RustTypeParser::parse(&return_type_str).ok(),
             lifetimes: vec![],
             bounds: vec![],
         };
@@ -314,8 +316,8 @@ impl RustdocQuerier {
             .map(|field| FieldInfo {
                 name: field.name,
                 field_type: RustTypeSignature {
-                    raw: field.type_str,
-                    parsed: None,
+                    raw: field.type_str.clone(),
+                    parsed: RustTypeParser::parse(&field.type_str).ok(),
                     lifetimes: vec![],
                     bounds: vec![],
                 },
@@ -334,8 +336,8 @@ impl RustdocQuerier {
                     .map(|field| FieldInfo {
                         name: field.name,
                         field_type: RustTypeSignature {
-                            raw: field.type_str,
-                            parsed: None,
+                            raw: field.type_str.clone(),
+                            parsed: RustTypeParser::parse(&field.type_str).ok(),
                             lifetimes: vec![],
                             bounds: vec![],
                         },
