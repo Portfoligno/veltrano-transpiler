@@ -28,21 +28,30 @@ pub enum ImportedMethod {
 
 /// Import handler for managing and resolving method imports
 pub struct ImportHandler {
-    /// Maps method names/aliases to their imported methods
-    imports: HashMap<String, Vec<ImportedMethod>>,
+    /// User imports - these take precedence
+    user_imports: HashMap<String, Vec<ImportedMethod>>,
+    /// Built-in imports - only used if no user imports exist for a method
+    builtin_imports: HashMap<String, Vec<ImportedMethod>>,
 }
 
 impl ImportHandler {
     /// Create a new import handler
     pub fn new() -> Self {
         Self {
-            imports: HashMap::new(),
+            user_imports: HashMap::new(),
+            builtin_imports: HashMap::new(),
         }
     }
 
-    /// Get imports for a given method name
+    /// Get imports for a given method name - user imports shadow built-ins completely
     pub fn get_imports(&self, name: &str) -> Option<Vec<ImportedMethod>> {
-        self.imports.get(name).cloned()
+        // Check user imports first
+        if let Some(user_methods) = self.user_imports.get(name) {
+            return Some(user_methods.clone());
+        }
+        
+        // Fall back to built-in imports only if no user imports exist
+        self.builtin_imports.get(name).cloned()
     }
 
     /// Check import statement and register it for method resolution
@@ -74,7 +83,7 @@ impl ImportHandler {
                     rust_type
                 );
                 // This is a valid type-based import
-                self.imports
+                self.user_imports
                     .entry(key.clone())
                     .or_insert_with(Vec::new)
                     .push(ImportedMethod::TypeMethod {
@@ -105,7 +114,7 @@ impl ImportHandler {
         // If it's not a valid type-based import, assume it's a trait import
         // We can't validate trait imports at import time because we don't know
         // what types will use them yet
-        self.imports
+        self.user_imports
             .entry(key)
             .or_insert_with(Vec::new)
             .push(ImportedMethod::TraitMethod {
@@ -114,6 +123,54 @@ impl ImportHandler {
             });
 
         Ok(())
+    }
+
+    /// Register a built-in import (called at initialization)
+    pub fn register_builtin(
+        &mut self,
+        import: &ImportStmt,
+        trait_checker: &mut RustInteropRegistry,
+    ) -> Result<(), TypeCheckError> {
+        // Similar to check_import_statement but uses builtin_imports
+        let key = import
+            .alias
+            .clone()
+            .unwrap_or_else(|| import.method_name.clone());
+
+        // First, try to parse as a type and check if the method exists on that type
+        if let Ok(rust_type) = RustTypeParser::parse(&import.type_name) {
+            // Check if this type has the requested method
+            if let Ok(Some(_)) =
+                trait_checker.query_method_signature(&rust_type, &import.method_name)
+            {
+                // This is a valid type-based import
+                self.builtin_imports
+                    .entry(key.clone())
+                    .or_insert_with(Vec::new)
+                    .push(ImportedMethod::TypeMethod {
+                        rust_type,
+                        method_name: import.method_name.clone(),
+                    });
+                return Ok(());
+            }
+        }
+
+        // If it's not a valid type-based import, assume it's a trait import
+        self.builtin_imports
+            .entry(key)
+            .or_insert_with(Vec::new)
+            .push(ImportedMethod::TraitMethod {
+                trait_name: import.type_name.clone(),
+                method_name: import.method_name.clone(),
+            });
+
+        Ok(())
+    }
+
+    /// Check if we have any imports (user or built-in) for a method name
+    #[allow(dead_code)]
+    pub fn has_imports(&self, name: &str) -> bool {
+        self.user_imports.contains_key(name) || self.builtin_imports.contains_key(name)
     }
 
     /// Check a standalone method call using imports (e.g., Vec.new())
