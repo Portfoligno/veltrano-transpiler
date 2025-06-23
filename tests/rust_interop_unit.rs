@@ -721,22 +721,49 @@ fn test_where_clause_extraction() {
 #[test]
 fn test_rustdoc_function_conversion() {
     use serde_json::json;
+    use veltrano::rust_interop::RustdocQuerier;
 
-    // Create a mock rustdoc JSON structure for testing
-    let _rustdoc_json = json!({
+    // Create a comprehensive mock rustdoc JSON structure
+    let rustdoc_json = json!({
         "crate_name": "test_crate",
         "crate_version": "0.1.0",
+        "paths": {
+            "0:0": {
+                "crate_id": 0,
+                "path": ["test_crate", "utils", "math", "test_function"],
+                "kind": "function"
+            },
+            "0:1": {
+                "crate_id": 0,
+                "path": ["test_crate", "MY_CONSTANT"],
+                "kind": "constant"
+            },
+            "0:2": {
+                "crate_id": 1,
+                "path": ["std", "vec", "Vec", "push"],
+                "kind": "function"
+            }
+        },
+        "external_crates": {
+            "1": {
+                "name": "std",
+                "html_root_url": "https://doc.rust-lang.org/stable/"
+            }
+        },
         "index": {
             "0:0": {
+                "id": "0:0",
+                "crate_id": 0,
                 "name": "test_function",
                 "kind": "function",
                 "inner": {
                     "sig": {
                         "inputs": [
                             ["x", "i32"],
-                            ["y", "String"]
+                            ["y", "&str"],
+                            ["z", "Vec<T>"]
                         ],
-                        "output": "bool"
+                        "output": "Result<String, Box<dyn Error>>"
                     },
                     "generics": {
                         "params": [
@@ -755,6 +782,8 @@ fn test_rustdoc_function_conversion() {
                 }
             },
             "0:1": {
+                "id": "0:1",
+                "crate_id": 0,
                 "name": "MY_CONSTANT",
                 "kind": "constant",
                 "inner": {
@@ -771,27 +800,163 @@ fn test_rustdoc_function_conversion() {
                         "is_async": false
                     }
                 }
+            },
+            "0:2": {
+                "id": "0:2",
+                "crate_id": 1,
+                "name": "push",
+                "kind": "function",
+                "inner": {
+                    "sig": {
+                        "inputs": [
+                            ["self", "&mut Vec<T>"],
+                            ["value", "T"]
+                        ],
+                        "output": null
+                    },
+                    "generics": {
+                        "params": [
+                            {
+                                "name": "T",
+                                "bounds": [],
+                                "default": null
+                            }
+                        ]
+                    },
+                    "header": {
+                        "is_const": false,
+                        "is_unsafe": false,
+                        "is_async": false
+                    }
+                }
             }
         }
     });
 
-    // Since we can't easily test the full rustdoc flow without real rustdoc,
-    // we'll focus on testing the convert_function logic directly
-    // For now, we'll just verify the code compiles correctly
+    // Test that we can parse and convert the rustdoc JSON
+    let querier = RustdocQuerier::new(None);
+    let crate_info = querier
+        .convert_rustdoc_to_crate_info(serde_json::from_value(rustdoc_json).unwrap())
+        .unwrap();
 
-    // TODO: Add more comprehensive tests when rustdoc integration is complete
+    // Verify crate name
+    assert_eq!(crate_info.name, "test_crate");
+    assert_eq!(crate_info.version, "0.1.0");
+
+    // Test function conversion with module path
+    let test_func = crate_info.functions.get("test_function").unwrap();
+    assert_eq!(test_func.name, "test_function");
+    assert!(test_func.is_unsafe);
+    assert!(!test_func.is_const);
+
+    // Verify module path extraction
+    match &test_func.path {
+        RustPath::ModuleItem(module_path, name, ItemKind::Function) => {
+            assert_eq!(name, "test_function");
+            assert_eq!((module_path.0).0, "test_crate");
+            assert_eq!(module_path.1, vec!["utils", "math"]);
+        }
+        _ => panic!("Expected ModuleItem with Function kind"),
+    }
+
+    // Verify parameters with parsed types
+    assert_eq!(test_func.parameters.len(), 3);
+    assert_eq!(test_func.parameters[0].name, "x");
+    assert_eq!(test_func.parameters[0].param_type.raw, "i32");
+    assert!(matches!(
+        test_func.parameters[0].param_type.parsed,
+        Some(RustType::I32)
+    ));
+
+    assert_eq!(test_func.parameters[1].name, "y");
+    assert_eq!(test_func.parameters[1].param_type.raw, "&str");
+    assert!(matches!(
+        test_func.parameters[1].param_type.parsed,
+        Some(RustType::Ref {
+            lifetime: None,
+            inner: _
+        })
+    ));
+
+    assert_eq!(test_func.parameters[2].name, "z");
+    assert_eq!(test_func.parameters[2].param_type.raw, "Vec<T>");
+    assert!(matches!(
+        test_func.parameters[2].param_type.parsed,
+        Some(RustType::Vec(_))
+    ));
+
+    // Verify return type parsing
+    assert_eq!(test_func.return_type.raw, "Result<String, Box<dyn Error>>");
+    assert!(matches!(
+        test_func.return_type.parsed,
+        Some(RustType::Result { .. })
+    ));
+
+    // Verify generics
+    assert_eq!(test_func.generics.len(), 1);
+    assert_eq!(test_func.generics[0].name, "T");
+    assert_eq!(test_func.generics[0].bounds, vec!["Clone", "Debug"]);
+
+    // Test constant conversion
+    let constant = crate_info.functions.get("MY_CONSTANT").unwrap();
+    assert_eq!(constant.name, "MY_CONSTANT");
+    match &constant.path {
+        RustPath::ModuleItem(module_path, name, ItemKind::Constant) => {
+            assert_eq!(name, "MY_CONSTANT");
+            assert_eq!((module_path.0).0, "test_crate");
+            assert!(module_path.1.is_empty()); // Root level constant
+        }
+        _ => panic!("Expected ModuleItem with Constant kind"),
+    }
+
+    // Test external crate function
+    let external_func = crate_info.functions.get("push").unwrap();
+    match &external_func.path {
+        RustPath::ModuleItem(module_path, name, ItemKind::Function) => {
+            assert_eq!(name, "push");
+            assert_eq!((module_path.0).0, "std");
+            assert_eq!(module_path.1, vec!["vec", "Vec"]);
+        }
+        _ => panic!("Expected ModuleItem with Function kind"),
+    }
 }
 
 #[test]
 fn test_rustdoc_type_conversion() {
     use serde_json::json;
+    use veltrano::rust_interop::RustdocQuerier;
 
-    // Create mock rustdoc JSON structures for testing
-    let _struct_json = json!({
+    // Create comprehensive mock rustdoc JSON structures for testing
+    let rustdoc_json = json!({
         "crate_name": "test_crate",
         "crate_version": "0.1.0",
+        "paths": {
+            "0:0": {
+                "crate_id": 0,
+                "path": ["test_crate", "geometry", "Point"],
+                "kind": "struct"
+            },
+            "0:1": {
+                "crate_id": 0,
+                "path": ["test_crate", "Option"],
+                "kind": "enum"
+            },
+            "0:2": {
+                "crate_id": 1,
+                "path": ["libc", "c_void"],
+                "kind": "union"
+            }
+        },
+        "external_crates": {
+            "1": {
+                "name": "libc",
+                "html_root_url": null
+            }
+        },
         "index": {
             "0:0": {
+                "id": "0:0",
+                "crate_id": 0,
                 "name": "Point",
                 "kind": "struct",
                 "inner": {
@@ -805,21 +970,21 @@ fn test_rustdoc_type_conversion() {
                             "name": "y",
                             "type": "f64",
                             "is_public": true
+                        },
+                        {
+                            "name": "label",
+                            "type": "Option<String>",
+                            "is_public": false
                         }
                     ],
                     "generics": {
                         "params": []
                     }
                 }
-            }
-        }
-    });
-
-    let _enum_json = json!({
-        "crate_name": "test_crate",
-        "crate_version": "0.1.0",
-        "index": {
-            "0:0": {
+            },
+            "0:1": {
+                "id": "0:1",
+                "crate_id": 0,
                 "name": "Option",
                 "kind": "enum",
                 "inner": {
@@ -829,7 +994,8 @@ fn test_rustdoc_type_conversion() {
                             "fields": [
                                 {
                                     "name": "0",
-                                    "type": "T"
+                                    "type": "T",
+                                    "is_public": true
                                 }
                             ]
                         },
@@ -848,13 +1014,97 @@ fn test_rustdoc_type_conversion() {
                         ]
                     }
                 }
+            },
+            "0:2": {
+                "id": "0:2",
+                "crate_id": 1,
+                "name": "c_void",
+                "kind": "union",
+                "inner": {
+                    "fields": [
+                        {
+                            "name": "_private",
+                            "type": "[u8; 0]",
+                            "is_public": false
+                        }
+                    ],
+                    "generics": {
+                        "params": []
+                    }
+                }
             }
         }
     });
 
-    // Since we can't easily test the full rustdoc flow without real rustdoc,
-    // we'll focus on testing the convert_type logic directly
-    // For now, we'll just verify the code compiles correctly
+    // Test that we can parse and convert the rustdoc JSON
+    let querier = RustdocQuerier::new(None);
+    let crate_info = querier
+        .convert_rustdoc_to_crate_info(serde_json::from_value(rustdoc_json).unwrap())
+        .unwrap();
 
-    // TODO: Add more comprehensive tests when rustdoc integration is complete
+    // Test struct conversion
+    let point_type = crate_info.types.get("Point").unwrap();
+    assert_eq!(point_type.name, "Point");
+    assert_eq!(point_type.kind, TypeKind::Struct);
+
+    // Verify module path extraction for struct
+    match &point_type.path {
+        RustPath::Type(type_path) => {
+            assert_eq!(((type_path.0).0).0, "test_crate");
+            assert_eq!((type_path.0).1, vec!["geometry"]);
+            assert_eq!(type_path.1, vec!["Point"]);
+        }
+        _ => panic!("Expected Type path"),
+    }
+
+    // Verify struct fields with parsed types
+    assert_eq!(point_type.fields.len(), 3);
+    assert_eq!(point_type.fields[0].name, "x");
+    assert_eq!(point_type.fields[0].field_type.raw, "f64");
+    assert!(matches!(
+        point_type.fields[0].field_type.parsed,
+        Some(RustType::Custom { .. })
+    ));
+    assert!(point_type.fields[0].is_public);
+
+    assert_eq!(point_type.fields[2].name, "label");
+    assert_eq!(point_type.fields[2].field_type.raw, "Option<String>");
+    assert!(matches!(
+        point_type.fields[2].field_type.parsed,
+        Some(RustType::Option(_))
+    ));
+    assert!(!point_type.fields[2].is_public);
+
+    // Test enum conversion
+    let option_type = crate_info.types.get("Option").unwrap();
+    assert_eq!(option_type.name, "Option");
+    assert_eq!(option_type.kind, TypeKind::Enum);
+
+    // Verify enum variants
+    assert_eq!(option_type.variants.len(), 2);
+    assert_eq!(option_type.variants[0].name, "Some");
+    assert_eq!(option_type.variants[0].fields.len(), 1);
+    assert_eq!(option_type.variants[0].fields[0].field_type.raw, "T");
+    assert!(matches!(
+        option_type.variants[0].fields[0].field_type.parsed,
+        Some(RustType::Generic(_))
+    ));
+
+    assert_eq!(option_type.variants[1].name, "None");
+    assert_eq!(option_type.variants[1].fields.len(), 0);
+
+    // Test union conversion from external crate
+    let c_void_type = crate_info.types.get("c_void").unwrap();
+    assert_eq!(c_void_type.name, "c_void");
+    assert_eq!(c_void_type.kind, TypeKind::Union);
+
+    // Verify external crate path
+    match &c_void_type.path {
+        RustPath::Type(type_path) => {
+            assert_eq!(((type_path.0).0).0, "libc");
+            assert!(((type_path.0).1).is_empty());
+            assert_eq!(type_path.1, vec!["c_void"]);
+        }
+        _ => panic!("Expected Type path"),
+    }
 }

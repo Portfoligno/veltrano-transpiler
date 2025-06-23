@@ -103,7 +103,13 @@ impl RustdocQuerier {
         self.convert_rustdoc_to_crate_info(doc)
     }
 
-    fn convert_rustdoc_to_crate_info(&self, doc: RustdocJson) -> Result<CrateInfo, VeltranoError> {
+    /// Exposed for testing only. Not part of the stable public API.
+    #[doc(hidden)]
+    #[allow(dead_code)]
+    pub fn convert_rustdoc_to_crate_info(
+        &self,
+        doc: RustdocJson,
+    ) -> Result<CrateInfo, VeltranoError> {
         let mut crate_info = CrateInfo {
             name: doc.crate_name.clone().unwrap_or_default(),
             version: doc.crate_version.clone().unwrap_or_default(),
@@ -400,36 +406,41 @@ impl RustQuerier for RustdocQuerier {
 }
 
 // Rustdoc JSON format structures (simplified)
+/// Exposed for testing only. Not part of the stable public API.
+#[doc(hidden)]
 #[derive(Debug, Deserialize)]
-struct RustdocJson {
-    crate_name: Option<String>,
-    crate_version: Option<String>,
-    index: HashMap<String, RustdocItem>,
-    paths: HashMap<String, RustdocItemSummary>,
-    external_crates: HashMap<u32, RustdocExternalCrate>,
+pub struct RustdocJson {
+    pub crate_name: Option<String>,
+    pub crate_version: Option<String>,
+    pub index: HashMap<String, RustdocItem>,
+    pub paths: HashMap<String, RustdocItemSummary>,
+    pub external_crates: HashMap<u32, RustdocExternalCrate>,
 }
 
+#[doc(hidden)]
 #[derive(Debug, Deserialize)]
-struct RustdocItem {
-    id: String,
-    crate_id: u32,
-    name: String,
-    kind: String,
+pub struct RustdocItem {
+    pub id: String,
+    pub crate_id: u32,
+    pub name: String,
+    pub kind: String,
     #[allow(dead_code)]
-    inner: Option<serde_json::Value>,
+    pub inner: Option<serde_json::Value>,
 }
 
+#[doc(hidden)]
 #[derive(Debug, Deserialize)]
-struct RustdocItemSummary {
-    crate_id: u32,
-    path: Vec<String>,
-    kind: String,
+pub struct RustdocItemSummary {
+    pub crate_id: u32,
+    pub path: Vec<String>,
+    pub kind: String,
 }
 
+#[doc(hidden)]
 #[derive(Debug, Deserialize)]
-struct RustdocExternalCrate {
-    name: String,
-    html_root_url: Option<String>,
+pub struct RustdocExternalCrate {
+    pub name: String,
+    pub html_root_url: Option<String>,
 }
 
 // Rustdoc function representation

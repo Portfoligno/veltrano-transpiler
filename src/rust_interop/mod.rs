@@ -20,7 +20,8 @@ pub use cache::{CrateInfo, TypeInfo};
 #[doc(hidden)]
 #[allow(unused_imports)]
 pub use cache::{
-    MethodInfo, RustModulePath, RustPath, RustTypePath, RustTypeSignature, TraitInfo, TypeKind,
+    ItemKind, MethodInfo, RustModulePath, RustPath, RustTypePath, RustTypeSignature, TraitInfo,
+    TypeKind,
 };
 pub use parser::RustTypeParser;
 /// Exposed for testing only. Not part of the stable public API.
@@ -31,7 +32,9 @@ pub use registry::RustInteropRegistry;
 /// Exposed for testing only. Not part of the stable public API.
 #[doc(hidden)]
 #[allow(unused_imports)]
-pub use rustdoc_querier::RustdocQuerier;
+pub use rustdoc_querier::{
+    RustdocExternalCrate, RustdocItem, RustdocItemSummary, RustdocJson, RustdocQuerier,
+};
 #[doc(hidden)]
 #[allow(unused_imports)]
 pub use stdlib_querier::StdLibQuerier;
