@@ -343,7 +343,7 @@ impl SynQuerier {
             return_type: self.extract_return_type(&func.sig.output),
             is_unsafe: func.sig.unsafety.is_some(),
             is_const: func.sig.constness.is_some(),
-            documentation: None, // TODO: Extract doc comments
+            documentation: self.extract_doc_comments(&func.attrs),
         })
     }
 
@@ -630,6 +630,43 @@ impl SynQuerier {
             parsed,
             lifetimes: vec![], // TODO: Extract lifetimes
             bounds: vec![],    // TODO: Extract bounds
+        }
+    }
+
+    fn extract_doc_comments(&self, attrs: &[syn::Attribute]) -> Option<String> {
+        let doc_strings: Vec<String> = attrs
+            .iter()
+            .filter_map(|attr| {
+                // Check if this is a doc attribute
+                if attr.path().is_ident("doc") {
+                    // Try to parse the meta
+                    match &attr.meta {
+                        syn::Meta::NameValue(meta_name_value) => {
+                            // Extract the literal value
+                            if let syn::Expr::Lit(expr_lit) = &meta_name_value.value {
+                                if let syn::Lit::Str(lit_str) = &expr_lit.lit {
+                                    // Remove leading space from doc comments (/// adds a space)
+                                    let doc = lit_str.value();
+                                    let trimmed = if doc.starts_with(' ') {
+                                        doc[1..].to_string()
+                                    } else {
+                                        doc
+                                    };
+                                    return Some(trimmed);
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                None
+            })
+            .collect();
+
+        if doc_strings.is_empty() {
+            None
+        } else {
+            Some(doc_strings.join("\n"))
         }
     }
 
