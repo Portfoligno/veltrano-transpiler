@@ -47,73 +47,94 @@ When WORKSPACE.md doesn't exist, create it immediately with:
 ## 📂 Memory Management
 
 ### WORKSPACE.md Overview
-- **Purpose:** Store project context across Claude Code sessions
+- **Purpose:** Store factual project state and context across Claude Code sessions
+- **Philosophy:** A fact sheet, NOT a progress tracker or journal
 - **Location:** `WORKSPACE.md` (gitignored)
 - **Token Limit:** 800 tokens (~600 words)
 - **Check Frequency:** Every 5-10 tool uses
 
 ### Usage Protocol
 1. **Session Start:** ALWAYS read WORKSPACE.md first
-2. **During Work:** Update after major discoveries or changes
+2. **During Work:** Update only when facts about the project change
 3. **Token Check:** Run `wc -w WORKSPACE.md` regularly
 4. **Over 600 words:** Prune immediately
 
 ### Anti-Violation Practices
 **BEFORE adding anything new:**
 1. **Remove something old first** - Practice "one in, one out"
-2. **Resist completion tracking** - Your work is in git history, not WORKSPACE.md
-3. **Challenge every line** - Ask "Will I need this tomorrow?" If unsure, delete it
-4. **Convert to action** - Transform "We discovered X" into "TODO: Handle X"
+2. **Never track progress** - Progress tracking belongs in git history, not WORKSPACE.md
+3. **Challenge every line** - Ask "Is this a fact about the project?" If no, delete it
+4. **State facts, not stories** - Write "X uses Y pattern" not "We discovered X uses Y"
 
 **Pruning mindset:**
-- **WORKSPACE.md is a sticky note, not a journal**
-- **Information has negative value after 48 hours**
+- **WORKSPACE.md is a fact sheet, not a progress journal**
+- **Facts expire - delete outdated information ruthlessly**
 - **If you can't remember it, it wasn't important**
-- **Verbose description = cognitive overload for future you**
+- **Progress narratives have no place here**
 
 ### What to Track
-**KEEP (High Value):**
-- Active TODOs with context
+**KEEP (High Value Facts):**
+- Active TODOs (what needs doing, not what was done)
 - Current blockers/issues
-- Recent discoveries (1-2 sessions)
-- Critical architecture decisions
-- Active development gotchas
+- Factual discoveries about codebase behavior
+- Architecture patterns that exist in the code
+- Development gotchas (facts about the system)
 
-**REMOVE (Low Value):**
+**REMOVE (Not Facts):**
 - Completed tasks (including TODO items marked done)
-- Historical narratives ("how we got here")
-- Solved problems
-- Old session summaries (keep only last 1-2)
-- Verbose explanations
+- Progress narratives ("how we got here", "what we did")
+- Solved problems (solutions are in the code)
+- Session summaries or recaps
+- "We discovered", "We implemented", "We fixed" statements
+- Any form of progress tracking
 
 ### TODO Management
-- Mark active task as "IN PROGRESS"
+- State what needs to be done (facts about requirements)
 - Remove completed items immediately
-- Group by category with context
+- Group by category with factual context
 - Add "CRITICAL:" for blockers
 - Keep actionable and specific
 
 ### Psychological Traps to Avoid
 1. **"But I might need this later"** → You won't. Delete it.
-2. **"This shows important progress"** → Git shows progress. Delete it.
-3. **"Future me will appreciate the context"** → Future you will appreciate brevity. Delete it.
-4. **"This was hard to figure out"** → Document it in code comments, not here. Delete it.
-5. **"Just this once, I'll keep it"** → This is how hoarding starts. Delete it.
+2. **"This shows important progress"** → Progress is not a fact. Delete it.
+3. **"Future me will appreciate the story"** → Future you needs facts, not stories. Delete it.
+4. **"This was hard to figure out"** → Document facts in code, not stories here. Delete it.
+5. **"We completed X"** → Completion is progress, not a fact. Delete it.
+6. **"Batch X Checkpoint Y: COMPLETED"** → Progress tracking. Delete it.
 
 ### Formatting Rules
-- Bullet points, not paragraphs
-- No emoji checkmarks (✅, ❌, etc.)
-- Remove filler words
-- Use clear abbreviations
-- Focus on "what" not "why"
+- Bullet points stating facts
+- No progress indicators (✅, ❌, COMPLETED, etc.)
+- No narrative words ("we", "discovered", "implemented")
+- State facts: "X does Y" not "We made X do Y"
+- Focus on "what is" not "what was done"
+
+### Example: Facts vs Progress
+**❌ WRONG (Progress Tracking):**
+```
+- Batch 15 Checkpoint 2.7: COMPLETED ✓
+  - Added lifetime support to SelfKind enum
+  - Updated extract_self_kind to capture lifetime from references
+  - All tests passing
+```
+
+**✅ RIGHT (Stating Facts):**
+```
+- SelfKind enum includes optional lifetime parameter
+- extract_self_kind captures lifetimes from reference types
+- Current version: 0.2.3-dev
+```
+
+**Key Difference:** Facts describe the current state of the codebase. Progress describes what was done to reach that state.
 
 ### Pruning Priority
 When over token limit, remove in order:
-1. Completed work descriptions
-2. Old session summaries
-3. Historical problem descriptions
+1. Any progress tracking or completion notes
+2. Old session summaries or recaps
+3. Historical narratives about problems or solutions
 4. Duplicate information
-5. Verbose explanations (condense to bullets)
+5. Verbose explanations (state facts concisely)
 
 ---
 
