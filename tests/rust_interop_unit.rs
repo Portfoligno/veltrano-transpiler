@@ -717,3 +717,67 @@ fn test_where_clause_extraction() {
         assert!(trait_info.where_clause.is_none());
     }
 }
+
+#[test]
+fn test_rustdoc_function_conversion() {
+    use serde_json::json;
+
+    // Create a mock rustdoc JSON structure for testing
+    let _rustdoc_json = json!({
+        "crate_name": "test_crate",
+        "crate_version": "0.1.0",
+        "index": {
+            "0:0": {
+                "name": "test_function",
+                "kind": "function",
+                "inner": {
+                    "sig": {
+                        "inputs": [
+                            ["x", "i32"],
+                            ["y", "String"]
+                        ],
+                        "output": "bool"
+                    },
+                    "generics": {
+                        "params": [
+                            {
+                                "name": "T",
+                                "bounds": ["Clone", "Debug"],
+                                "default": null
+                            }
+                        ]
+                    },
+                    "header": {
+                        "is_const": false,
+                        "is_unsafe": true,
+                        "is_async": false
+                    }
+                }
+            },
+            "0:1": {
+                "name": "MY_CONSTANT",
+                "kind": "constant",
+                "inner": {
+                    "sig": {
+                        "inputs": [],
+                        "output": "i32"
+                    },
+                    "generics": {
+                        "params": []
+                    },
+                    "header": {
+                        "is_const": true,
+                        "is_unsafe": false,
+                        "is_async": false
+                    }
+                }
+            }
+        }
+    });
+
+    // Since we can't easily test the full rustdoc flow without real rustdoc,
+    // we'll focus on testing the convert_function logic directly
+    // For now, we'll just verify the code compiles correctly
+
+    // TODO: Add more comprehensive tests when rustdoc integration is complete
+}

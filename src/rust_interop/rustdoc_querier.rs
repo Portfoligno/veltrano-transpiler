@@ -115,7 +115,7 @@ impl RustdocQuerier {
         // Process all items in the index
         for (_id, item) in doc.index {
             match item.kind.as_str() {
-                "function" => {
+                "function" | "constant" | "static" => {
                     if let Some(func_info) = self.convert_function(&item) {
                         crate_info.functions.insert(item.name.clone(), func_info);
                     }
@@ -137,9 +137,75 @@ impl RustdocQuerier {
         Ok(crate_info)
     }
 
-    fn convert_function(&self, _item: &RustdocItem) -> Option<FunctionInfo> {
-        // TODO: Implement proper rustdoc function parsing
-        None
+    fn convert_function(&self, item: &RustdocItem) -> Option<FunctionInfo> {
+        // Extract function details from rustdoc JSON
+        let inner = item.inner.as_ref()?;
+        let func: RustdocFunction = serde_json::from_value(inner.clone()).ok()?;
+
+        // Build the path for this function/constant/static
+        // Determine the correct ItemKind based on the item type
+        let item_kind = match item.kind.as_str() {
+            "function" => ItemKind::Function,
+            "constant" => ItemKind::Constant,
+            "static" => ItemKind::Static,
+            _ => return None, // Shouldn't happen due to match in caller
+        };
+
+        let path = RustPath::ModuleItem(
+            RustModulePath(
+                CrateName("std".to_string()), // TODO: Get actual crate name
+                vec![],                       // TODO: Extract module path from item
+            ),
+            item.name.clone(),
+            item_kind,
+        );
+
+        // Convert parameters
+        let parameters = func
+            .sig
+            .inputs
+            .into_iter()
+            .map(|(name, type_str)| Parameter {
+                name,
+                param_type: RustTypeSignature {
+                    raw: type_str,
+                    parsed: None, // TODO: Parse the type
+                    lifetimes: vec![],
+                    bounds: vec![],
+                },
+            })
+            .collect();
+
+        // Convert return type
+        let return_type = RustTypeSignature {
+            raw: func.sig.output.unwrap_or_else(|| "()".to_string()),
+            parsed: None, // TODO: Parse the type
+            lifetimes: vec![],
+            bounds: vec![],
+        };
+
+        // Convert generics
+        let generics = func
+            .generics
+            .params
+            .into_iter()
+            .map(|param| GenericParam {
+                name: param.name,
+                bounds: param.bounds,
+                default: param.default,
+            })
+            .collect();
+
+        Some(FunctionInfo {
+            name: item.name.clone(),
+            path,
+            generics,
+            parameters,
+            return_type,
+            is_unsafe: func.header.is_unsafe,
+            is_const: func.header.is_const,
+            documentation: None, // TODO: Extract docs if available
+        })
     }
 
     fn convert_type(&self, _item: &RustdocItem) -> Option<TypeInfo> {
@@ -191,4 +257,37 @@ struct RustdocItem {
     kind: String,
     #[allow(dead_code)]
     inner: Option<serde_json::Value>,
+}
+
+// Rustdoc function representation
+#[derive(Debug, Deserialize)]
+struct RustdocFunction {
+    sig: RustdocFunctionSignature,
+    generics: RustdocGenerics,
+    header: RustdocFunctionHeader,
+}
+
+#[derive(Debug, Deserialize)]
+struct RustdocFunctionSignature {
+    inputs: Vec<(String, String)>, // (param_name, type_string)
+    output: Option<String>,        // Return type as string
+}
+
+#[derive(Debug, Deserialize)]
+struct RustdocFunctionHeader {
+    is_const: bool,
+    is_unsafe: bool,
+    is_async: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct RustdocGenerics {
+    params: Vec<RustdocGenericParam>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RustdocGenericParam {
+    name: String,
+    bounds: Vec<String>,
+    default: Option<String>,
 }
