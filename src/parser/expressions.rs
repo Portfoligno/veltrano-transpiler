@@ -444,7 +444,38 @@ impl Parser {
     }
 
     fn primary(&mut self) -> Result<LocatedExpr, VeltranoError> {
-        // Skip any comment tokens that appear before primary expressions
+        self.skip_comment_tokens();
+
+        if let Some(expr) = self.try_parse_boolean_literal()? {
+            return Ok(expr);
+        }
+
+        if self.match_token(&TokenType::Null) {
+            let token = self.previous();
+            return Ok(self.located_expr(Expr::Literal(LiteralExpr::Null), token));
+        }
+
+        if let Some(expr) = self.try_parse_numeric_literal()? {
+            return Ok(expr);
+        }
+
+        if let Some(expr) = self.try_parse_string_literal()? {
+            return Ok(expr);
+        }
+
+        if let Some(expr) = self.try_parse_identifier_or_unit()? {
+            return Ok(expr);
+        }
+
+        if self.match_token(&TokenType::LeftParen) {
+            return self.parse_parenthesized_expression();
+        }
+
+        Err(self.unexpected_token("expression"))
+    }
+
+    /// Skip any comment tokens that appear before primary expressions
+    fn skip_comment_tokens(&mut self) {
         // When preserve_comments is enabled, comments become tokens in the stream
         // NOTE: We only skip comments, not newlines, to preserve error recovery
         while matches!(
@@ -453,73 +484,86 @@ impl Parser {
         ) {
             self.advance();
         }
+    }
 
+    /// Try to parse boolean literals (true/false)
+    fn try_parse_boolean_literal(&mut self) -> Result<Option<LocatedExpr>, VeltranoError> {
         if self.match_token(&TokenType::True) {
             let token = self.previous();
-            return Ok(self.located_expr(Expr::Literal(LiteralExpr::Bool(true)), token));
-        }
-
-        if self.match_token(&TokenType::False) {
+            Ok(Some(self.located_expr(Expr::Literal(LiteralExpr::Bool(true)), token)))
+        } else if self.match_token(&TokenType::False) {
             let token = self.previous();
-            return Ok(self.located_expr(Expr::Literal(LiteralExpr::Bool(false)), token));
+            Ok(Some(self.located_expr(Expr::Literal(LiteralExpr::Bool(false)), token)))
+        } else {
+            Ok(None)
         }
+    }
 
-        if self.match_token(&TokenType::Null) {
-            let token = self.previous();
-            return Ok(self.located_expr(Expr::Literal(LiteralExpr::Null), token));
-        }
-
+    /// Try to parse numeric literals
+    fn try_parse_numeric_literal(&mut self) -> Result<Option<LocatedExpr>, VeltranoError> {
         if let TokenType::IntLiteral(value) = &self.peek().token_type {
             let value = *value;
             self.advance();
             let token = self.previous();
-            return Ok(self.located_expr(Expr::Literal(LiteralExpr::Int(value)), token));
+            Ok(Some(self.located_expr(Expr::Literal(LiteralExpr::Int(value)), token)))
+        } else {
+            Ok(None)
         }
+    }
 
+    /// Try to parse string literals
+    fn try_parse_string_literal(&mut self) -> Result<Option<LocatedExpr>, VeltranoError> {
         if let TokenType::StringLiteral(value) = &self.peek().token_type {
             let value = value.clone();
             self.advance();
             let token = self.previous();
-            return Ok(self.located_expr(Expr::Literal(LiteralExpr::String(value)), token));
+            Ok(Some(self.located_expr(Expr::Literal(LiteralExpr::String(value)), token)))
+        } else {
+            Ok(None)
         }
+    }
 
+    /// Try to parse identifier or Unit literal
+    fn try_parse_identifier_or_unit(&mut self) -> Result<Option<LocatedExpr>, VeltranoError> {
         if let TokenType::Identifier(name) = &self.peek().token_type {
             let name = name.clone();
             self.advance();
             let token = self.previous();
             // Check if this is the Unit literal
             if name == "Unit" {
-                return Ok(self.located_expr(Expr::Literal(LiteralExpr::Unit), token));
+                Ok(Some(self.located_expr(Expr::Literal(LiteralExpr::Unit), token)))
+            } else {
+                Ok(Some(self.located_expr(Expr::Identifier(name), token)))
             }
-            return Ok(self.located_expr(Expr::Identifier(name), token));
+        } else {
+            Ok(None)
         }
+    }
 
-        if self.match_token(&TokenType::LeftParen) {
-            let start_token = self.previous();
-            let start_loc = SourceLocation::new(start_token.line, start_token.column);
+    /// Parse parenthesized expression with comment handling
+    fn parse_parenthesized_expression(&mut self) -> Result<LocatedExpr, VeltranoError> {
+        let start_token = self.previous();
+        let start_loc = SourceLocation::new(start_token.line, start_token.column);
 
-            // Capture comments after opening paren
-            let open_paren_comment = self.capture_comment_sequence();
+        // Capture comments after opening paren
+        let open_paren_comment = self.capture_comment_sequence();
 
-            let expr = self.expression()?;
+        let expr = self.expression()?;
 
-            // Capture comments before closing paren
-            let close_paren_comment = self.capture_comment_sequence();
+        // Capture comments before closing paren
+        let close_paren_comment = self.capture_comment_sequence();
 
-            let end_token =
-                self.consume(&TokenType::RightParen, "Expected ')' after expression")?;
-            let end_loc = SourceLocation::new(end_token.line, end_token.column);
+        let end_token =
+            self.consume(&TokenType::RightParen, "Expected ')' after expression")?;
+        let end_loc = SourceLocation::new(end_token.line, end_token.column);
 
-            let paren_expr = Expr::Parenthesized(ParenthesizedExpr {
-                expr: Box::new(expr),
-                open_paren_comment,
-                close_paren_comment,
-            });
+        let paren_expr = Expr::Parenthesized(ParenthesizedExpr {
+            expr: Box::new(expr),
+            open_paren_comment,
+            close_paren_comment,
+        });
 
-            return Ok(self.located_expr_with_span(paren_expr, start_loc, end_loc));
-        }
-
-        Err(self.unexpected_token("expression"))
+        Ok(self.located_expr_with_span(paren_expr, start_loc, end_loc))
     }
 
     fn parse_binary_expression<F, M>(
