@@ -3,7 +3,6 @@
 //! This module handles registration of builtin methods.
 
 use super::types::{BuiltinMethodKind, MethodReturnTypeStrategy, TypeFilter};
-use crate::types::TypeConstructor;
 use std::collections::HashMap;
 
 /// Register all built-in methods
@@ -42,18 +41,8 @@ pub fn register_builtin_methods() -> HashMap<String, Vec<BuiltinMethodKind>> {
         },
     );
 
-    // Special methods
-    register(
-        "toSlice",
-        BuiltinMethodKind::SpecialMethod {
-            method_name: "toSlice".to_string(),
-            receiver_type_filter: TypeFilter::TypeConstructors(vec![TypeConstructor::Vec]),
-            parameters: vec![],
-            return_type_strategy: MethodReturnTypeStrategy::RefToReceiver,
-        },
-    );
-
     // length has been migrated to the import system as an alias for various .len() methods
+    // toSlice has been migrated to the import system as an alias for Vec::as_slice
 
     // Bump allocation methods (available on all types)
     register(
