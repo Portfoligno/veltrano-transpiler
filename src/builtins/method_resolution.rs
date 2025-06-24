@@ -33,84 +33,6 @@ pub fn get_method_return_type(
     get_imported_method_return_type(method_name, receiver_type, trait_checker)
 }
 
-/// Check if a Veltrano receiver type can provide the required Rust access
-/// and if the underlying type implements the required trait
-pub fn receiver_can_provide_rust_access(
-    receiver_type: &VeltranoType,
-    rust_self_kind: &SelfKind,
-    required_trait: &str,
-    trait_checker: &mut RustInteropRegistry,
-) -> bool {
-    match rust_self_kind {
-        SelfKind::Ref(_) => {
-            // Rust method takes &self - ONLY Ref<T> can provide this in Veltrano's explicit system
-            match &receiver_type.constructor {
-                // Ref<T> can provide &T - check if T implements the trait
-                TypeConstructor::Ref => {
-                    if let Some(inner_type) = receiver_type.args.first() {
-                        let rust_type = inner_type.to_rust_type(trait_checker);
-                        trait_checker
-                            .type_implements_trait(&rust_type, required_trait)
-                            .unwrap_or(false)
-                    } else {
-                        false
-                    }
-                }
-                // Own<T> CANNOT auto-borrow - explicit conversion required
-                TypeConstructor::Own => false,
-                // T (naturally referenced types) can provide &T - check if T implements the trait
-                _ => {
-                    let rust_type = receiver_type.to_rust_type(trait_checker);
-                    trait_checker
-                        .type_implements_trait(&rust_type, required_trait)
-                        .unwrap_or(false)
-                }
-            }
-        }
-        SelfKind::MutRef(_) => {
-            // Rust method takes &mut self - only MutRef<T> can provide this
-            match &receiver_type.constructor {
-                TypeConstructor::MutRef => {
-                    if let Some(inner_type) = receiver_type.args.first() {
-                        let rust_type = inner_type.to_rust_type(trait_checker);
-                        trait_checker
-                            .type_implements_trait(&rust_type, required_trait)
-                            .unwrap_or(false)
-                    } else {
-                        false
-                    }
-                }
-                _ => false, // Only MutRef<T> can provide &mut access
-            }
-        }
-        SelfKind::Value => {
-            // Rust method takes self (consumes the value) - only owned types work
-            match &receiver_type.constructor {
-                TypeConstructor::Own => {
-                    if let Some(inner_type) = receiver_type.args.first() {
-                        let rust_type = inner_type.to_rust_type(trait_checker);
-                        trait_checker
-                            .type_implements_trait(&rust_type, required_trait)
-                            .unwrap_or(false)
-                    } else {
-                        false
-                    }
-                }
-                // For naturally owned types (Int, Bool, etc.), check the type directly
-                _ => {
-                    let rust_type = receiver_type.to_rust_type(trait_checker);
-                    trait_checker
-                        .type_implements_trait(&rust_type, required_trait)
-                        .unwrap_or(false)
-                }
-            }
-        }
-        SelfKind::None => {
-            // Associated function - no receiver check needed
-            true
-        }
-    }
-}
 
 /// Check if a Veltrano receiver type can provide the required Rust access for imported methods
 /// This is similar to receiver_can_provide_rust_access but doesn't require trait checking
@@ -151,31 +73,9 @@ pub fn receiver_can_provide_rust_access_for_imported(
 fn method_matches_receiver(
     method_kind: &BuiltinMethodKind,
     receiver_type: &VeltranoType,
-    trait_checker: &mut RustInteropRegistry,
+    _trait_checker: &mut RustInteropRegistry,
 ) -> bool {
     match method_kind {
-        BuiltinMethodKind::TraitMethod {
-            method_name,
-            required_trait,
-        } => {
-            // Get the dynamic method signature to determine if receiver can provide access
-            if let Some(rust_self_kind) =
-                get_dynamic_method_self_kind(method_name, receiver_type, trait_checker)
-            {
-                // Check if the Veltrano receiver type can provide the required Rust access
-                // and if the underlying type implements the trait
-                receiver_can_provide_rust_access(
-                    receiver_type,
-                    &rust_self_kind,
-                    required_trait,
-                    trait_checker,
-                )
-            } else {
-                // If dynamic lookup fails, we can't determine receiver requirements
-                // Default to false (method not available)
-                false
-            }
-        }
         BuiltinMethodKind::SpecialMethod {
             receiver_type_filter,
             ..
@@ -197,24 +97,9 @@ fn type_filter_matches(filter: &TypeFilter, receiver_type: &VeltranoType) -> boo
 fn compute_return_type(
     method_kind: &BuiltinMethodKind,
     receiver_type: &VeltranoType,
-    trait_checker: &mut RustInteropRegistry,
+    _trait_checker: &mut RustInteropRegistry,
 ) -> VeltranoType {
     let strategy = match method_kind {
-        BuiltinMethodKind::TraitMethod {
-            method_name,
-            required_trait: _,
-        } => {
-            // For trait methods, try to get return type from dynamic lookup
-            if let Some(dynamic_return_type) =
-                get_dynamic_method_return_type(method_name, receiver_type, trait_checker)
-            {
-                return dynamic_return_type;
-            }
-
-            // If dynamic lookup fails, we can't determine the return type
-            // This shouldn't happen if the method was found via method_matches_receiver
-            &MethodReturnTypeStrategy::SameAsReceiver
-        }
         BuiltinMethodKind::SpecialMethod {
             return_type_strategy,
             ..
@@ -297,52 +182,3 @@ fn get_imported_method_return_type(
     None
 }
 
-/// Get dynamic method self kind for a trait method
-fn get_dynamic_method_self_kind(
-    method_name: &str,
-    receiver_type: &VeltranoType,
-    trait_checker: &mut RustInteropRegistry,
-) -> Option<SelfKind> {
-    let rust_type = receiver_type.to_rust_type(trait_checker);
-    if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name) {
-        Some(method_info.self_kind)
-    } else {
-        None
-    }
-}
-
-/// Get dynamic method return type for a trait method
-fn get_dynamic_method_return_type(
-    method_name: &str,
-    receiver_type: &VeltranoType,
-    trait_checker: &mut RustInteropRegistry,
-) -> Option<VeltranoType> {
-    let rust_type = receiver_type.to_rust_type(trait_checker);
-    if let Ok(Some(method_info)) = trait_checker.query_method_signature(&rust_type, method_name) {
-        // TEMPORARY FIX: Special handling for clone method
-        // TODO: This is a temporary workaround until we have a more systematic way
-        // to handle method return type transformations based on Veltrano semantics
-        if method_name == "clone" {
-            // Clone has special semantics in Veltrano:
-            // - Ref<T>.clone() -> T (not Own<T>)
-            // - T.clone() -> Own<T> (for naturally referenced types)
-            match &receiver_type.constructor {
-                TypeConstructor::Ref | TypeConstructor::MutRef => {
-                    // For Ref<T> or MutRef<T>, clone returns T directly
-                    if let Some(inner) = receiver_type.inner() {
-                        return Some(inner.clone());
-                    }
-                }
-                _ => {
-                    // For other types, use normal conversion
-                    return method_info.return_type.to_veltrano_type().ok();
-                }
-            }
-        }
-
-        // For non-clone methods, use normal conversion
-        method_info.return_type.to_veltrano_type().ok()
-    } else {
-        None
-    }
-}

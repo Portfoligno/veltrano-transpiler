@@ -21,13 +21,6 @@ pub enum BuiltinFunctionKind {
 /// Categories of built-in methods
 #[derive(Debug, Clone, PartialEq)]
 pub enum BuiltinMethodKind {
-    /// Methods that require trait checking with dynamic signature lookup
-    TraitMethod {
-        method_name: String,
-        required_trait: String,
-        // Remove hardcoded information - will be looked up dynamically:
-        // rust_self_kind, parameters, return_type_strategy
-    },
     /// Special methods with custom logic
     SpecialMethod {
         method_name: String,
