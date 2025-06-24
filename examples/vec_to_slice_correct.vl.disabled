@@ -1,0 +1,18 @@
+// Test toSlice() method
+import Slice.first
+import Slice.len
+
+fun main() {
+    // Create a vector with initial values using vec macro (built-in)
+    val nums = vec(1, 2, 3)
+    
+    // Convert Vec to Slice
+    val slice = nums.ref().toSlice()
+    
+    // Use slice methods
+    val first = slice.first()
+    println("First element: {:?}", first)
+    
+    val length = slice.len()
+    println("Length: {}", length)
+}
