@@ -3,7 +3,7 @@
 //! This module contains all the complex logic for resolving method calls,
 //! including trait checking, ownership transformations, and return type computation.
 
-use super::types::{BuiltinMethodKind, MethodReturnTypeStrategy, TypeFilter};
+use super::types::{BuiltinMethodKind, OperatorMethod};
 use crate::rust_interop::{RustInteropRegistry, SelfKind};
 use crate::types::{TypeConstructor, VeltranoType};
 use std::collections::HashMap;
@@ -16,16 +16,12 @@ pub fn get_method_return_type(
     methods: &HashMap<String, Vec<BuiltinMethodKind>>,
     trait_checker: &mut RustInteropRegistry,
 ) -> Option<VeltranoType> {
-    // First check built-in methods
+    // First check built-in operator methods
     if let Some(method_variants) = methods.get(method_name) {
-        for method_kind in method_variants {
-            if method_matches_receiver(method_kind, receiver_type, trait_checker) {
-                return Some(compute_return_type(
-                    method_kind,
-                    receiver_type,
-                    trait_checker,
-                ));
-            }
+        // For operator methods, we just need to compute the return type
+        // They apply to all types
+        if let Some(BuiltinMethodKind::Operator(op)) = method_variants.first() {
+            return Some(compute_operator_return_type(op, receiver_type));
         }
     }
 
@@ -69,51 +65,12 @@ pub fn receiver_can_provide_rust_access_for_imported(
     }
 }
 
-/// Check if a method variant matches the receiver type
-fn method_matches_receiver(
-    method_kind: &BuiltinMethodKind,
-    receiver_type: &VeltranoType,
-    _trait_checker: &mut RustInteropRegistry,
-) -> bool {
-    match method_kind {
-        BuiltinMethodKind::SpecialMethod {
-            receiver_type_filter,
-            ..
-        } => type_filter_matches(receiver_type_filter, receiver_type),
-    }
-}
-
-/// Check if a type filter matches the receiver type
-fn type_filter_matches(filter: &TypeFilter, receiver_type: &VeltranoType) -> bool {
-    match filter {
-        TypeFilter::All => true,
-        TypeFilter::TypeConstructors(constructors) => {
-            constructors.contains(&receiver_type.constructor)
-        }
-    }
-}
-
-/// Compute the return type for a method
-fn compute_return_type(
-    method_kind: &BuiltinMethodKind,
-    receiver_type: &VeltranoType,
-    _trait_checker: &mut RustInteropRegistry,
-) -> VeltranoType {
-    let strategy = match method_kind {
-        BuiltinMethodKind::SpecialMethod {
-            return_type_strategy,
-            ..
-        } => return_type_strategy,
-    };
-
-    match strategy {
-        MethodReturnTypeStrategy::SameAsReceiver => receiver_type.clone(),
-        MethodReturnTypeStrategy::RefToReceiver => VeltranoType::ref_(receiver_type.clone()),
-        MethodReturnTypeStrategy::MutRefToReceiver => VeltranoType::mut_ref(receiver_type.clone()),
-        MethodReturnTypeStrategy::FixedType(fixed_type) => fixed_type.clone(),
-        MethodReturnTypeStrategy::RefSemantics => {
+/// Compute the return type for operator methods
+fn compute_operator_return_type(op: &OperatorMethod, receiver_type: &VeltranoType) -> VeltranoType {
+    match op {
+        OperatorMethod::Ref | OperatorMethod::BumpRef => {
             // Implement correct ref() semantics:
-            // Own<T> → T, T → Ref<T>, MutRef<T> → Ref<MutRef<T>>
+            // Own<T> → T, T → Ref<T>
             match &receiver_type.constructor {
                 // Own<T> → T (remove the Own wrapper)
                 TypeConstructor::Own => {
@@ -128,6 +85,7 @@ fn compute_return_type(
                 _ => VeltranoType::ref_(receiver_type.clone()),
             }
         }
+        OperatorMethod::MutRef => VeltranoType::mut_ref(receiver_type.clone()),
     }
 }
 
