@@ -314,7 +314,8 @@ pub fn register_builtin_imports(
     register_type_method(handler, "String", "len", "length", trait_checker);
     register_type_method(handler, "str", "len", "length", trait_checker);
     
-    // Note: toSlice will be added after we have more complete Slice type support
+    // Slice conversion
+    register_type_method(handler, "Vec", "asSlice", "toSlice", trait_checker);
     
     crate::debug_println!(
         "DEBUG: Built-in imports registered. Has clone: {}, Has toString: {}, Has length: {}",
