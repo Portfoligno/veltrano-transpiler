@@ -184,7 +184,7 @@ fn test_correct_user_import_shadows_builtin() {
 
 #[test]
 fn test_user_import_with_different_alias() {
-    // User can import with a different alias, shadowing built-in
+    // User can import with a different alias without shadowing the original
     let code = r#"
     import Clone.clone as duplicate
     
@@ -192,11 +192,11 @@ fn test_user_import_with_different_alias() {
         val x: I64 = 42
         val x_ref: Ref<I64> = x.ref()
         
-        // clone() is no longer available (shadowed by different alias)
-        // val bad = x_ref.clone()  // This would fail
-        
-        // But duplicate() works
-        val dup: I64 = x_ref.duplicate()
+        // Both clone() and duplicate() should work:
+        // - clone() uses the built-in import (not shadowed)
+        // - duplicate() uses the user import
+        val cloned: I64 = x_ref.clone()     // Built-in still works
+        val dup: I64 = x_ref.duplicate()    // User import works too
     }
     "#;
 
