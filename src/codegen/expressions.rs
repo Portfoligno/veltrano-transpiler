@@ -271,18 +271,6 @@ impl CodeGenerator {
                 self.generate_expression(&method_call.object)?;
                 Ok(())
             }
-            "clone" if method_call.args.is_empty() => {
-                self.output.push_str("Clone::clone(");
-                self.generate_expression(&method_call.object)?;
-                self.output.push(')');
-                Ok(())
-            }
-            "toString" if method_call.args.is_empty() => {
-                self.output.push_str("ToString::to_string(");
-                self.generate_expression(&method_call.object)?;
-                self.output.push(')');
-                Ok(())
-            }
             _ => {
                 // Method requires import but wasn't imported
                 Err(CodegenError::MissingImport {
