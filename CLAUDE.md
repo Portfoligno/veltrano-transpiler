@@ -283,8 +283,8 @@ When over token limit, remove in order:
    - ❌ **Visual inspection** - Humans cannot see trailing newlines
 
 4. **STRICT RULES:**
-   - **ALWAYS** assume Write/Edit left the file without a trailing newline
-   - **ALWAYS** use `tail -c1 file | wc -l` to verify before adding
+   - **ALWAYS** check with `tail -c1 file | wc -l` after Write/Edit operations
+   - **ONLY** add a newline if the check returns 0
    - **NEVER** add a newline without verification (creates double newlines)
    - **NEVER** trust any source except `git diff --check`
 
