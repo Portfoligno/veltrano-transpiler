@@ -280,7 +280,6 @@ When over token limit, remove in order:
 3. **DO NOT TRUST these misleading sources:**
    - ❌ **Read tool visual output** - Cannot reliably show trailing newlines
    - ❌ **cargo fmt warnings** - Often wrong about newline status
-   - ❌ **Visual inspection** - Humans cannot see trailing newlines
 
 4. **STRICT RULES:**
    - **ALWAYS** check with `tail -c1 file | wc -l` after Write/Edit operations
