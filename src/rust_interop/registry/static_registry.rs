@@ -4,9 +4,7 @@
 
 use super::dynamic_registry::DynamicRustRegistry;
 use crate::error::VeltranoError;
-use crate::rust_interop::{
-    cache::*, types::*, utils::camel_to_snake_case, ExternItem,
-};
+use crate::rust_interop::{cache::*, types::*, utils::camel_to_snake_case, ExternItem};
 use std::collections::HashMap;
 
 /// Registry for external Rust items
@@ -151,6 +149,18 @@ impl RustInteropRegistry {
             _return_type: RustType::Generic("T".to_string()),
             _is_unsafe: false,
         });
+
+        self.register(ExternItem::Method {
+            type_name: "Result".to_string(),
+            method_name: "ok".to_string(),
+            _self_kind: SelfKind::Value,
+            _params: vec![],
+            _return_type: RustType::Custom {
+                name: "Option".to_string(),
+                generics: vec![RustType::Generic("T".to_string())],
+            },
+            _is_unsafe: false,
+        });
     }
 
     pub fn register(&mut self, item: ExternItem) {
@@ -229,7 +239,7 @@ impl RustInteropRegistry {
         if matches!(rust_type, RustType::Ref { .. }) && trait_name == "Clone" {
             return Ok(true);
         }
-        
+
         // Convert to string only at the lowest level
         let type_path = rust_type.to_rust_syntax();
 
@@ -264,6 +274,69 @@ impl RustInteropRegistry {
         Ok(implements)
     }
 
+    /// Check if a trait exists
+    pub fn trait_exists(&mut self, trait_name: &str) -> bool {
+        // Check known standard library traits
+        let known_traits = [
+            "Clone",
+            "Copy",
+            "Debug",
+            "Display",
+            "ToString",
+            "Into",
+            "From",
+            "AsRef",
+            "AsMut",
+            "Borrow",
+            "BorrowMut",
+            "Default",
+            "PartialEq",
+            "Eq",
+            "PartialOrd",
+            "Ord",
+            "Hash",
+            "Iterator",
+            "IntoIterator",
+            "FromIterator",
+            "Read",
+            "Write",
+            "Seek",
+            "BufRead",
+            "Send",
+            "Sync",
+            "Unpin",
+            "Sized",
+            "Drop",
+            "Fn",
+            "FnMut",
+            "FnOnce",
+            "Deref",
+            "DerefMut",
+            "Index",
+            "IndexMut",
+            "Add",
+            "Sub",
+            "Mul",
+            "Div",
+            "Rem",
+            "Neg",
+            "BitAnd",
+            "BitOr",
+            "BitXor",
+            "Not",
+            "Shl",
+            "Shr",
+        ];
+
+        if known_traits.contains(&trait_name) {
+            return true;
+        }
+
+        // TODO: Query dynamic registry for trait information
+        // For now, we only recognize standard library traits
+        false
+    }
+
     /// Query method signature dynamically from crate metadata
     /// This integrates with the DynamicRustRegistry for full method resolution
     pub fn query_method_signature(
@@ -285,7 +358,9 @@ impl RustInteropRegistry {
             );
 
             // First try hardcoded method info for built-in types
-            if let Some(method_info) = self.get_method_info(&type_path, method_name) {
+            // Convert method name to snake_case for lookup
+            let rust_method_name = camel_to_snake_case(method_name);
+            if let Some(method_info) = self.get_method_info(&type_path, &rust_method_name) {
                 return Ok(Some(method_info));
             }
 
@@ -325,8 +400,28 @@ impl RustInteropRegistry {
 
     /// Get method information for a type by querying available methods
     /// This includes both inherent methods and trait methods
-    fn get_method_info(&self, _type_path: &str, _method_name: &str) -> Option<ImportedMethodInfo> {
-        // No hardcoded method signatures - rely entirely on dynamic registry
+    fn get_method_info(&self, type_path: &str, method_name: &str) -> Option<ImportedMethodInfo> {
+        // First check our registered methods
+        if let Some(extern_item) = self.lookup_method(type_path, method_name) {
+            if let ExternItem::Method {
+                type_name: _,
+                method_name,
+                _self_kind,
+                _params,
+                _return_type,
+                _is_unsafe: _,
+            } = extern_item
+            {
+                return Some(ImportedMethodInfo {
+                    _method_name: method_name.clone(),
+                    self_kind: _self_kind.clone(),
+                    _parameters: _params.iter().map(|(_, typ)| typ.clone()).collect(),
+                    return_type: _return_type.clone(),
+                    _trait_name: None,
+                });
+            }
+        }
+        // Fall back to dynamic registry
         None
     }
 
@@ -429,19 +524,26 @@ impl RustInteropRegistry {
         // Convert Veltrano method name (camelCase) to Rust method name (snake_case)
         let rust_method_name = camel_to_snake_case(method_name);
         crate::debug_println!("DEBUG: query_trait_method_directly - trait_name: {}, method_name: {} -> rust_method_name: {}", trait_name, method_name, rust_method_name);
-        
+
         // Try to find the trait in std library first
         let trait_path = if trait_name.contains("::") {
             trait_name.to_string()
         } else {
             format!("std::{}", trait_name)
         };
-        
+
         if let Ok(Some(trait_info)) = self.dynamic_registry.get_trait(&trait_path) {
-            crate::debug_println!("DEBUG: query_trait_method_directly - found trait_info for {}", trait_path);
+            crate::debug_println!(
+                "DEBUG: query_trait_method_directly - found trait_info for {}",
+                trait_path
+            );
             for method in &trait_info.methods {
                 if method.name == rust_method_name {
-                    crate::debug_println!("DEBUG: query_trait_method_directly - FOUND method {} in trait {}!", rust_method_name, trait_name);
+                    crate::debug_println!(
+                        "DEBUG: query_trait_method_directly - FOUND method {} in trait {}!",
+                        rust_method_name,
+                        trait_name
+                    );
                     return Ok(Some(ImportedMethodInfo {
                         _method_name: method_name.to_string(), // Keep original Veltrano name
                         self_kind: method.self_kind.clone(),
@@ -458,7 +560,7 @@ impl RustInteropRegistry {
                 }
             }
         }
-        
+
         Ok(None)
     }
 

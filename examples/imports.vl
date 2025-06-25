@@ -6,8 +6,8 @@ import Vec.new as createVec
 import Option.isSome
 import Result.ok
 
-// Imports can override pre-imported methods
-import MyTrait.clone  // Would override default Clone::clone
+// User imports can override built-in methods
+// For example: import MyCustomTrait.clone would override the built-in Clone::clone
 
 fun main() {
     // Pre-imported methods work by default

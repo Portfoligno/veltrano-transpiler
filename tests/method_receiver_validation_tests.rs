@@ -267,7 +267,10 @@ fn test_i64_clone_naturally_owned() {
     };
     let result = parse_and_type_check(code, config).map(|_| ());
 
-    assert!(result.is_ok(), "I64 should be able to call clone with .ref()");
+    assert!(
+        result.is_ok(),
+        "I64 should be able to call clone with .ref()"
+    );
 }
 
 #[test]

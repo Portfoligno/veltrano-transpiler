@@ -508,7 +508,6 @@ impl VeltranoType {
     }
 }
 
-
 /// Function signature for type checking
 #[derive(Debug, Clone)]
 pub struct FunctionSignature {

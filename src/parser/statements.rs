@@ -162,6 +162,10 @@ impl Parser {
     }
 
     fn import_declaration(&mut self) -> Result<Stmt, VeltranoError> {
+        // Capture the location of the import keyword
+        let import_token = self.previous();
+        let location = crate::error::SourceLocation::new(import_token.line, import_token.column);
+
         // import Type.method [as alias]
         let type_name = self.consume_identifier("Expected type name after 'import'")?;
         self.consume(&TokenType::Dot, "Expected '.' after type name")?;
@@ -179,6 +183,7 @@ impl Parser {
             type_name,
             method_name,
             alias,
+            location,
         }))
     }
 

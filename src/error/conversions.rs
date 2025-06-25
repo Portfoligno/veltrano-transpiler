@@ -182,6 +182,16 @@ impl From<TypeCheckError> for VeltranoError {
                 VeltranoError::new(ErrorKind::UnsupportedFeature, feature)
                     .with_span(Span::single(location))
             }
+            TypeCheckError::InvalidImport {
+                type_name,
+                method_name,
+                reason,
+                location,
+            } => VeltranoError::new(
+                ErrorKind::TypeError,
+                format!("Invalid import {}.{}: {}", type_name, method_name, reason),
+            )
+            .with_span(Span::single(location)),
             _ => {
                 // For any remaining error types, use Debug formatting
                 VeltranoError::new(ErrorKind::TypeError, format!("{:?}", err))

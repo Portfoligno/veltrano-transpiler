@@ -905,15 +905,18 @@ fn test_double_minus_forbidden() {
 #[test]
 fn test_import_statement() {
     let source = r#"
-import Vec.new as newVec
-import Vec.push
 import String.len
+import ToString.toString as str
 
 fun main() {
-    val items = newVec()
-    items.mutRef().push(42)
-    val text: String = "hello".toString().ref()
-    val length = text.len()
+    // Test aliased import
+    val text: Own<String> = "hello".str()
+    
+    // Test non-aliased import  
+    val length = text.ref().len()
+    
+    // Show that built-in clone still works
+    val cloned = text.ref().clone()
 }
 "#;
 
@@ -926,10 +929,10 @@ fun main() {
     // Check that imports don't generate any Rust code
     assert!(!rust_code.contains("import"));
 
-    // Check that method calls use UFCS
-    assert!(rust_code.contains("Vec::new()")); // newVec() -> Vec::new()
-    assert!(rust_code.contains("Vec::push(&mut items, 42)"));
-    assert!(rust_code.contains("String::len(text)"));
+    // Check that method calls use UFCS where imported
+    assert!(rust_code.contains("ToString::to_string(\"hello\")")); // str() -> ToString::to_string()
+    assert!(rust_code.contains("String::len(&text)")); // len() -> String::len()
+    assert!(rust_code.contains("Clone::clone(&text)")); // clone() uses built-in
 }
 
 #[test]

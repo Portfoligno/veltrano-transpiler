@@ -490,10 +490,16 @@ impl Parser {
     fn try_parse_boolean_literal(&mut self) -> Result<Option<LocatedExpr>, VeltranoError> {
         if self.match_token(&TokenType::True) {
             let token = self.previous();
-            Ok(Some(self.located_expr(Expr::Literal(LiteralExpr::Bool(true)), token)))
+            Ok(Some(self.located_expr(
+                Expr::Literal(LiteralExpr::Bool(true)),
+                token,
+            )))
         } else if self.match_token(&TokenType::False) {
             let token = self.previous();
-            Ok(Some(self.located_expr(Expr::Literal(LiteralExpr::Bool(false)), token)))
+            Ok(Some(self.located_expr(
+                Expr::Literal(LiteralExpr::Bool(false)),
+                token,
+            )))
         } else {
             Ok(None)
         }
@@ -505,7 +511,10 @@ impl Parser {
             let value = *value;
             self.advance();
             let token = self.previous();
-            Ok(Some(self.located_expr(Expr::Literal(LiteralExpr::Int(value)), token)))
+            Ok(Some(self.located_expr(
+                Expr::Literal(LiteralExpr::Int(value)),
+                token,
+            )))
         } else {
             Ok(None)
         }
@@ -517,7 +526,10 @@ impl Parser {
             let value = value.clone();
             self.advance();
             let token = self.previous();
-            Ok(Some(self.located_expr(Expr::Literal(LiteralExpr::String(value)), token)))
+            Ok(Some(self.located_expr(
+                Expr::Literal(LiteralExpr::String(value)),
+                token,
+            )))
         } else {
             Ok(None)
         }
@@ -531,7 +543,9 @@ impl Parser {
             let token = self.previous();
             // Check if this is the Unit literal
             if name == "Unit" {
-                Ok(Some(self.located_expr(Expr::Literal(LiteralExpr::Unit), token)))
+                Ok(Some(
+                    self.located_expr(Expr::Literal(LiteralExpr::Unit), token),
+                ))
             } else {
                 Ok(Some(self.located_expr(Expr::Identifier(name), token)))
             }
@@ -553,8 +567,7 @@ impl Parser {
         // Capture comments before closing paren
         let close_paren_comment = self.capture_comment_sequence();
 
-        let end_token =
-            self.consume(&TokenType::RightParen, "Expected ')' after expression")?;
+        let end_token = self.consume(&TokenType::RightParen, "Expected ')' after expression")?;
         let end_loc = SourceLocation::new(end_token.line, end_token.column);
 
         let paren_expr = Expr::Parenthesized(ParenthesizedExpr {

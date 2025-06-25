@@ -8,7 +8,7 @@ use crate::error::SourceLocation;
 use crate::types::{TypeConstructor, VeltranoType};
 
 /// Type checking errors with detailed information
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TypeCheckError {
     TypeMismatch {
         expected: VeltranoType,
@@ -87,9 +87,10 @@ pub enum TypeCheckError {
         reason: String,
         location: SourceLocation,
     },
-    _InvalidImport {
+    InvalidImport {
         type_name: String,
         method_name: String,
+        reason: String,
         location: SourceLocation,
     },
 }

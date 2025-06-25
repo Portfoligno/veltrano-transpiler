@@ -189,6 +189,7 @@ pub struct ImportStmt {
     pub type_name: String,
     pub method_name: String,
     pub alias: Option<String>,
+    pub location: crate::error::SourceLocation,
 }
 
 #[derive(Debug, Clone)]

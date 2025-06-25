@@ -29,7 +29,6 @@ pub fn get_method_return_type(
     get_imported_method_return_type(method_name, receiver_type, trait_checker)
 }
 
-
 /// Check if a Veltrano receiver type can provide the required Rust access for imported methods
 /// This is similar to receiver_can_provide_rust_access but doesn't require trait checking
 /// since we already know the method exists from the imported signature
@@ -139,4 +138,3 @@ fn get_imported_method_return_type(
 
     None
 }
-

@@ -158,6 +158,25 @@ pub fn transpile(code: &str, ctx: &TestContext) -> Result<String, String> {
     ))
 }
 
+/// Parse and type check, returning ALL type check errors
+pub fn parse_and_get_all_type_errors(
+    code: &str,
+    config: Config,
+) -> Result<Program, Vec<VeltranoError>> {
+    let program = parse_veltrano_code(code, config).map_err(|e| vec![e])?;
+
+    let mut type_checker = VeltranoTypeChecker::new();
+    type_checker.check_program(&program).map_err(|errors| {
+        // Convert ALL TypeCheckErrors to VeltranoErrors
+        errors
+            .into_iter()
+            .map(|e| Into::<VeltranoError>::into(e))
+            .collect::<Vec<VeltranoError>>()
+    })?;
+
+    Ok(program)
+}
+
 /// Format type checking errors into a user-friendly message
 fn format_type_check_errors(errors: Vec<TypeCheckError>) -> String {
     let error_messages: Vec<String> = errors.iter().map(|e| format!("{:?}", e)).collect();

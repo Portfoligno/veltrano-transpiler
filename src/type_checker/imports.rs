@@ -32,6 +32,8 @@ pub struct ImportHandler {
     user_imports: HashMap<String, Vec<ImportedMethod>>,
     /// Built-in imports - only used if no user imports exist for a method
     builtin_imports: HashMap<String, Vec<ImportedMethod>>,
+    /// Import validation errors collected during checking
+    import_errors: Vec<TypeCheckError>,
 }
 
 impl ImportHandler {
@@ -40,7 +42,25 @@ impl ImportHandler {
         Self {
             user_imports: HashMap::new(),
             builtin_imports: HashMap::new(),
+            import_errors: Vec::new(),
         }
+    }
+
+    /// Get any import errors that were collected
+    pub fn get_import_errors(&self) -> &[TypeCheckError] {
+        &self.import_errors
+    }
+
+    /// Register an invalid import for better error messages at use site
+    fn register_invalid_import(&mut self, key: String, import: &ImportStmt) {
+        // Store as a trait import so it can still be found at use site
+        self.user_imports
+            .entry(key)
+            .or_insert_with(Vec::new)
+            .push(ImportedMethod::TraitMethod {
+                trait_name: import.type_name.clone(),
+                method_name: import.method_name.clone(),
+            });
     }
 
     /// Get imports for a given method name - user imports shadow built-ins completely
@@ -49,7 +69,7 @@ impl ImportHandler {
         if let Some(user_methods) = self.user_imports.get(name) {
             return Some(user_methods.clone());
         }
-        
+
         // Fall back to built-in imports only if no user imports exist
         self.builtin_imports.get(name).cloned()
     }
@@ -66,7 +86,19 @@ impl ImportHandler {
             .clone()
             .unwrap_or_else(|| import.method_name.clone());
 
-        // First, try to parse as a type and check if the method exists on that type
+        // First check if it's a known trait
+        if trait_checker.trait_exists(&import.type_name) {
+            // Valid trait import
+            self.user_imports.entry(key).or_insert_with(Vec::new).push(
+                ImportedMethod::TraitMethod {
+                    trait_name: import.type_name.clone(),
+                    method_name: import.method_name.clone(),
+                },
+            );
+            return Ok(());
+        }
+
+        // If not a trait, try to parse as a type and check if the method exists on that type
         if let Ok(rust_type) = RustTypeParser::parse(&import.type_name) {
             crate::debug_println!(
                 "DEBUG: Parsed import type '{}' as {:?}",
@@ -74,95 +106,69 @@ impl ImportHandler {
                 rust_type
             );
             // Check if this type has the requested method
-            if let Ok(Some(_)) =
-                trait_checker.query_method_signature(&rust_type, &import.method_name)
-            {
-                crate::debug_println!(
-                    "DEBUG: Found method '{}' on type {:?}, storing as TypeMethod",
-                    import.method_name,
-                    rust_type
-                );
-                // This is a valid type-based import
-                self.user_imports
-                    .entry(key.clone())
-                    .or_insert_with(Vec::new)
-                    .push(ImportedMethod::TypeMethod {
-                        rust_type,
+            match trait_checker.query_method_signature(&rust_type, &import.method_name) {
+                Ok(Some(_)) => {
+                    crate::debug_println!(
+                        "DEBUG: Found method '{}' on type {:?}, storing as TypeMethod",
+                        import.method_name,
+                        rust_type
+                    );
+                    // This is a valid type-based import
+                    self.user_imports
+                        .entry(key.clone())
+                        .or_insert_with(Vec::new)
+                        .push(ImportedMethod::TypeMethod {
+                            rust_type,
+                            method_name: import.method_name.clone(),
+                        });
+                    crate::debug_println!(
+                        "DEBUG: Stored import with key '{}' (alias: {:?}, method: {})",
+                        key,
+                        import.alias,
+                        import.method_name
+                    );
+                    return Ok(());
+                }
+                Ok(None) => {
+                    // Type exists but method doesn't
+                    crate::debug_println!(
+                        "DEBUG: Method '{}' not found on type {:?}",
+                        import.method_name,
+                        rust_type
+                    );
+                    self.import_errors.push(TypeCheckError::InvalidImport {
+                        type_name: import.type_name.clone(),
                         method_name: import.method_name.clone(),
+                        reason: format!(
+                            "Type '{}' has no method '{}'",
+                            import.type_name, import.method_name
+                        ),
+                        location: import.location.clone(),
                     });
-                crate::debug_println!(
-                    "DEBUG: Stored import with key '{}' (alias: {:?}, method: {})",
-                    key,
-                    import.alias,
-                    import.method_name
-                );
-                return Ok(());
-            } else {
-                crate::debug_println!(
-                    "DEBUG: Method '{}' not found on type {:?}",
-                    import.method_name,
-                    rust_type
-                );
-            }
-        } else {
-            crate::debug_println!(
-                "DEBUG: Failed to parse '{}' as a Rust type",
-                import.type_name
-            );
-        }
-
-        // If it's not a valid type-based import, assume it's a trait import
-        // We can't validate trait imports at import time because we don't know
-        // what types will use them yet
-        self.user_imports
-            .entry(key)
-            .or_insert_with(Vec::new)
-            .push(ImportedMethod::TraitMethod {
-                trait_name: import.type_name.clone(),
-                method_name: import.method_name.clone(),
-            });
-
-        Ok(())
-    }
-
-    /// Register a built-in import (called at initialization)
-    pub fn register_builtin(
-        &mut self,
-        import: &ImportStmt,
-        trait_checker: &mut RustInteropRegistry,
-    ) -> Result<(), TypeCheckError> {
-        // Similar to check_import_statement but uses builtin_imports
-        let key = import
-            .alias
-            .clone()
-            .unwrap_or_else(|| import.method_name.clone());
-
-        // First, try to parse as a type and check if the method exists on that type
-        if let Ok(rust_type) = RustTypeParser::parse(&import.type_name) {
-            // Check if this type has the requested method
-            if let Ok(Some(_)) =
-                trait_checker.query_method_signature(&rust_type, &import.method_name)
-            {
-                // This is a valid type-based import
-                self.builtin_imports
-                    .entry(key.clone())
-                    .or_insert_with(Vec::new)
-                    .push(ImportedMethod::TypeMethod {
+                    // Still register it for better error at use site
+                    self.register_invalid_import(key, import);
+                    return Ok(());
+                }
+                Err(_) => {
+                    // Error querying, fall through to trait check
+                    crate::debug_println!(
+                        "DEBUG: Error querying method signature for {:?}.{}",
                         rust_type,
-                        method_name: import.method_name.clone(),
-                    });
-                return Ok(());
+                        import.method_name
+                    );
+                }
             }
         }
 
-        // If it's not a valid type-based import, assume it's a trait import
-        self.builtin_imports
-            .entry(key)
-            .or_insert_with(Vec::new)
-            .push(ImportedMethod::TraitMethod {
-                trait_name: import.type_name.clone(),
-                method_name: import.method_name.clone(),
-            });
+        // Neither a valid trait nor a type with the method
+        self.import_errors.push(TypeCheckError::InvalidImport {
+            type_name: import.type_name.clone(),
+            method_name: import.method_name.clone(),
+            reason: format!("Type or trait '{}' not found", import.type_name),
+            location: import.location.clone(),
+        });
+        // Still register it for better error at use site
+        self.register_invalid_import(key, import);
 
         Ok(())
     }
@@ -302,21 +308,21 @@ pub fn register_builtin_imports(
     trait_checker: &mut RustInteropRegistry,
 ) {
     crate::debug_println!("DEBUG: Registering built-in imports");
-    
+
     // Clone trait
     register_trait_method(handler, "Clone", "clone", "clone", trait_checker);
-    
+
     // ToString trait (register with camelCase so it converts properly to snake_case)
     register_trait_method(handler, "ToString", "toString", "toString", trait_checker);
-    
+
     // Length methods (multiple registrations with aliasing)
     register_type_method(handler, "Vec", "len", "length", trait_checker);
     register_type_method(handler, "String", "len", "length", trait_checker);
     register_type_method(handler, "str", "len", "length", trait_checker);
-    
+
     // Slice conversion
     register_type_method(handler, "Vec", "asSlice", "toSlice", trait_checker);
-    
+
     crate::debug_println!(
         "DEBUG: Built-in imports registered. Has clone: {}, Has toString: {}, Has length: {}",
         handler.has_imports("clone"),
@@ -331,30 +337,27 @@ fn register_type_method(
     type_name: &str,
     rust_method: &str,
     veltrano_name: &str,
-    trait_checker: &mut RustInteropRegistry,
+    _trait_checker: &mut RustInteropRegistry,
 ) {
-    let import = ImportStmt {
-        type_name: type_name.to_string(),
-        method_name: rust_method.to_string(),
-        alias: if rust_method != veltrano_name {
-            Some(veltrano_name.to_string())
-        } else {
-            None
-        },
-    };
-    
-    // Register as built-in
-    if let Err(e) = handler.register_builtin(&import, trait_checker) {
-        eprintln!(
-            "Warning: Failed to register built-in import {}.{}: {:?}",
-            type_name, rust_method, e
-        );
-    } else {
-        crate::debug_println!(
-            "DEBUG: Registered built-in type method {}.{} as {}",
-            type_name, rust_method, veltrano_name
-        );
-    }
+    // Built-in imports are always valid, so we store them directly
+    let key = veltrano_name.to_string();
+    let rust_type = RustTypeParser::parse(type_name).expect("Built-in type should parse");
+
+    handler
+        .builtin_imports
+        .entry(key)
+        .or_insert_with(Vec::new)
+        .push(ImportedMethod::TypeMethod {
+            rust_type,
+            method_name: rust_method.to_string(),
+        });
+
+    crate::debug_println!(
+        "DEBUG: Registered built-in type method {}.{} as {}",
+        type_name,
+        rust_method,
+        veltrano_name
+    );
 }
 
 /// Helper to register a trait method as a built-in import
@@ -363,28 +366,24 @@ fn register_trait_method(
     trait_name: &str,
     rust_method: &str,
     veltrano_name: &str,
-    trait_checker: &mut RustInteropRegistry,
+    _trait_checker: &mut RustInteropRegistry,
 ) {
-    let import = ImportStmt {
-        type_name: trait_name.to_string(),
-        method_name: rust_method.to_string(),
-        alias: if rust_method != veltrano_name {
-            Some(veltrano_name.to_string())
-        } else {
-            None
-        },
-    };
-    
-    // Register as built-in
-    if let Err(e) = handler.register_builtin(&import, trait_checker) {
-        eprintln!(
-            "Warning: Failed to register built-in import {}.{}: {:?}",
-            trait_name, rust_method, e
-        );
-    } else {
-        crate::debug_println!(
-            "DEBUG: Registered built-in trait method {}.{} as {}",
-            trait_name, rust_method, veltrano_name
-        );
-    }
+    // Built-in imports are always valid, so we store them directly
+    let key = veltrano_name.to_string();
+
+    handler
+        .builtin_imports
+        .entry(key)
+        .or_insert_with(Vec::new)
+        .push(ImportedMethod::TraitMethod {
+            trait_name: trait_name.to_string(),
+            method_name: rust_method.to_string(),
+        });
+
+    crate::debug_println!(
+        "DEBUG: Registered built-in trait method {}.{} as {}",
+        trait_name,
+        rust_method,
+        veltrano_name
+    );
 }

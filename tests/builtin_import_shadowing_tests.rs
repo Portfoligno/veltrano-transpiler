@@ -1,11 +1,10 @@
 /// Tests for built-in import shadowing behavior
-/// 
+///
 /// These tests verify that:
 /// 1. Built-in imports work without user imports
 /// 2. User imports completely shadow built-in imports
 /// 3. No fallback to built-in when user import doesn't match
 /// 4. Error messages are clear when methods aren't found
-
 use veltrano::config::Config;
 
 mod common;
@@ -33,7 +32,10 @@ fn test_builtin_clone_works_without_import() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_ok(), "Built-in clone() should work without explicit import");
+    assert!(
+        result.is_ok(),
+        "Built-in clone() should work without explicit import"
+    );
 }
 
 #[test]
@@ -53,7 +55,10 @@ fn test_builtin_tostring_works_without_import() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_ok(), "Built-in toString() should work without explicit import");
+    assert!(
+        result.is_ok(),
+        "Built-in toString() should work without explicit import"
+    );
 }
 
 #[test]
@@ -71,7 +76,10 @@ fn test_builtin_length_works_without_import() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_ok(), "Built-in length() should work without explicit import");
+    assert!(
+        result.is_ok(),
+        "Built-in length() should work without explicit import"
+    );
 }
 
 // ============================================================================
@@ -97,8 +105,11 @@ fn test_user_import_shadows_builtin_clone() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_err(), "User import should shadow built-in completely");
-    
+    assert!(
+        result.is_err(),
+        "User import should shadow built-in completely"
+    );
+
     if let Err(error) = result {
         assert!(
             matches!(error.kind, veltrano::error::ErrorKind::InvalidMethodCall),
@@ -126,8 +137,11 @@ fn test_user_import_shadows_builtin_with_different_type() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_err(), "User import with wrong type should not fall back to built-in");
-    
+    assert!(
+        result.is_err(),
+        "User import with wrong type should not fall back to built-in"
+    );
+
     if let Err(error) = result {
         assert!(
             matches!(error.kind, veltrano::error::ErrorKind::InvalidMethodCall),
@@ -154,7 +168,10 @@ fn test_user_import_shadows_builtin_length() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_err(), "User import should shadow all built-in length methods");
+    assert!(
+        result.is_err(),
+        "User import should shadow all built-in length methods"
+    );
 }
 
 // ============================================================================
@@ -179,7 +196,10 @@ fn test_correct_user_import_shadows_builtin() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_ok(), "Correct user import should work and shadow built-in");
+    assert!(
+        result.is_ok(),
+        "Correct user import should work and shadow built-in"
+    );
 }
 
 #[test]
@@ -204,7 +224,10 @@ fn test_user_import_with_different_alias() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_ok(), "User import with different alias should work");
+    assert!(
+        result.is_ok(),
+        "User import with different alias should work"
+    );
 }
 
 // ============================================================================
@@ -232,17 +255,20 @@ fn test_multiple_builtin_imports_independent() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_ok(), "Multiple built-in imports should work independently");
+    assert!(
+        result.is_ok(),
+        "Multiple built-in imports should work independently"
+    );
 }
 
 #[test]
 fn test_shadowing_one_builtin_leaves_others() {
     // Shadowing one built-in import shouldn't affect others
     let code = r#"
-    import MyType.myClone as clone
+    import ToString.toString as clone
     
     fun main() {
-        // clone is shadowed, but toString and length still work
+        // clone is shadowed by ToString.toString, but toString and length still work
         val x: I64 = 42
         val s: Own<String> = x.ref().toString()  // Built-in still works
         
@@ -255,9 +281,12 @@ fn test_shadowing_one_builtin_leaves_others() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    // This will fail because MyType.myClone doesn't exist,
-    // but toString and length still work as built-ins
-    assert!(result.is_ok(), "Other built-ins should remain available when one is shadowed");
+    // clone is now shadowed by ToString.toString
+    // Other built-ins (toString, length) should still work fine
+    assert!(
+        result.is_ok(),
+        "Other built-ins should remain available when one is shadowed"
+    );
 }
 
 // ============================================================================
@@ -281,7 +310,7 @@ fn test_clear_error_when_shadowed_import_fails() {
     };
     let result = parse_and_type_check(code, config);
     assert!(result.is_err(), "Type mismatch should cause error");
-    
+
     if let Err(error) = result {
         // Should get a clear "method not found" error, not ambiguity
         assert!(
@@ -308,7 +337,10 @@ fn test_no_builtin_fallback_on_type_mismatch() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_err(), "Should not fall back to built-in on type mismatch");
+    assert!(
+        result.is_err(),
+        "Should not fall back to built-in on type mismatch"
+    );
 }
 
 // ============================================================================
@@ -334,5 +366,8 @@ fn test_builtin_length_alias_multiple_types() {
         preserve_comments: false,
     };
     let result = parse_and_type_check(code, config);
-    assert!(result.is_ok(), "Built-in aliasing should work for multiple types");
+    assert!(
+        result.is_ok(),
+        "Built-in aliasing should work for multiple types"
+    );
 }
