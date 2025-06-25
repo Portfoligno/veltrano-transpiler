@@ -347,6 +347,52 @@ git push origin HEAD:backup-branch-name
 ### Interactive Rebase Limitations
 ❌ **NEVER use `git rebase -i`** - Interactive rebase requires user input which is not available
 
+### Understanding Git Reset and Cherry-pick
+
+#### git reset variations
+**Three types of reset with different effects:**
+
+1. **`git reset --soft <commit>`**
+   - Moves HEAD to specified commit
+   - Keeps all changes in staging area (ready to commit)
+   - Use when: You want to recommit changes with a different message or combine commits
+   - Example: `git reset --soft HEAD~1` undoes last commit but keeps changes staged
+
+2. **`git reset --mixed <commit>`** (default if no flag specified)
+   - Moves HEAD to specified commit
+   - Unstages all changes but keeps them in working directory
+   - Use when: You want to re-stage files selectively or make additional edits
+   - Example: `git reset HEAD~1` undoes last commit and unstages changes
+
+3. **`git reset --hard <commit>`**
+   - Moves HEAD to specified commit
+   - DISCARDS all changes (both staged and unstaged)
+   - Use when: You want to completely abandon changes and return to a clean state
+   - Example: `git reset --hard origin/master` discards all local changes
+   - **WARNING:** This permanently deletes uncommitted changes
+
+#### git cherry-pick
+**`git cherry-pick <commit>`**
+- Applies changes from a specific commit onto current branch
+- Creates a new commit with the same changes (different hash)
+- Use when: You want specific commits from another branch without merging everything
+- Example: `git cherry-pick abc123` applies commit abc123 to current branch
+- Common options:
+  - `-n` or `--no-commit`: Apply changes without committing
+  - `--abort`: Cancel a cherry-pick in progress
+  - `<commit1>..<commit2>`: Cherry-pick a range of commits
+
+**Practical example combining these commands:**
+```bash
+# Squashing last 3 commits into one
+git reset --soft HEAD~3        # Go back 3 commits, keep all changes staged
+git commit -m "Combined commit" # Create new single commit
+
+# Moving specific commit from branch A to branch B
+git checkout branch-b
+git cherry-pick branch-a~2      # Get third-last commit from branch-a
+```
+
 ### Combining Commits - Basic Pattern
 When user requests combining commits:
 
