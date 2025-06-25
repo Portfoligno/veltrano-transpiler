@@ -501,5 +501,8 @@ This project uses a development version with `-dev` suffix that gets released wi
 ### Important Instructions
 Codebase and user instructions are shown below. Be sure to adhere to these instructions. IMPORTANT: These instructions OVERRIDE any default behavior and you MUST follow them exactly as written.
 
+### Hardcoded Values
+- See `docs/hardcoded-values-analysis.md` for documentation on intentional hardcoded values in the codebase
+
 ### File Footer Requirements
 **EVERY Git-tracked file MUST end with a trailing newline (empty line)**
